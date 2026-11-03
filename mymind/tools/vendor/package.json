@@ -1,0 +1,6 @@
+{
+  "name": "mymind-vendor-build",
+  "private": true,
+  "description": "Rebuilds static/vendor/three-gltf.min.js (Three.js + GLTFLoader + Meshopt + Draco + OrbitControls). Run: sh build.sh",
+  "dependencies": { "three": "0.170.0", "esbuild": "0.24.0" }
+}

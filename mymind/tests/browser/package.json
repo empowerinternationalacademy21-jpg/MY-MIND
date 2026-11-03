@@ -1,0 +1,7 @@
+{
+  "name": "mymind-browser-tests",
+  "private": true,
+  "description": "Real-browser end-to-end checks (headless Chromium with software WebGL). Run: sh run.sh",
+  "scripts": { "test": "sh run.sh" },
+  "devDependencies": { "puppeteer-core": "^24.0.0", "@sparticuz/chromium": "^138.0.0" }
+}

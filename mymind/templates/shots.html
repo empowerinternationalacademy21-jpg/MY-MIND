@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block title %}Shorts{% endblock %}
+{% block content %}
+{% if not cg.shots_enabled %}<div class="empty">Short videos are switched off in Settings.</div>{% else %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/shots.css') }}">
+
+<div class="sh" id="sh">
+
+    <header class="sh-head">
+        <h1>Shorts</h1>
+        <p>Quick videos to explore. Tap one to watch.</p>
+    </header>
+
+    <div class="sh-chips" role="group" aria-label="Topic filter">
+        <button class="sh-chip" data-cat="" aria-pressed="true">For me</button>
+        {% for k, c in categories.items() %}
+        <button class="sh-chip" data-cat="{{ k }}" aria-pressed="false">{{ icon(c.icon,'sm') }} {{ c.label }}</button>
+        {% endfor %}
+    </div>
+
+    <section id="sec-top" class="sh-sec" aria-labelledby="top-h">
+        <div class="sh-sec-head">
+            <h2 id="top-h">Top shorts today</h2>
+            <button id="viewall" class="sh-link" type="button">View all</button>
+        </div>
+        <div id="top" class="sh-rail" aria-live="polite"></div>
+    </section>
+
+    <section id="sec-more" class="sh-sec" aria-labelledby="more-h" hidden>
+        <div class="sh-sec-head">
+            <h2 id="more-h">More shorts</h2>
+        </div>
+        <div id="grid" class="sh-grid"></div>
+    </section>
+
+    <div id="empty" class="empty" hidden></div>
+
+    <p class="center sh-more"><button id="more" class="sh-btn" type="button">Show more shorts</button></p>
+
+    <p class="muted small sh-note">Short videos from search results. A short starts playing when you open it. Swipe up
+        for the next one. This is MyMind's own page, not YouTube Shorts.</p>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if cg.shots_enabled %}
+<script src="{{ url_for('static', filename='js/shots.js') }}"></script>{% endif %}{% endblock %}

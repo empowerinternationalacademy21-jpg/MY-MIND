@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% block title %}Music{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/music.css') }}">
+<div class="mu">
+    <div class="mu-head">
+        <div>
+            <h1>Hi, {{ child_profile.display_name if child_profile else 'friend' }}!</h1>
+            <p class="muted">What do you want to hear today?</p>
+        </div>
+    </div>
+
+    <form id="search" class="searchbar" role="search"><label class="sr-only" for="q">Search for songs</label>{{
+        icon('search') }}<input id="q" type="text" maxlength="60" placeholder="Search for songs…"></form>
+    <div class="chips" role="group" aria-label="Topic filter"><button class="chip" data-cat="" aria-pressed="true">For
+            me</button>
+        {% for k, c in categories.items() %}<button class="chip" data-cat="{{ k }}" aria-pressed="false">{{
+            icon(c.icon,'sm') }} {{ c.label }}</button>{% endfor %}</div>
+
+    <section id="hero" class="mu-hero" aria-label="Picked for you" hidden></section>
+
+    <div class="sec-title"><span class="sec-bubble">{{ icon('music','sm') }}</span>
+        <h2>Popular</h2>
+    </div>
+    <div>
+        <div id="grid" class="mu-list"></div>
+    </div>
+    <p class="center" style="margin-top:1rem"><button id="more" class="btn" type="button">Show more</button></p>
+</div>
+
+<dialog id="np" class="np" aria-label="Now playing">
+    <div class="np-body"></div>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/music.js') }}"></script>{% endblock %}

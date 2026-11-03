@@ -1,0 +1,6 @@
+@media (min-width:700px){
+  body{padding:0}
+  .shell{margin-top:0;border-left:1px solid rgba(255,255,255,.8);border-right:1px solid rgba(255,255,255,.8)}
+}
+@media (max-width:380px){.cats .circ{width:54px;height:54px}.plan3 b{font-size:1.6rem}.bar-row{grid-template-columns:1fr}}
+@media (min-width:900px){.shell.wide .tiles{grid-template-columns:repeat(4,1fr)}}

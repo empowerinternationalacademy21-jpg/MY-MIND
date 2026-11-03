@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}World Library{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}
+{% block content %}
+<h1>World Library</h1>
+<p class="muted">Art for children's My World: island art, stop interiors, backgrounds, and characters or stars. Anything not uploaded falls back to MyMind's built-in art. Uploads are checked, re-encoded to WebP and stripped of metadata. <a href="{{ url_for('admin_ai3d.jobs') }}">AI 3D items</a> are managed separately.</p>
+
+<section class="card-box"><h2>Add art</h2>
+<form method="post" action="{{ url_for('admin_world.upload') }}" enctype="multipart/form-data" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="w-img">Image (PNG, JPEG or WebP)</label><input id="w-img" name="image" type="file" accept="image/png,image/jpeg,image/webp" required></div>
+  <div class="field"><label for="w-kind">Kind</label><select id="w-kind" name="kind">{% for k in kinds %}<option value="{{ k }}">{{ k|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="w-stop">Stop (not needed for backgrounds)</label><select id="w-stop" name="stop"><option value="">None</option>{% for s in stops %}<option value="{{ s }}">{{ s|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="w-zone">Sports zone (Sports stop only)</label><select id="w-zone" name="zone"><option value="">Any</option>{% for z in zones %}<option value="{{ z }}">{{ z|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="w-theme">World theme</label><select id="w-theme" name="theme"><option value="">Any theme</option>{% for t in themes %}<option value="{{ t }}">{{ t|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="w-name">Name</label><input id="w-name" name="name" type="text" maxlength="80"></div>
+  <div class="field"><label for="w-cap">Caption (shown to children)</label><input id="w-cap" name="caption" type="text" maxlength="240"></div>
+  <label class="choice"><input type="checkbox" name="rights_confirmed" required> I have the right to use this image (I made it, or it is licensed for this use).</label>
+  <label class="choice"><input type="checkbox" name="is_real_person"> It shows a real person (athlete, musician…). It will be labelled "not affiliated or endorsed" and hidden unless the caregiver turns it on.</label>
+  <div class="field"><label for="w-src">Source or licence note (required for real people)</label><input id="w-src" name="source_note" type="text" maxlength="300"></div>
+  <button class="btn primary block" type="submit">Add to library</button>
+</form></section>
+
+<h2>Library ({{ assets|length }})</h2>
+<div class="rows">{% for a in assets %}
+<div class="row"><img src="{{ url_for('admin_world.preview', asset_id=a.id) }}" alt="" width="56" height="56" style="border-radius:12px;object-fit:cover;background:#eef3fb">
+<span class="grow"><b>{{ a.name or a.kind|capitalize }}</b> <span class="pill {{ 'approved' if a.active else 'rejected' }}">{{ 'visible' if a.active else 'hidden' }}</span>{% if a.is_real_person %} <span class="pill pending">real person</span>{% endif %}
+<span class="sub">{{ a.kind }} · {{ a.stop or 'any stop' }}{% if a.zone %} · {{ a.zone }}{% endif %}{% if a.theme %} · {{ a.theme }} theme{% endif %} · {{ a.width }}×{{ a.height }}{% if a.source_note %} · {{ a.source_note }}{% endif %}</span></span>
+<form method="post" action="{{ url_for('admin_world.change', asset_id=a.id, action='hide' if a.active else 'show') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">{{ 'Hide' if a.active else 'Show' }}</button></form>
+<form method="post" action="{{ url_for('admin_world.change', asset_id=a.id, action='delete') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn red small" type="submit" data-confirm="Delete this art permanently?">Delete</button></form></div>
+{% else %}<div class="row"><span class="grow muted">No art uploaded yet. Children see MyMind's built-in art.</span></div>{% endfor %}</div>
+{% endblock %}

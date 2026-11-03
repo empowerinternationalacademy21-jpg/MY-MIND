@@ -1,0 +1,141 @@
+{% extends "base.html" %}{% block title %}My World{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/my-world.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/asset3d.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/world3d.css') }}">
+<section class="world-welcome world-welcome--slim">
+  <p class="world-eyebrow">Your own little universe</p>
+  <h1>{{ child_profile.display_name }}'s World</h1>
+</section>
+
+<section class="w3d" id="world3d" aria-labelledby="w3d-title" data-endpoint="{{ url_for('world.api_world') }}">
+  <h2 id="w3d-title" class="sr-only">Your world map</h2>
+  <p class="w3d-theme" id="w3d-theme" aria-live="polite"></p>
+  <div class="w3d-stage" id="w3d-stage">
+    <div class="w3d-viewport" id="w3d-viewport"></div>
+    <div class="w3d-labels" id="w3d-labels"></div>
+    <div class="w3d-toolbar" id="w3d-toolbar" role="toolbar" aria-label="Map controls"></div>
+    <p class="w3d-loading" id="w3d-loading">Building your world…</p>
+    <noscript><p class="w3d-loading">The world map needs JavaScript. Your favourites are listed below.</p></noscript>
+    <aside class="w3d-sheet" id="w3d-sheet" role="dialog" aria-modal="false" aria-labelledby="w3d-sheet-title" hidden></aside>
+    <aside class="w3d-gear" id="w3d-gear" role="dialog" aria-modal="false" aria-labelledby="w3d-gear-title" hidden></aside>
+  </div>
+  <ul class="w3d-list" id="w3d-list" aria-label="Places in your world"></ul>
+  <script type="application/json" id="world-data">{{ world_data|tojson }}</script>
+</section>
+
+{% if world_art or world_3d %}
+<section class="world-friends" aria-labelledby="world-friends-title">
+  <h2 id="world-friends-title">Friends and places</h2>
+  {% if world_3d %}<div class="a3d-row">{% for a in world_3d %}
+    <div class="a3d" data-asset3d data-glb="{{ url_for('world.asset3d_file', asset_id=a.id, which='glb') }}" data-clips='{{ a3d_clips[a.id]|tojson }}' data-name="{{ a.name }}">
+      <button class="a3d-start" type="button" aria-label="Meet {{ a.name or 'this friend' }} in 3D"><span>{{ a.name or 'Friend' }}</span><small>Tap to meet</small></button>
+      <div class="a3d-stage" hidden></div>{% if a.caption %}<p class="small muted">{{ a.caption }}</p>{% endif %}
+    </div>{% endfor %}</div>{% endif %}
+  {% if world_art %}<div class="fam-grid">{% for a in world_art %}<figure class="art-fig"><img src="/world-assets/{{ a.filename }}" alt="{{ a.name or a.caption or a.kind }}" loading="lazy" width="{{ a.width }}" height="{{ a.height }}">
+    {% if a.name or a.caption %}<figcaption>{{ a.name }}{% if a.caption %}<small>{{ a.caption }}</small>{% endif %}{% if a.is_real_person %}<small>Not affiliated with or endorsed by the person shown.</small>{% endif %}</figcaption>{% endif %}</figure>{% endfor %}</div>{% endif %}
+</section>
+{% endif %}
+
+{% if landmarks %}
+<section class="world-stops" aria-labelledby="world-stops-title">
+  <div class="world-section-heading">
+    <div>
+      <p class="world-eyebrow">Little places, big interests</p>
+      <h2 id="world-stops-title">Your special stops</h2>
+    </div><span class="world-theme-hint">Tap a pin on the map to jump here</span>
+  </div>
+  <div class="world-stop-list">
+    {% for item in landmarks %}
+    <article class="world-stop" id="world-stop-{{ item.category }}" style="--stop-color:{{ item.color }}" tabindex="-1">
+      <span class="world-stop__icon">{{ icon(item.icon,'lg') }}</span>
+      <div class="world-stop__copy"><span class="world-stop__place">{{ item.place }}</span>
+        <h3>{{ item.label }}</h3>
+        <p>{{ item.note }}</p>
+      </div>
+      <span class="world-stop__evidence">{{ item.evidence }} {{ 'choice' if item.evidence == 1 else 'choices' }}</span>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+
+<section class="world-favorites" id="world-favorites" aria-labelledby="world-favorites-title">
+  <div class="world-section-heading">
+    <div>
+      <p class="world-eyebrow">Keepsakes from your journey</p>
+      <h2 id="world-favorites-title">My favorites</h2>
+    </div><a class="world-text-link" href="{{ url_for('feed.home') }}">Find more {{ icon('arrow-right','sm') }}</a>
+  </div>
+  {% if world_favorites %}
+  <div class="world-favorite-list">
+    {% for item in world_favorites %}
+    <a class="world-favorite" href="{{ item.canonical_url or url_for('feed.home') }}" {% if item.canonical_url
+      %}target="_blank" rel="noopener noreferrer" {% endif %}>
+      <span class="world-favorite__image">{% if item.thumbnail_url %}<img src="{{ item.thumbnail_url }}" alt=""
+          loading="lazy">{% else %}{{ icon('sparkles','lg') }}{% endif %}</span>
+      <span class="world-favorite__type">{{ item.content_type|replace('short','video')|title }}</span>
+      <strong>{{ item.title }}</strong>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}<p class="world-empty-note">Your favorite pictures, videos and songs will collect here.</p>{% endif %}
+</section>
+
+<details class="world-details">
+  <summary>{{ icon('sliders-horizontal') }} Interest settings and family notes</summary>
+  <div class="world-details__body">
+    <section class="world-detail-section">
+      <h2>New discoveries</h2>{% for i in new %}<span class="world-tag">{{ icon(i.icon,'sm') }} {{ i.label }}</span>{%
+      else %}<p class="muted small">New interests from the last two weeks appear here.</p>{% endfor %}
+    </section>
+    <section class="world-detail-section">
+      <h2>Still exploring</h2>{% for i in exploring %}<span class="world-tag">{{ icon(i.icon,'sm') }} {{ i.label
+        }}</span>{% else %}<p class="muted small">Keep exploring to discover new corners.</p>{% endfor %}
+    </section>
+    <section class="world-detail-section">
+      <h2>Things I don't enjoy</h2>{% for i in dislike %}<span class="world-tag world-tag--quiet">{{ icon(i.icon,'sm')
+        }} {{ i.label }}</span>{% else %}<p class="muted small">Nothing marked here.</p>{% endfor %}
+    </section>
+    <section class="world-detail-section">
+      <h2>Adjust interests</h2>
+      <div class="world-interest-list">{% for i in enjoy + exploring + dislike %}
+        <div class="world-interest-row"><span class="world-interest-icon">{{ icon(i.icon) }}</span><span
+            class="world-interest-name">{{ i.label }}<small>Confidence {{ (i.confidence*100)|round }}%</small></span>
+          {% for mode, lab, ic in [('more','More of this','thumbs-up'),('less','Less of
+          this','thumbs-down'),('remove','Remove','x')] %}<form method="post"
+            action="{{ url_for('profile.world_interest', category=i.category) }}"><input type="hidden" name="csrf_token"
+              value="{{ csrf_token() }}"><input type="hidden" name="mode" value="{{ mode }}"><button class="iconbtn"
+              type="submit" aria-label="{{ lab }}: {{ i.label }}" title="{{ lab }}">{{ icon(ic) }}</button></form>{%
+          endfor %}
+        </div>
+        {% else %}<p class="muted small">Interests appear here after a few choices.</p>{% endfor %}
+      </div>
+    </section>
+    <section class="world-detail-section">
+      <div class="world-section-heading">
+        <div>
+          <h2>Family notes</h2>
+          <p class="muted small">Private caregiver observations, separate from the child's choices.</p>
+        </div><a class="world-text-link" href="{{ url_for('profile.updates') }}">Add an update {{
+          icon('arrow-right','sm') }}</a>
+      </div>
+      <div class="world-interest-list">{% for n in notes %}<div class="world-note"><span>{{ icon('notebook-pen')
+            }}</span>
+          <div><strong>{{ n.title }}</strong><small>{{ n.activity_date.strftime('%d %b') }}{% if n.notes %} · {{ n.notes
+              }}{% endif %}</small></div>
+        </div>{% else %}<p class="muted small">No family notes yet.</p>{% endfor %}</div>
+    </section>
+    <form method="post" action="{{ url_for('profile.world_reset') }}"
+      data-confirm="Reset all interests and start learning again?"><input type="hidden" name="csrf_token"
+        value="{{ csrf_token() }}"><button class="btn red block" type="submit">Reset interests</button></form>
+  </div>
+</details>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/three-gltf.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/asset3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/world/scene.js') }}"></script>
+<script src="{{ url_for('static', filename='js/world/ui.js') }}"></script>{% endblock %}

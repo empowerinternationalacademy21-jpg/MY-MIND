@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}AI 3D{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}
+{% block content %}
+<h1>AI 3D items and characters</h1>
+<p class="muted">Create <b>original</b> items and friendly characters from a fixed list of choices. Nothing reaches children until you review and publish it. Real people, teams, leagues, brands and "looks like…" requests are refused; licensed real-star art goes through the <a href="{{ url_for('admin_world.library') }}">World Library</a>.</p>
+<p class="small muted">Status: Meshy {{ 'ready' if provider_ready.meshy else 'not set up' }} · Tripo {{ 'ready' if provider_ready.tripo else 'not set up' }} · concept images {{ 'ready' if concept_ready else 'not set up (needed for characters)' }} · optimiser {{ 'installed' if optimizer else 'not installed (models kept as delivered)' }}. Jobs are advanced by <code>flask --app app ai3d-worker</code> or the Refresh button.</p>
+
+<section class="card-box"><h2>Island kit</h2>
+<p class="small muted">Generate the models that make the <b>map itself</b> look professional: one island base plus one landmark for each place ({{ kit|length }} models). Until a model is published, the map keeps its built-in look, so you can do this piece by piece. Each piece goes to review first; publish the ones you like.</p>
+<form method="post" action="{{ url_for('admin_ai3d.kit') }}" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="k-prov">Provider</label><select id="k-prov" name="provider"><option value="meshy">Meshy</option><option value="tripo">Tripo</option></select></div>
+  <label class="choice"><input type="checkbox" name="confirm"> I understand this creates {{ kit|length }} jobs and uses my provider credits{% if concept_ready %} (plus {{ kit|length }} concept images){% endif %}.</label>
+  <button class="btn primary block" type="submit">Create the island kit</button>
+</form></section>
+
+<section class="card-box"><h2>New model</h2>
+<form method="post" action="{{ url_for('admin_ai3d.create') }}" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="a-arch">What should it be?</label><select id="a-arch" name="archetype" required>
+    {% for cat, groups in catalog.items() %}<optgroup label="{{ cat|capitalize }}">
+      {% for kind, label in (('item','Items'),('character','Characters')) %}{% for a in groups[kind] %}<option value="{{ a.key }}">{{ label[:-1] }}: {{ a.label }}</option>{% endfor %}{% endfor %}
+    </optgroup>{% endfor %}
+    <optgroup label="Island kit">{% for k in kit %}<option value="{{ k.key }}">Island piece: {{ k.label }}</option>{% endfor %}</optgroup></select></div>
+  <div class="field"><label for="a-color">Main colour</label><select id="a-color" name="color">{% for c in colors %}<option value="{{ c }}" {{ 'selected' if c == 'blue' }}>{{ c|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="a-style">Style</label><select id="a-style" name="style">{% for s in styles %}<option value="{{ s }}">{{ s|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="a-mood">Mood (characters)</label><select id="a-mood" name="mood">{% for m in moods %}<option value="{{ m }}">{{ m|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="a-acc">Accessory (characters)</label><select id="a-acc" name="accessory">{% for a in accessories %}<option value="{{ a }}">{{ a|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="a-prov">Provider</label><select id="a-prov" name="provider"><option value="meshy">Meshy</option><option value="tripo">Tripo</option></select></div>
+  <div class="field"><label for="a-name">Name children will see (optional)</label><input id="a-name" name="name" type="text" maxlength="80" placeholder="e.g. Sunny the fox"></div>
+  <div class="field"><label for="a-cap">Caption (optional)</label><input id="a-cap" name="caption" type="text" maxlength="240"></div>
+  <button class="btn primary block" type="submit">Create</button>
+</form></section>
+
+<h2>Jobs</h2>
+<div class="rows">{% for j in jobs %}
+<a class="row" href="{{ url_for('admin_ai3d.detail', job_id=j.id) }}"><span class="bub">{{ icon('box') }}</span><span class="grow"><b>{{ j.name }}</b>
+<span class="sub">{{ j.kind }} · {{ j.category }} · {{ j.provider }} · step: {{ j.stage }}</span></span>
+<span class="pill {{ {'published':'approved','review':'pending','failed':'rejected','rejected':'rejected'}.get(j.status,'pending') }}">{{ j.status }}</span></a>
+{% else %}<div class="row"><span class="grow muted">No models yet.</span></div>{% endfor %}</div>
+{% endblock %}

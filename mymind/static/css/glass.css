@@ -1,0 +1,186 @@
+/* MyMind — app-wide glass layer. Load it AFTER your main stylesheet on every page.
+   Transparent shell, frosted top bar, floating glass bottom navigation,
+   glass chips and search bars. Uses only the existing colour variables. */
+
+:root {
+    --glass: rgba(255, 255, 255, .62);
+    --glass-strong: rgba(255, 255, 255, .82);
+    --glass-line: rgba(255, 255, 255, .92);
+    --glass-shadow: 0 1px 2px rgba(20, 48, 92, .06), 0 10px 28px -14px rgba(20, 48, 92, .32);
+    --blur: blur(18px) saturate(1.6);
+}
+
+/* transparent app shell: the soft page gradient shows through on every page */
+.shell {
+    background: transparent;
+    box-shadow: none
+}
+
+.site-footer {
+    background: transparent
+}
+
+/* frosted top bar */
+.topbar {
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--blur);
+    backdrop-filter: var(--blur);
+    border-bottom: 1px solid var(--glass-line);
+    box-shadow: 0 8px 24px -22px rgba(20, 48, 92, .5);
+}
+
+.topbar .title {
+    letter-spacing: -.01em
+}
+
+.iconbtn {
+    transition: background .15s, transform .15s
+}
+
+.iconbtn:hover {
+    background: rgba(31, 120, 240, .1)
+}
+
+.iconbtn:active {
+    transform: scale(.94)
+}
+
+/* floating glass bottom navigation */
+.bottomnav,
+.shell.wide~.bottomnav {
+    bottom: max(.6rem, env(safe-area-inset-bottom));
+    width: min(calc(100% - 1.2rem), calc(var(--shell) - 1.2rem));
+    padding: .3rem .35rem;
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--blur);
+    backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-line);
+    border-radius: 26px;
+    box-shadow: var(--glass-shadow), 0 18px 40px -20px rgba(20, 48, 92, .4);
+}
+
+.shell.wide~.bottomnav {
+    width: min(calc(100% - 1.2rem), 1000px)
+}
+
+.bottomnav a {
+    border-radius: 20px;
+    transition: background .15s, color .15s
+}
+
+.bottomnav a:hover {
+    background: rgba(31, 120, 240, .08);
+    text-decoration: none
+}
+
+.bottomnav a[aria-current=page] {
+    background: rgba(31, 120, 240, .14)
+}
+
+.content {
+    padding-bottom: 7.2rem
+}
+
+/* glass chips and search bars for any page that still uses the classic markup */
+.chips {
+    display: flex;
+    gap: .5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: .15rem .1rem .6rem
+}
+
+.chips::-webkit-scrollbar {
+    display: none
+}
+
+.chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    min-height: 44px;
+    padding: 0 1.05rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-line);
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+    color: var(--navy);
+    font: inherit;
+    font-weight: 800;
+    font-size: .92rem;
+    cursor: pointer;
+    box-shadow: var(--glass-shadow);
+    transition: background .15s, color .15s, transform .15s;
+}
+
+.chip:hover {
+    transform: translateY(-1px)
+}
+
+.chip[aria-pressed=true] {
+    background: linear-gradient(135deg, var(--blue), var(--blue-d));
+    border-color: transparent;
+    color: #fff
+}
+
+.searchbar {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    min-height: 48px;
+    padding: 0 1rem;
+    margin-bottom: .8rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-line);
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+    box-shadow: var(--glass-shadow);
+    color: var(--muted);
+}
+
+.searchbar:focus-within {
+    border-color: var(--blue);
+    box-shadow: var(--ring)
+}
+
+.searchbar input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    color: var(--text);
+    min-height: 44px
+}
+
+/* flash messages and toasts get the same glass treatment */
+.flash {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px)
+}
+
+.toast {
+    background: rgba(17, 24, 39, .86);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px)
+}
+
+/* browsers without backdrop-filter get a more solid surface so text stays readable */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+
+    .topbar,
+    .bottomnav {
+        background: rgba(255, 255, 255, .96)
+    }
+}
+
+/* high-contrast mode keeps solid surfaces */
+body.high-contrast .topbar,
+body.high-contrast .bottomnav {
+    background: #fff;
+    border-color: #111
+}

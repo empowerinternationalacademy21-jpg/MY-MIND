@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}New password{% endblock %}
+{% block content %}
+<div class="screen-title"><span style="display:inline-grid;width:56px;height:56px;border-radius:50%;background:#d6f5de;place-items:center">{{ icon('badge-check','lg') }}</span><h1 style="margin-top:.6rem">You're verified</h1><p>Choose a new password.</p></div>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label class="sr-only" for="password">New password</label><div class="inwrap">{{ icon('lock') }}<input id="password" name="password" type="password" placeholder="New password" autocomplete="new-password" required minlength="10"><button class="eye" type="button" data-toggle-pw aria-label="Show password">{{ icon('eye') }}</button></div><p class="hint">At least 10 characters, with a letter and a number.</p></div>
+  <div class="field"><label class="sr-only" for="confirm">Confirm password</label><div class="inwrap">{{ icon('lock') }}<input id="confirm" name="confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" required></div></div>
+  <button class="btn primary block" type="submit">Save new password</button></form>
+<p class="center small muted" style="margin-top:.8rem">This page expires 10 minutes after verification.</p>
+{% endblock %}

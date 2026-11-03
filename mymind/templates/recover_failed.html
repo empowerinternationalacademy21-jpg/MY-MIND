@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Could not verify{% endblock %}
+{% block content %}
+<div class="screen-title"><span style="display:inline-grid;width:56px;height:56px;border-radius:50%;background:#ffe0e5;place-items:center">{{ icon('circle-x','lg') }}</span>
+<h1 style="margin-top:.6rem">{{ 'Too many attempts' if locked else "We couldn't verify your answers" }}</h1>
+<p>{% if locked %}For safety, self-service recovery is paused for a while. Please contact the administrator.{% else %}Not enough answers matched. You can fill the form in again, or call the administrator directly.{% endif %}</p></div>
+{% if not locked %}<a class="btn primary block" href="{{ url_for('auth.recover') }}">Refill the form</a><p></p>{% endif %}
+<div class="card-box"><h2>Contact the administrator</h2>
+<dl class="kv"><dt>{{ icon('message-circle') }}WhatsApp</dt><dd>{{ contact.whatsapp_number }}</dd><dt>{{ icon('phone') }}Phone</dt><dd>{{ contact.contact_phone }}</dd></dl>
+<p></p>{% if contact.whatsapp_url %}<a class="btn green block" target="_blank" rel="noopener noreferrer" href="{{ contact.whatsapp_url }}">{{ icon('message-circle') }} Contact on WhatsApp</a>{% endif %}</div>
+<a class="btn block" href="{{ url_for('auth.login') }}">Back to log in</a>
+{% endblock %}

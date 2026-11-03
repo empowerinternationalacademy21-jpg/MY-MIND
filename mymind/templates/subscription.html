@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}Choose Your Plan{% endblock %}
+{% block content %}
+<div class="screen-title"><h1>Choose Your Plan</h1><p>Unlock the full experience with a subscription.</p><span class="pill {{ state }}" style="margin-top:.5rem">Status: {{ state.replace('_',' ') }}</span></div>
+
+{% if state == 'active' and active %}
+<div class="card-box">{% if active.plan_code == 'trial' %}<h2>{{ icon('gift') }} Your free trial is active</h2><p>Free access until <b>{{ active.expires_at.strftime('%d %b %Y') }}</b>. After that the app closes until a plan is paid for. Subscribe early below — your paid time starts when the trial ends.</p>
+{% else %}<h2>{{ icon('circle-check') }} Your subscription is active</h2><p>Plan: <b>{{ active.plan_code|title }}</b> · expires <b>{{ active.expires_at.strftime('%d %b %Y') }}</b>.</p>{% endif %}
+<a class="btn primary block" href="{{ url_for('auth.index') }}">Continue to MyMind</a></div>
+{% elif state == 'pending_verification' %}
+<div class="card-box"><h2>{{ icon('clock') }} Waiting for administrator confirmation</h2>
+<p>Your payment verification request has been submitted. Your account will be activated after the administrator confirms your payment.</p>
+{% if pending %}<a class="btn block" href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">View payment instructions / contact administrator</a>{% endif %}</div>
+{% elif state == 'rejected' %}<div class="notice">{{ icon('triangle-alert') }}<span>Your last payment could not be confirmed. Check the payment details and choose a plan again, or contact the administrator.</span></div>
+{% elif state == 'expired' %}<div class="notice">{{ icon('lock') }}<span>Your free trial or subscription has ended, so the app is closed until a plan is paid for. Your records are kept.</span></div>
+{% endif %}
+
+{% if state != 'pending_verification' %}
+<form method="post" action="{{ url_for('subscriptions.select') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="plans3" role="radiogroup" aria-label="Plans">
+  {% for code, p in plans.items() %}
+    <label class="plan3 {{ code }}">{% if code == 'monthly' %}<span class="pop">Most Popular</span>{% endif %}
+      <input class="sr-only" type="radio" name="plan" value="{{ code }}" {{ 'checked' if code == 'monthly' }}>
+      <span class="nm">{{ p.name }}</span><b>${{ '%g'|format(p.price) }}</b><small>{{ p.days }} days</small><small>USD</small></label>
+  {% endfor %}
+  </div>
+  <button class="btn primary block" type="submit">Select Plan</button>
+</form>
+<p class="center small muted" style="margin-top:.8rem">Weekly, Monthly or Yearly plans. Secure payment required and admin approval.</p>
+{% endif %}
+{% if pending and state == 'pending_payment' %}<p class="center small"><a href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">Continue with your selected {{ pending.plan_code }} plan →</a></p>{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Verify it's you{% endblock %}
+{% block content %}
+<div class="screen-title"><h1>Verify it's you</h1><p>Answer from what you ticked in your child's questionnaire. You need about 80% correct to continue.</p></div>
+<form method="post" action="{{ url_for('auth.recover_verify') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for q in questions %}
+  <fieldset class="card-box"><legend style="font-weight:900;color:var(--navy);margin-bottom:.6rem">{{ loop.index }}. {{ q.prompt }}</legend>
+    {% if q.type == 'multi' %}<div class="choices">{% for v, l in q.options %}<label class="choice"><input type="checkbox" name="{{ q.key }}" value="{{ v }}"><span>{{ l }}</span></label>{% endfor %}</div><p class="hint">Tick all that you chose — leave blank if you chose none.</p>
+    {% else %}<input type="text" name="{{ q.key }}" maxlength="40" autocomplete="off" placeholder="Nickname">{% endif %}
+  </fieldset>{% endfor %}
+  <button class="btn primary block" type="submit">Check my answers</button>
+</form>
+{% endblock %}

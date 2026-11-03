@@ -1,0 +1,311 @@
+/* MyMind — global search overlay. Transparent glass sheet over whatever page is open. */
+
+.gs {
+    border: 0;
+    padding: calc(.7rem + env(safe-area-inset-top, 0px)) .8rem .8rem;
+    margin: 0 auto;
+    inset: 0;
+    width: 100%;
+    max-width: 640px;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    background: transparent;
+    color: var(--text);
+    overflow: hidden
+}
+
+.gs[open] {
+    display: flex;
+    flex-direction: column;
+    animation: gs-in .22s ease-out
+}
+
+.gs::backdrop {
+    background: rgba(20, 48, 92, .3);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    backdrop-filter: blur(16px) saturate(1.3)
+}
+
+.gs [hidden] {
+    display: none !important
+}
+
+@keyframes gs-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px)
+    }
+
+    to {
+        opacity: 1;
+        transform: none
+    }
+}
+
+.gs-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 100%;
+    gap: .75rem
+}
+
+/* search field + cancel */
+.gs-top {
+    display: flex;
+    align-items: center;
+    gap: .7rem
+}
+
+.gs-field {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    min-height: 54px;
+    padding: 0 .5rem 0 1.05rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .86);
+    border: 1px solid rgba(255, 255, 255, .95);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+    box-shadow: 0 1px 2px rgba(20, 48, 92, .08), 0 14px 34px -16px rgba(20, 48, 92, .5);
+    color: var(--muted)
+}
+
+.gs-field:focus-within {
+    border-color: var(--blue);
+    box-shadow: var(--ring), 0 14px 34px -16px rgba(20, 48, 92, .5)
+}
+
+.gs-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    min-height: 50px
+}
+
+.gs-input::-webkit-search-cancel-button {
+    display: none
+}
+
+.gs-clear {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(20, 48, 92, .08);
+    color: var(--ink);
+    cursor: pointer
+}
+
+.gs-clear:hover {
+    background: rgba(20, 48, 92, .16)
+}
+
+.gs-cancel {
+    border: 0;
+    background: none;
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    font-size: .98rem;
+    cursor: pointer;
+    padding: .5rem .2rem;
+    min-height: 44px;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .25)
+}
+
+/* scope pills */
+.gs-scopes {
+    display: flex;
+    gap: .5rem;
+    overflow-x: auto;
+    scrollbar-width: none
+}
+
+.gs-scopes::-webkit-scrollbar {
+    display: none
+}
+
+.gs-scope {
+    flex: none;
+    min-height: 42px;
+    padding: 0 1.05rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .55);
+    background: rgba(255, 255, 255, .22);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    font-size: .9rem;
+    cursor: pointer;
+    transition: background .15s, color .15s
+}
+
+.gs-scope:hover {
+    background: rgba(255, 255, 255, .34)
+}
+
+.gs-scope[aria-pressed=true] {
+    background: #fff;
+    border-color: #fff;
+    color: var(--blue)
+}
+
+/* results */
+.gs-results {
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: .5rem;
+    align-content: start;
+    padding: .1rem .1rem 1rem;
+    overscroll-behavior: contain;
+    scrollbar-width: none
+}
+
+.gs-results::-webkit-scrollbar {
+    display: none
+}
+
+.gs-row {
+    display: grid;
+    grid-template-columns: 60px minmax(0, 1fr) auto;
+    gap: .8rem;
+    align-items: center;
+    padding: .5rem .8rem .5rem .5rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, .82);
+    border: 1px solid rgba(255, 255, 255, .95);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+    box-shadow: 0 1px 2px rgba(20, 48, 92, .06), 0 10px 24px -14px rgba(20, 48, 92, .4);
+    color: var(--text);
+    text-decoration: none !important;
+    transition: transform .15s, background .15s
+}
+
+.gs-row:hover,
+.gs-row:focus-visible {
+    transform: translateY(-2px);
+    background: #fff
+}
+
+.gs-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+    overflow: hidden;
+    background: var(--sky2);
+    display: grid;
+    place-items: center;
+    color: var(--muted)
+}
+
+.gs-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block
+}
+
+.gs-text {
+    display: block;
+    min-width: 0
+}
+
+.gs-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-weight: 800;
+    font-size: .95rem;
+    line-height: 1.25;
+    color: var(--navy)
+}
+
+.gs-sub {
+    display: block;
+    margin-top: .15rem;
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.gs-go {
+    color: var(--muted)
+}
+
+.gs-all {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    min-height: 50px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--blue), var(--blue-d));
+    color: #fff !important;
+    font-weight: 800;
+    text-decoration: none !important;
+    box-shadow: 0 10px 24px -12px rgba(31, 120, 240, .8)
+}
+
+/* hint, empty and error states */
+.gs-msg {
+    display: grid;
+    justify-items: center;
+    gap: .5rem;
+    text-align: center;
+    padding: 2rem 1.2rem;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, .78);
+    border: 1px solid rgba(255, 255, 255, .95);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    color: var(--text);
+    font-weight: 700
+}
+
+.gs-msg .ic {
+    width: 2rem;
+    height: 2rem;
+    color: var(--blue)
+}
+
+.gs-msg small {
+    display: block;
+    color: var(--muted);
+    font-weight: 600
+}
+
+/* loading rows */
+.gs-sk {
+    height: 76px;
+    border-radius: 20px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, .45) 25%, rgba(255, 255, 255, .8) 50%, rgba(255, 255, 255, .45) 75%);
+    background-size: 200% 100%;
+    animation: gs-shimmer 1.2s infinite
+}
+
+@keyframes gs-shimmer {
+    to {
+        background-position: -200% 0
+    }
+}

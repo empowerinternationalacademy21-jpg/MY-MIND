@@ -1,0 +1,51 @@
+{% extends "base.html" %}{% block title %}Pictures{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pictures.css') }}">
+
+<header class="pg-head">
+    <h1 class="pg-title">Pictures</h1>
+    <p class="pg-sub">Tap what you like. We learn from your choices, never guess.</p>
+</header>
+
+<form id="search" class="pg-search" role="search">
+    <label class="sr-only" for="q">Search pictures</label>
+    {{ icon('search') }}
+    <input id="q" type="search" maxlength="60" placeholder="Search for pictures" autocomplete="off">
+</form>
+
+<section aria-labelledby="topics-h">
+    <h2 id="topics-h" class="pg-label">Topics</h2>
+    <div class="topics" role="group" aria-label="Topic filter">
+        <button class="topic" data-cat="" aria-pressed="true">
+            <span class="topic-ring">{{ icon('sparkles') }}</span><span class="topic-name">For me</span>
+        </button>
+        {% for k, c in categories.items() %}
+        <button class="topic" data-cat="{{ k }}" aria-pressed="false">
+            <span class="topic-ring">{{ icon(c.icon) }}</span><span class="topic-name">{{ c.label }}</span>
+        </button>
+        {% endfor %}
+    </div>
+</section>
+
+<section id="recent-wrap" class="hidden" aria-labelledby="recent-h">
+    <h2 id="recent-h" class="pg-label">Your favourites</h2>
+    <div id="recent" class="recent"></div>
+</section>
+
+<h2 class="pg-label">Ideas for you</h2>
+<div id="grid" class="tiles" aria-live="polite"></div>
+
+<div id="skeleton" class="tiles skeleton" aria-hidden="true">
+    <div class="tile sk h1"></div>
+    <div class="tile sk h2"></div>
+    <div class="tile sk h3"></div>
+    <div class="tile sk h2"></div>
+    <div class="tile sk h1"></div>
+    <div class="tile sk h3"></div>
+</div>
+
+<p id="empty" class="center muted hidden">No pictures found. Try another topic.</p>
+<p class="center pg-more"><button id="more" class="pg-btn" type="button">Show more</button></p>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pictures.js') }}"></script>{% endblock %}

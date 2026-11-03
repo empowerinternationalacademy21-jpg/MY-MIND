@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Your thoughts. Your world.{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">{% endblock %}
+{% block body_class %} landing{% endblock %}
+{% block page %}
+<div class="lp">
+  <span class="orb" style="--s:190px;left:-60px;top:-30px;animation-delay:-2s" aria-hidden="true"></span>
+  <span class="orb tint" style="--s:104px;right:1%;top:40%;animation-delay:-5s" aria-hidden="true"></span>
+
+  <section class="stage" id="top" aria-label="Welcome to MyMind">
+    <span class="shape white" aria-hidden="true"></span><span class="shape blue" aria-hidden="true"></span>
+    <span class="shape mint" aria-hidden="true"></span><span class="shape violet" aria-hidden="true"></span>
+    <span class="orb in tint" style="--s:84px;left:40%;top:-26px;animation-delay:-1s" aria-hidden="true"></span>
+    <span class="orb in" style="--s:340px;left:50%;bottom:-170px;margin-left:-170px;animation-delay:-3s"
+      aria-hidden="true"></span>
+    <span class="orb in tint" style="--s:70px;right:10%;bottom:26%;animation-delay:-6s" aria-hidden="true"></span>
+    <span class="orb in" style="--s:120px;left:-26px;bottom:-34px;animation-delay:-4s" aria-hidden="true"></span>
+
+    <div class="stage-in">
+      <header class="nav-lp">
+        <a class="logo-lp" href="#top" aria-label="MyMind home"><img
+            src="{{ url_for('static', filename='img/icon.png') }}" alt=""><b>MyMind</b></a>
+        <nav aria-label="Sections">
+          <ul>
+            <li><a href="#about" data-nav>About</a></li>
+            <li><a href="#features" data-nav>Features</a></li>
+            <li><a href="#how" data-nav>How it works</a></li>
+            <li><a href="#plans" data-nav>Plans</a></li>
+          </ul>
+        </nav>
+        <div class="nav-cta"><a class="login" href="{{ url_for('auth.login') }}">{{ icon('log-in','sm') }}<span>Log
+              in</span></a>
+          <a class="pill-w" href="{{ url_for('auth.register') }}">Sign up</a>
+        </div>
+      </header>
+
+      <div class="hero-lp">
+        <div class="glass hero-panel">
+          <h1>Your thoughts.<span class="l2">Your world.</span></h1>
+          <p class="sub">A personalised discovery app for children with Down syndrome and all children who express their
+            world in unique ways. Every choice helps us discover more.</p>
+          {% if trial_days %}<p class="tagline">{{ trial_days }} days free &nbsp;·&nbsp; No card needed</p>{% endif %}
+          <div class="hero-actions"><a class="pill-w solid" href="{{ url_for('auth.register') }}">Get Started</a><a
+              class="pill-w" href="{{ url_for('auth.login') }}">Log in</a></div>
+        </div>
+      </div>
+
+      <div class="hero-foot">
+        <div><a class="pill-w" href="#about">Learn More</a>
+          <p class="by">Built and Powered by Emtrixz</p>
+        </div>
+      </div>
+      <nav class="side-icons" aria-label="Highlights">
+        <a href="#features" aria-label="Pictures">{{ icon('image') }}</a><a href="#features" aria-label="Videos">{{
+          icon('clapperboard') }}</a>
+        <a href="#features" aria-label="Music">{{ icon('music') }}</a><a href="#features" aria-label="My Journey">{{
+          icon('heart') }}</a>
+      </nav>
+    </div>
+  </section>
+
+  <section class="sec" id="about">
+    <div class="about">
+      <div><span class="eyebrow" style="text-align:left">About MyMind</span>
+        <h2>A gentle way to hear what a child enjoys</h2>
+        <p class="lede" style="margin-bottom:0">Many children find it hard to say what they like. MyMind lets them
+          simply <b>choose</b>: a picture, a video, a song. Their caregiver sees a calm, honest picture of their
+          interests as it grows over time.</p>
+        <div class="values">
+          <div class="value">{{ icon('heart') }} Discover their interests</div>
+          <div class="value">{{ icon('smile') }} Build their identity</div>
+          <div class="value">{{ icon('sparkles') }} More choices, more confidence</div>
+        </div>
+      </div>
+      <div class="about-art" aria-hidden="true"><span class="orb"></span><img
+          src="{{ url_for('static', filename='img/icon.png') }}" alt=""></div>
+    </div>
+  </section>
+
+  <section class="sec" id="features"><span class="eyebrow">Features</span>
+    <h2>Everything in one friendly place</h2>
+    <p class="lede">Large pictures, simple choices and no pressure. The more they explore, the better the suggestions
+      get.</p>
+    <div class="grid-lp f3">
+      <div class="gcard"><span class="gicon">{{ icon('image') }}</span>
+        <h3>Pictures</h3>
+        <p>Beautiful photos to like, skip or save. Tap “more like this” to explore a favourite.</p>
+      </div>
+      <div class="gcard"><span class="gicon">{{ icon('clapperboard') }}</span>
+        <h3>Videos</h3>
+        <p>Child-safe YouTube search in the official player, with caregiver-controlled filters.</p>
+      </div>
+      <div class="gcard"><span class="gicon">{{ icon('smartphone') }}</span>
+        <h3>Shorts</h3>
+        <p>Quick vertical clips. Nothing autoplays and screen time stays in your hands.</p>
+      </div>
+      <div class="gcard"><span class="gicon">{{ icon('music') }}</span>
+        <h3>Music</h3>
+        <p>Songs and artists through Spotify, matched to the pictures and videos they love.</p>
+      </div>
+      <div class="gcard"><span class="gicon">{{ icon('calendar') }}</span>
+        <h3>My Journey</h3>
+        <p>A calendar of real choices and your own notes, so you can see interests change.</p>
+      </div>
+      <div class="gcard"><span class="gicon">{{ icon('user-round') }}</span>
+        <h3>My World</h3>
+        <p>A living profile of favourites and new discoveries that you and your child can edit.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="how"><span class="eyebrow">How it works</span>
+    <h2>Three simple steps</h2>
+    <p class="lede">From sign-up to a personal world in a few minutes.</p>
+    <div class="steps-lp">
+      <div class="gcard"><span class="gicon">{{ icon('user-plus') }}</span>
+        <h3>Tell us about your child</h3>
+        <p>Answer a short, skippable questionnaire. It shapes the very first suggestions.</p>
+      </div>
+      <div class="gcard"><span class="gicon">{{ icon('thumbs-up') }}</span>
+        <h3>Let them choose</h3>
+        <p>Like, not for me, or favourite. Every tap teaches MyMind what to show next.</p>
+      </div>
+      <div class="gcard"><span class="gicon">{{ icon('calendar') }}</span>
+        <h3>Watch the journey grow</h3>
+        <p>See favourites, trends and new interests, always based on real choices.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="plans"><span class="eyebrow">Plans</span>
+    <h2>Simple, honest pricing</h2>
+    <p class="lede">Choose how long you'd like to subscribe. Payment is confirmed personally by our administrator.</p>
+    {% if trial_days %}<div class="trial-band">{{ icon('gift') }} Start with {{ trial_days }} days free — no payment
+      needed to begin</div>{% endif %}
+    <div class="plans-lp">
+      {% for code, p in plans.items() %}
+      <div class="plan-lp {{ 'pop' if code == 'monthly' }}">{% if code == 'monthly' %}<span class="flag">Most
+          popular</span>{% endif %}
+        <span class="nm">{{ p.name }}</span><span class="pr">${{ '%g'|format(p.price) }}</span><span class="du">USD · {{
+          p.days }} days</span>
+        <a class="pill-w" href="{{ url_for('auth.register') }}">Get started</a>
+      </div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="sec" id="safety"><span class="eyebrow">Safe &amp; private</span>
+    <h2>Built with care for children and caregivers</h2>
+    <p class="lede">Your child's world stays private, and you stay in control.</p>
+    <ul class="safe" style="padding:0;margin:0">
+      <li>{{ icon('shield-check') }}<span><b>No ads, no chat, no public profiles.</b><br>Nothing is shared and nobody
+          can contact your child.</span></li>
+      <li>{{ icon('lock') }}<span><b>Your data is protected.</b><br>Secure sign-in, with export and deletion on
+          request.</span></li>
+      <li>{{ icon('sliders-horizontal') }}<span><b>You set the limits.</b><br>Content filters, blocked words and
+          screen-time reminders.</span></li>
+      <li>{{ icon('hand-heart') }}<span><b>Observations, not labels.</b><br>MyMind shows choices. It never diagnoses or
+          claims to know what a child feels.</span></li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="glass final">
+      <h2>Ready to discover their world?</h2>
+      <p class="lede" style="margin-bottom:1.4rem">Create your caregiver account in a minute{% if trial_days %} and
+        enjoy {{ trial_days }} days free{% endif %}.</p>
+      <a class="pill-w solid" href="{{ url_for('auth.register') }}">Get Started</a>
+    </div>
+  </section>
+
+  <footer class="foot-lp"><strong>{{ footer_text }}</strong>
+    <p style="margin:.6rem 0 0"><a href="{{ url_for('auth.login') }}">Log in</a><a
+        href="{{ url_for('auth.register') }}">Sign up</a><a href="{{ url_for('privacy') }}">Privacy notice</a></p>
+  </footer>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/landing.js') }}"></script>{% endblock %}

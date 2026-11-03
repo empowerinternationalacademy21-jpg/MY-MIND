@@ -1,0 +1,43 @@
+{% extends "base.html" %}{% block title %}Settings{% endblock %}
+{% macro sec(icon_name, label, sub='') %}<summary class="row">{{ '' }}<span class="bub">{{ icon(icon_name) }}</span><span class="grow">{{ label }}{% if sub %}<span class="sub">{{ sub }}</span>{% endif %}</span><span class="go">{{ icon('chevron-right') }}</span></summary>{% endmacro %}
+{% block content %}
+<p class="muted small">Signed in as <b>{{ user.username }}</b></p>
+<form method="post" action="{{ url_for('profile.save_preferences') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="rows">
+<details class="row-d" open>{{ sec('user-round','Child Profile') }}<div class="inside">
+{% if child %}<div class="field"><label for="dn">Nickname</label><input id="dn" name="display_name" type="text" maxlength="40" value="{{ child.display_name }}"></div>
+<div class="choices avatars">{% for a in avatars %}<label class="choice"><input type="radio" name="avatar" value="{{ a }}" {{ 'checked' if child.avatar == a }}><span>{{ icon(a) }}<span class="sr-only">{{ a }}</span></span></label>{% endfor %}</div>
+<p style="margin-top:.8rem"><a href="{{ url_for('parent_links.page') }}">Parent links (family view)</a> · <a href="{{ url_for('onboarding.onboarding') }}">Edit the questionnaire</a> · <a href="{{ url_for('profile.updates') }}">Daily-life update</a></p>
+{% else %}<p class="muted">Complete the questionnaire to create the child profile.</p>{% endif %}</div></details>
+<details class="row-d">{{ sec('accessibility','Accessibility') }}<div class="inside"><div class="choices">
+{% for key, lab in [('large_text','Larger text'),('high_contrast','High contrast'),('reduced_motion','Reduce motion'),('sound_labels','Speak button labels aloud'),('show_real_people','Show licensed pictures of real people (athletes, musicians) in My World')] %}<label class="choice"><input type="checkbox" name="{{ key }}" {{ 'checked' if cg[key] }}><span>{{ lab }}</span></label>{% endfor %}</div></div></details>
+<details class="row-d">{{ sec('shield-check','Content Restrictions') }}<div class="inside">
+<div class="choices"><label class="choice"><input type="checkbox" name="shots_enabled" {{ 'checked' if cg.shots_enabled }}><span>Allow Shorts (short videos)</span></label></div>
+<div class="field" style="margin-top:.8rem"><label for="ak">Words to keep out of content (comma separated)</label><input id="ak" name="avoid_keywords" type="text" maxlength="600" value="{{ cg.avoid_keywords }}"></div></div></details>
+<details class="row-d">{{ sec('timer','Screen Time', cg.screen_time_minutes ~ ' min / day') }}<div class="inside"><div class="field"><label for="st">Break reminder after (minutes per day)</label><input id="st" name="screen_time_minutes" type="number" min="5" max="240" value="{{ cg.screen_time_minutes }}"></div></div></details>
+</div>
+<p style="margin-top:.8rem"><button class="btn primary block" type="submit">Save settings</button></p>
+</form>
+<div class="rows" style="margin-top:1rem">
+<details class="row-d">{{ sec('wallet','Subscription', (active_sub.plan_code|title ~ ' · expires ' ~ active_sub.expires_at.strftime('%d %b %Y')) if active_sub else state.replace('_',' ')) }}<div class="inside">
+<p>Status: <span class="pill {{ state }}">{{ state.replace('_',' ') }}</span>{% if active_sub %} · {{ active_sub.plan_code|title }} · expires <b>{{ active_sub.expires_at.strftime('%d %b %Y') }}</b>{% endif %}</p>
+<a class="btn accent" href="{{ url_for('subscriptions.status') }}">{{ 'Renew / change plan' if state in ['active','expired'] else 'View plans' }}</a></div></details>
+<details class="row-d">{{ sec('receipt-text','Payment History') }}<div class="inside">
+{% if subs %}<div class="tablewrap"><table><thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Status</th></tr></thead><tbody>{% for s in subs %}<tr><td>{{ s.created_at.strftime('%d %b %Y') }}</td><td>{{ s.plan_code|title }}</td><td>${{ '%g'|format(s.amount) }}</td><td><span class="pill {{ s.status }}">{{ s.status.replace('_',' ') }}</span></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">No payments yet.</p>{% endif %}</div></details>
+<details class="row-d">{{ sec('lock','Password') }}<div class="inside"><form method="post" action="{{ url_for('profile.change_password') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="field"><label for="c1">Current password</label><input id="c1" name="current" type="password" autocomplete="current-password" required></div>
+<div class="field"><label for="c2">New password</label><input id="c2" name="new" type="password" autocomplete="new-password" required minlength="10"></div>
+<div class="field"><label for="c3">Confirm new password</label><input id="c3" name="confirm" type="password" autocomplete="new-password" required></div><button class="btn" type="submit">Change password</button></form></div></details>
+<details class="row-d">{{ sec('file-text','Privacy & Data') }}<div class="inside"><p><a href="{{ url_for('privacy') }}">Read the privacy notice</a></p>
+<p><a class="btn small" href="{{ url_for('profile.export') }}">{{ icon('download','sm') }} Download my data</a></p>
+{% if user.deletion_requested_at %}<p class="notice">Deletion requested on {{ user.deletion_requested_at.strftime('%d %b %Y') }}. The administrator will delete your account and all data.</p>
+<form method="post" action="{{ url_for('profile.delete_cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Cancel deletion request</button></form>
+{% else %}<form method="post" action="{{ url_for('profile.delete_request') }}" data-confirm="Request permanent deletion of your account and all data?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="field"><label for="dc">Type DELETE to request account deletion</label><input id="dc" name="confirm" type="text"></div><button class="btn small red" type="submit">Request deletion</button></form>{% endif %}</div></details>
+<details class="row-d">{{ sec('circle-help','Help & Support') }}<div class="inside"><p class="small">Need help or a payment confirmed? Contact the administrator.</p>
+{% if admin_contact.whatsapp_url %}<a class="btn green small" target="_blank" rel="noopener noreferrer" href="{{ admin_contact.whatsapp_url }}">{{ icon('message-circle','sm') }} WhatsApp</a>{% endif %}
+<dl class="kv" style="margin-top:.6rem"><dt>Phone</dt><dd>{{ admin_contact.contact_phone }}</dd></dl></div></details>
+<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="row danger" type="submit"><span class="bub" style="background:#ffe0e5">{{ icon('log-out') }}</span><span class="grow">Log Out</span></button></form>
+</div>
+{% endblock %}

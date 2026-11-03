@@ -1,0 +1,609 @@
+/* MyMind — Shorts page. News-app card layout, MyMind colours, liquid-glass surfaces. */
+
+.sh {
+    --glass-w: rgba(255, 255, 255, .78);
+    --glass-line-w: rgba(255, 255, 255, .95)
+}
+
+.sh [hidden] {
+    display: none !important
+}
+
+/* ---------- header ---------- */
+.sh-head {
+    padding: .15rem .15rem .8rem
+}
+
+.sh-head h1 {
+    font-size: 1.9rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+    margin: 0
+}
+
+.sh-head p {
+    margin: .15rem 0 0;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: .92rem
+}
+
+/* ---------- pill chips ---------- */
+.sh-chips {
+    display: flex;
+    gap: .5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: .15rem .1rem .6rem
+}
+
+.sh-chips::-webkit-scrollbar {
+    display: none
+}
+
+.sh-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    min-height: 44px;
+    padding: 0 1.05rem;
+    border-radius: 999px;
+    border: 1px solid var(--glass-line-w);
+    background: var(--glass-w);
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    color: var(--navy);
+    font: inherit;
+    font-weight: 800;
+    font-size: .92rem;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(20, 48, 92, .06), 0 6px 16px -10px rgba(20, 48, 92, .3);
+    transition: background .15s, color .15s, transform .15s
+}
+
+.sh-chip:hover {
+    transform: translateY(-1px)
+}
+
+.sh-chip[aria-pressed=true] {
+    background: linear-gradient(135deg, var(--blue), var(--blue-d));
+    border-color: transparent;
+    color: #fff
+}
+
+/* ---------- sections ---------- */
+.sh-sec {
+    margin-top: 1.1rem
+}
+
+.sh-sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 0 .15rem .65rem
+}
+
+.sh-sec-head h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 900
+}
+
+.sh-link {
+    border: 0;
+    background: none;
+    color: var(--blue);
+    font: inherit;
+    font-weight: 800;
+    font-size: .88rem;
+    cursor: pointer;
+    padding: .4rem .2rem;
+    min-height: 36px
+}
+
+.sh-link:hover {
+    text-decoration: underline
+}
+
+/* ---------- cards: image on top, text below, always in normal flow ---------- */
+.sh-card {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--glass-line-w);
+    background: var(--glass-w);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: transform .18s, box-shadow .18s, opacity .2s
+}
+
+.sh-card:hover {
+    transform: translateY(-3px)
+}
+
+.sh-card.is-dim {
+    opacity: .45
+}
+
+.sh-thumb {
+    position: relative;
+    display: block;
+    aspect-ratio: 3/4;
+    border-radius: 17px;
+    overflow: hidden;
+    background: var(--sky2)
+}
+
+.sh-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .4s
+}
+
+.sh-card:hover .sh-thumb img {
+    transform: scale(1.04)
+}
+
+.sh-thumb::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(20, 48, 92, .25) 0, transparent 30%, transparent 62%, rgba(20, 48, 92, .55) 100%);
+    pointer-events: none
+}
+
+.sh-tag {
+    position: absolute;
+    left: .55rem;
+    top: .55rem;
+    z-index: 2;
+    max-width: 75%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: .22rem .65rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .28);
+    border: 1px solid rgba(255, 255, 255, .55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fff;
+    font-size: .7rem;
+    font-weight: 800
+}
+
+.sh-demo {
+    position: absolute;
+    right: .55rem;
+    top: .55rem;
+    z-index: 2;
+    background: var(--ink);
+    color: #fff;
+    font-size: .66rem;
+    font-weight: 800;
+    padding: .18rem .55rem;
+    border-radius: 999px
+}
+
+.sh-play {
+    position: absolute;
+    right: .6rem;
+    bottom: .6rem;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .3);
+    border: 1px solid rgba(255, 255, 255, .65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fff
+}
+
+.sh-play .ic {
+    fill: currentColor;
+    margin-left: 2px
+}
+
+.sh-body {
+    display: block;
+    padding: .65rem .4rem .4rem
+}
+
+.sh-by {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    min-width: 0
+}
+
+.sh-av {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 900
+}
+
+.sh-by-name {
+    font-size: .78rem;
+    font-weight: 800;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.sh-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: .4rem;
+    font-weight: 900;
+    font-size: .98rem;
+    line-height: 1.27;
+    color: var(--navy)
+}
+
+/* top carousel */
+.sh-rail {
+    display: flex;
+    gap: .8rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding: .2rem .15rem .9rem
+}
+
+.sh-rail::-webkit-scrollbar {
+    display: none
+}
+
+.sh-rail .sh-card {
+    flex: none;
+    width: min(74%, 290px);
+    scroll-snap-align: start
+}
+
+.sh-rail .sh-thumb {
+    aspect-ratio: 4/5
+}
+
+/* more grid */
+.sh-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .8rem;
+    align-items: start
+}
+
+@media (min-width:760px) {
+    .sh-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr))
+    }
+}
+
+/* loading placeholders */
+.sh-sk .sh-thumb,
+.sh-sk .sk-line {
+    background: linear-gradient(90deg, #dbe8fb 25%, #eef4ff 50%, #dbe8fb 75%);
+    background-size: 200% 100%;
+    animation: sh-shimmer 1.3s infinite
+}
+
+.sh-sk .sk-line {
+    display: block;
+    height: .8rem;
+    border-radius: 6px;
+    margin-top: .55rem
+}
+
+.sh-sk .sk-line.s {
+    width: 55%
+}
+
+@keyframes sh-shimmer {
+    to {
+        background-position: -200% 0
+    }
+}
+
+.sh-more {
+    margin-top: 1.2rem
+}
+
+.sh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: var(--blue);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    padding: .8rem 2rem;
+    border-radius: 999px;
+    min-height: 48px;
+    cursor: pointer;
+    box-shadow: var(--shadow)
+}
+
+.sh-btn:hover {
+    background: var(--blue-d)
+}
+
+.sh-btn:disabled {
+    opacity: .6;
+    cursor: default
+}
+
+.sh-note {
+    margin: 1rem .2rem 0;
+    text-align: center
+}
+
+/* ---------- full-screen viewer: endless vertical feed (native <dialog>) ---------- */
+.sv {
+    border: 0;
+    padding: 0;
+    margin: 0 auto;
+    inset: 0;
+    width: 100%;
+    max-width: 640px;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    color: #fff;
+    overflow: hidden;
+    background: radial-gradient(520px 300px at 85% -4%, rgba(31, 120, 240, .6), transparent 70%), radial-gradient(420px 260px at -5% 40%, rgba(124, 92, 214, .28), transparent 70%), linear-gradient(180deg, #14305c, #0a1b38)
+}
+
+.sv[open] {
+    display: flex;
+    flex-direction: column
+}
+
+.sv::backdrop {
+    background: #0a1b38
+}
+
+.sv [hidden] {
+    display: none !important
+}
+
+.sv-top {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: calc(.7rem + env(safe-area-inset-top, 0px)) .9rem .4rem
+}
+
+.sv-nav {
+    display: flex;
+    gap: .4rem
+}
+
+.sv-count {
+    font-weight: 800;
+    font-size: .9rem;
+    color: rgba(255, 255, 255, .8)
+}
+
+.sv-ic,
+.sv-bar button,
+.sv-bar a {
+    display: inline-grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none !important;
+    font: inherit;
+    transition: background .15s, color .15s, transform .15s
+}
+
+.sv-ic {
+    background: rgba(255, 255, 255, .16);
+    border: 1px solid rgba(255, 255, 255, .3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px)
+}
+
+.sv-ic:hover,
+.sv-bar button:hover,
+.sv-bar a:hover {
+    background: rgba(255, 255, 255, .22)
+}
+
+/* the feed: one full-height slide per short, snapping like a short-video app */
+.sv-feed {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    outline: 0
+}
+
+.sv-feed::-webkit-scrollbar {
+    display: none
+}
+
+.sv-slide {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    transition: opacity .25s
+}
+
+.sv-slide.is-dim {
+    opacity: .4
+}
+
+.sv-stage {
+    flex: 1;
+    min-height: 0;
+    position: relative
+}
+
+.sv-media {
+    position: absolute;
+    top: .2rem;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    aspect-ratio: 9/16;
+    max-width: calc(100% - 2rem);
+    border-radius: 28px;
+    overflow: hidden;
+    background: #0a1b38;
+    box-shadow: 0 20px 50px -20px rgba(0, 0, 0, .7)
+}
+
+.sv-media>img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block
+}
+
+.sv-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 60%, rgba(10, 27, 56, .5));
+    pointer-events: none
+}
+
+.sv-media iframe {
+    position: absolute;
+    inset: 0;
+    z-index: 3
+}
+
+.sv-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .25);
+    border: 1.5px solid rgba(255, 255, 255, .7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35)
+}
+
+.sv-play .ic {
+    fill: currentColor;
+    margin-left: 4px
+}
+
+.sv-play:hover {
+    background: rgba(255, 255, 255, .38)
+}
+
+.sv-info {
+    flex: none;
+    padding: .8rem 1.3rem 0
+}
+
+.sv-metarow {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap
+}
+
+.sv-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .25rem .8rem .25rem .3rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    border: 1px solid rgba(255, 255, 255, .28);
+    font-weight: 800;
+    font-size: .8rem;
+    max-width: 100%
+}
+
+.sv-chip .sh-av {
+    width: 26px;
+    height: 26px
+}
+
+.sv-cat {
+    font-size: .74rem;
+    font-weight: 800;
+    color: rgba(255, 255, 255, .75)
+}
+
+.sv-title {
+    margin: .45rem 0 0;
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 900;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden
+}
+
+.sv-bar {
+    flex: none;
+    align-self: center;
+    display: flex;
+    gap: .25rem;
+    margin: .8rem 0 calc(.9rem + env(safe-area-inset-bottom, 0px));
+    padding: .4rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .16);
+    border: 1px solid rgba(255, 255, 255, .3);
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5)
+}
+
+.sv-bar [aria-pressed=true] {
+    background: #fff;
+    color: var(--blue)
+}
+
+.sv-bar [aria-pressed=true] .ic {
+    fill: currentColor
+}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}Let's Discover Their World{% endblock %}
+{% macro group(name, options, selected) %}<div class="choices">{% for v, l in options %}<label class="choice"><input type="checkbox" name="{{ name }}" value="{{ v }}" {{ 'checked' if v in (selected or []) }}><span>{{ l }}</span></label>{% endfor %}</div>{% endmacro %}
+{% set secs = [('A','Everyday Activities','sparkles'),('B','Potential Interests','star'),('C','Communication','message-circle'),('D','Content Preferences','heart'),('E','Sensory & Safety','shield-check'),('F','Daily Routine','clock'),('G','Consent & Confirmation','badge-check')] %}
+{% block content %}
+<form method="post" id="wizard">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="steps" aria-hidden="true">{% for i in range(8) %}<i></i>{% endfor %}</div>
+
+<section class="step" data-step="0">
+  <div class="screen-title"><h1>Let's Discover Their World</h1><p>Tell us about your child's daily life and interests. You can skip questions you're not sure about.</p></div>
+  <div class="card-box"><div class="field"><label for="dn">Child's nickname (no real name needed)</label><input id="dn" name="display_name" type="text" maxlength="40" value="{{ child.display_name if child else '' }}" placeholder="e.g. Sunny"></div>
+  <p><b>Pick an avatar</b></p><div class="choices avatars">{% for a in avatars %}<label class="choice"><input type="radio" name="avatar" value="{{ a }}" {{ 'checked' if (child and child.avatar == a) or (not child and loop.first) }}><span>{{ icon(a) }}<span class="sr-only">{{ a }}</span></span></label>{% endfor %}</div></div>
+  {% for letter, name, ic in secs %}<button class="secrow" type="button" data-go="{{ loop.index }}"><span class="bub">{{ icon(ic) }}</span><span class="grow">{{ letter }}. {{ name }}</span>{{ icon('chevron-right') }}</button>{% endfor %}
+</section>
+
+<section class="step" data-step="1" hidden><h2>A. Everyday Activities</h2><p class="muted small">What does your child often do?</p>{{ group('activities', C.ACTIVITIES, r.activities) }}
+  <div class="field" style="margin-top:.9rem"><label for="ao">Other activities</label><input id="ao" name="activities_other" type="text" maxlength="300" value="{{ r.activities_other or '' }}"></div></section>
+<section class="step" data-step="2" hidden><h2>B. Potential Interests</h2><p class="muted small">Which topics does your child seem interested in?</p>{{ group('interests', C.INTERESTS, r.interests) }}</section>
+<section class="step" data-step="3" hidden><h2>C. Communication</h2><p class="muted small">How does your child commonly show preferences?</p>{{ group('communication', C.COMMUNICATION, r.communication) }}
+  <div class="field" style="margin-top:.9rem"><label for="co">Other (optional)</label><input id="co" name="communication_other" type="text" maxlength="300" value="{{ r.communication_other or '' }}"></div></section>
+<section class="step" data-step="4" hidden><h2>D. Content Preferences</h2><p class="muted small">Anything you've noticed? "Not sure" is fine.</p>{{ group('content_prefs', C.CONTENT_PREFS, r.content_prefs) }}
+  <div class="field" style="margin-top:.9rem"><label for="fn">Favourite songs, characters, colours… (optional)</label><textarea id="fn" name="favorite_notes" rows="2" maxlength="300">{{ r.favorite_notes or '' }}</textarea><p class="hint">Notes stay private and are never used in outside searches.</p></div></section>
+<section class="step" data-step="5" hidden><h2>E. Sensory &amp; Safety</h2><p class="muted small">Only share what is needed.</p>{{ group('sensory', C.SENSORY, r.sensory) }}
+  <div class="field" style="margin-top:.9rem"><label for="av">Content to avoid — words separated by commas</label><input id="av" name="avoid_content" type="text" maxlength="500" value="{{ r.avoid_content or '' }}" placeholder="e.g. spiders, clowns, thunder"></div>
+  <div class="field"><label for="sn">Anything else to keep in mind? (optional)</label><textarea id="sn" name="safety_notes" rows="2" maxlength="300">{{ r.safety_notes or '' }}</textarea><p class="hint">Screen-time limits are in Settings.</p></div></section>
+<section class="step" data-step="6" hidden><h2>F. Daily Routine</h2>{{ group('routine', C.ROUTINE, r.routine) }}
+  <div class="field" style="margin-top:.9rem"><label for="rn">Notes (optional)</label><textarea id="rn" name="routine_notes" rows="2" maxlength="500">{{ r.routine_notes or '' }}</textarea></div></section>
+<section class="step" data-step="7" hidden><h2>G. Consent &amp; Confirmation</h2>
+  <p>These answers create the first recommendations and can be changed or deleted at any time. See the <a href="{{ url_for('privacy') }}" target="_blank">privacy notice</a>.</p>
+  <label class="check" style="color:var(--text)"><input type="checkbox" name="consent" value="yes"> I am the child's caregiver and agree to MyMind storing and using this information.</label></section>
+
+<div class="actions" style="margin-top:1rem;justify-content:space-between">
+  <button class="btn" type="button" id="wiz-back" hidden>{{ icon('chevron-left') }} Back</button>
+  <button class="btn primary" type="button" id="wiz-next" style="flex:1">Next</button>
+  <button class="btn green" type="submit" id="wiz-submit" hidden style="flex:1">Create My Child's World</button>
+</div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>{% endblock %}

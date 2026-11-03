@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}{{ job.name }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/asset3d.css') }}">{% endblock %}
+{% block content %}
+<a href="{{ url_for('admin_ai3d.jobs') }}">{{ icon('chevron-left','sm') }} All jobs</a>
+<h1>{{ job.name }} <span class="pill {{ {'published':'approved','review':'pending','failed':'rejected','rejected':'rejected'}.get(job.status,'pending') }}">{{ job.status }}</span></h1>
+<p class="muted">{{ job.kind|capitalize }} · {{ job.category }} · {{ job.provider }} · step: <b>{{ job.stage }}</b></p>
+{% if job.error %}<div class="flashes"><div class="flash error">{{ icon('triangle-alert') }}<span>{{ job.error }}</span></div></div>{% endif %}
+
+{% if job.glb_filename %}
+<div class="a3d big" data-asset3d data-autostart data-glb="{{ url_for('world.asset3d_file', asset_id=job.id, which='glb') }}" data-clips='{{ clip_names|tojson }}' data-name="{{ job.name }}"><div class="a3d-stage" hidden></div></div>
+<div class="card-box"><h2>Check before publishing</h2>
+<ul class="fam-list">
+<li>{{ '{:,}'.format(stats.triangles or 0) }} triangles · {{ ((stats.bytes or 0) / 1048576)|round(2) }} MB · {{ stats.textures or 0 }} textures · {{ stats.animations or 0 }} built-in animations{% if job.rigged %} · rigged{% endif %}{% if clip_names %} · clips: {{ clip_names|join(', ') }}{% endif %}</li>
+<li>Optimiser: {{ stats.optimizer or 'none' }}</li>
+{% for w in stats.warnings or [] %}<li><b>Warning:</b> {{ w }}</li>{% endfor %}
+<li>Look at it from every side. It must be an <b>original</b> design: no logos, text, real person or recognisable character.</li></ul></div>
+{% elif job.status in ('queued','running') %}<p>Not ready yet. Press Refresh, or let the worker run.</p>{% endif %}
+
+<div class="card-box"><h2>How it was made</h2><p class="small"><b>Prompt (built from allow-listed choices):</b> {{ job.prompt }}</p>
+<p class="small muted">Choices: {% for k, v in options.items() %}{{ k }}={{ v }}{{ ', ' if not loop.last }}{% endfor %}</p>
+{% if job.caption %}<p class="small">Caption: {{ job.caption }}</p>{% endif %}</div>
+
+<div class="actions" style="display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0">
+{% macro btn(action, label, cls='') %}<form method="post" action="{{ url_for('admin_ai3d.act', job_id=job.id, action=action) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn {{ cls }}" type="submit">{{ label }}</button></form>{% endmacro %}
+{% if job.status in ('queued','running') %}{{ btn('refresh','Refresh') }}{% endif %}
+{% if job.status == 'review' %}{{ btn('publish','Approve and publish','primary') }}{{ btn('reject','Reject') }}{% endif %}
+{% if job.status == 'published' %}{{ btn('unpublish','Take down') }}{% endif %}
+{% if job.status == 'failed' %}{{ btn('retry','Retry','primary') }}{{ btn('reject','Reject') }}{% endif %}
+<form method="post" action="{{ url_for('admin_ai3d.act', job_id=job.id, action='delete') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn red" type="submit" data-confirm="Delete this model and its files?">Delete</button></form></div>
+{% endblock %}
+{% block scripts %}{% if job.glb_filename %}<script src="{{ url_for('static', filename='vendor/three-gltf.min.js') }}"></script><script src="{{ url_for('static', filename='js/asset3d.js') }}"></script>{% endif %}{% endblock %}

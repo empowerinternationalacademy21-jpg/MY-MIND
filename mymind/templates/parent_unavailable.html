@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Link not available{% endblock %}
+{% block content %}
+<div class="screen-title"><span class="bub" style="display:inline-grid;width:56px;height:56px;border-radius:50%;background:var(--sky2);place-items:center">{{ icon('ban','lg') }}</span>
+<h1 style="margin-top:.6rem">{{ 'Please slow down' if throttled else 'This link isn\'t available' }}</h1>
+<p>{% if throttled %}Too many requests. Please wait a minute and try again.{% else %}It may have expired or been switched off by the caregiver. Please ask them for a new one.{% endif %}</p></div>
+{% endblock %}

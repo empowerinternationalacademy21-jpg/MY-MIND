@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Daily Life{% endblock %}
+{% block content %}
+<p class="muted">What have you noticed lately? Each update is saved with its date. These are your observations — they sit beside, and never overrule, your child's own choices.</p>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="card-box"><h2>Newly observed interests</h2><div class="choices">{% for k, c in categories.items() %}<label class="choice"><input type="checkbox" name="new_interests" value="{{ k }}"><span>{{ icon(c.icon,'sm') }} {{ c.label }}</span></label>{% endfor %}</div></div>
+<div class="card-box"><h2>Seems to avoid</h2><div class="choices">{% for k, c in categories.items() %}<label class="choice"><input type="checkbox" name="avoid" value="{{ k }}"><span>{{ icon(c.icon,'sm') }} {{ c.label }}</span></label>{% endfor %}</div></div>
+<div class="card-box">
+<div class="field"><label for="activities">Frequently chosen activities</label><textarea id="activities" name="activities" rows="2" maxlength="500"></textarea></div>
+<div class="field"><label for="routine">Current routine</label><textarea id="routine" name="routine" rows="2" maxlength="500"></textarea></div>
+<div class="field"><label for="communication">Communication preferences</label><textarea id="communication" name="communication" rows="2" maxlength="500"></textarea></div>
+<div class="field"><label for="sensory">Sensory and content preferences</label><textarea id="sensory" name="sensory" rows="2" maxlength="500"></textarea></div>
+<div class="field"><label for="ak">Words to keep out of content (comma separated)</label><input id="ak" name="avoid_keywords" type="text" maxlength="300"></div>
+<div class="field"><label for="private">Private note for yourself</label><textarea id="private" name="private" rows="2" maxlength="500"></textarea><p class="hint">Private notes are never sent to outside services.</p></div></div>
+<button class="btn primary block" type="submit">Save update</button></form>
+<p class="center"><a href="{{ url_for('onboarding.onboarding') }}">Edit the full questionnaire</a></p>
+<h2>Recent updates</h2>
+<div class="rows">{% for h in history %}<div class="row" style="align-items:flex-start"><span class="bub">{{ icon('notebook-pen') }}</span><span class="grow">{{ h.activity_date.strftime('%d %b %Y') }}<span class="sub" style="white-space:pre-line">{{ h.notes }}</span></span></div>{% else %}<div class="row"><span class="grow muted">No updates yet.</span></div>{% endfor %}</div>
+{% endblock %}

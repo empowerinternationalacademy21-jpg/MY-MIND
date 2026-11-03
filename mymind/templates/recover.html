@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Forgot password{% endblock %}
+{% block content %}
+<a class="iconbtn" href="{{ url_for('auth.login') }}" aria-label="Back">{{ icon('chevron-left') }}</a>
+<div class="screen-title"><span class="bub" style="display:inline-grid;width:56px;height:56px;border-radius:50%;background:var(--sky2);place-items:center">{{ icon('key-round','lg') }}</span><h1 style="margin-top:.6rem">Forgot password?</h1><p>Enter your username. We'll ask a few questions about the form you filled in, to check it's really you.</p></div>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label class="sr-only" for="username">Username</label><div class="inwrap">{{ icon('user') }}<input id="username" name="username" type="text" placeholder="Username" required autocapitalize="none" autocomplete="username"></div></div>
+  <button class="btn primary block" type="submit">Continue</button>
+</form>
+<p class="center small muted" style="margin-top:1rem">Prefer not to answer questions? Contact the administrator directly for a reset.</p>
+{% endblock %}

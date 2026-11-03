@@ -1,0 +1,44 @@
+{% extends "base.html" %}{% block title %}Sign Up{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">{% endblock %}
+{% block body_class %} auth-page{% endblock %}
+{% block content %}
+<div class="auth-layout auth-layout--signup">
+  <aside class="auth-art" aria-label="MyMind introduction">
+    <img class="auth-art__image" src="{{ url_for('static', filename='images/signup.png') }}"
+      alt="A child happily exploring MyMind on a tablet">
+  </aside>
+  <section class="auth-panel" aria-labelledby="auth-title">
+    <a class="auth-mobile-brand" href="{{ url_for('auth.index') }}"><img
+        src="{{ url_for('static', filename='img/icon.png') }}" alt=""><span>MyMind</span></a>
+    <div class="auth-heading"><span class="auth-heading__icon">{{ icon('user-plus') }}</span>
+      <p class="auth-eyebrow">A world of their own</p>
+      <h1 id="auth-title">Create your account</h1>
+      <p>Start discovering what makes your child's world unique.</p>
+    </div>
+    <form method="post" class="auth-form" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="username">Username</label>
+        <div class="inwrap">{{ icon('user') }}<input id="username" name="username" type="text"
+            placeholder="Choose a username" autocomplete="username" required minlength="3" maxlength="30"
+            value="{{ username or '' }}" autocapitalize="none"></div>
+        <p class="hint">3–30 letters, numbers, dots or underscores. No email needed.</p>
+      </div>
+      <div class="field"><label for="password">Password</label>
+        <div class="inwrap">{{ icon('lock') }}<input id="password" name="password" type="password"
+            placeholder="Create a password" autocomplete="new-password" required minlength="10"><button class="eye"
+            type="button" data-toggle-pw aria-label="Show password">{{ icon('eye') }}</button></div>
+        <p class="hint">At least 10 characters, including a letter and a number.</p>
+      </div>
+      <div class="field"><label for="confirm">Confirm password</label>
+        <div class="inwrap">{{ icon('lock') }}<input id="confirm" name="confirm" type="password"
+            placeholder="Enter your password again" autocomplete="new-password" required></div>
+      </div>
+      <button class="btn primary block auth-submit" type="submit">{{ icon('user-plus') }} Create account</button>
+    </form>
+    <p class="auth-switch">Already have an account? <a href="{{ url_for('auth.login') }}">Log in {{
+        icon('arrow-right','sm') }}</a></p>
+    <p class="auth-privacy">{{ icon('shield-check','sm') }} Your family's information stays private.</p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}More like this{% endblock %}
+{% block content %}
+<meta name="item" content="{{ item.id }}">
+<p class="muted">Pictures, videos and songs about <b>{{ item.category }}</b>, like “{{ item.title }}”.</p>
+<div id="wrap">
+<div class="sec-title"><span class="sec-bubble">{{ icon('image','sm') }}</span><h2>Pictures</h2></div><div id="pictures" class="tiles"></div>
+<div class="sec-title"><span class="sec-bubble">{{ icon('clapperboard','sm') }}</span><h2>Videos</h2></div><div id="videos" class="tiles"></div>
+<div class="sec-title"><span class="sec-bubble">{{ icon('music','sm') }}</span><h2>Songs</h2></div><div id="songs" class="tiles"></div></div>
+<p style="margin-top:1rem"><a class="btn accent block" href="{{ url_for('pictures.page') }}">{{ icon('sparkles') }} Try something different</a></p>
+<p class="muted small">Why these? They share the topic “{{ item.category }}” with something that was opened or liked, and are checked against the safety filters.</p>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/explore.js') }}"></script>{% endblock %}

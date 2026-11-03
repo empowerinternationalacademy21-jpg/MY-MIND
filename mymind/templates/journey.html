@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}My Journey{% endblock %}
+{% macro mini(items) %}{% if items %}<div class="hscroll">{% for i in items[:10] %}<div class="fv">{% if i.thumbnail_url %}<img src="{{ i.thumbnail_url }}" alt="{{ i.title }}" loading="lazy">{% endif %}</div>{% endfor %}</div>{% else %}<p class="muted small">None yet.</p>{% endif %}{% endmacro %}
+{% block content %}
+<div class="card-box">
+  <div class="cal-head"><a class="iconbtn" href="{{ url_for('journey.view', view=mode, date=prev) }}" aria-label="Previous">{{ icon('chevron-left') }}</a>
+  <h2>{{ first.strftime('%B %Y') if mode=='month' else 'Week of ' + first.strftime('%d %b') }}</h2>
+  <a class="iconbtn" href="{{ url_for('journey.view', view=mode, date=next) }}" aria-label="Next">{{ icon('chevron-right') }}</a></div>
+  <div class="center" style="margin-bottom:.6rem"><span class="seg"><a class="{{ 'on' if mode=='month' }}" href="{{ url_for('journey.view', view='month', date=selected) }}">Month</a><a class="{{ 'on' if mode=='week' }}" href="{{ url_for('journey.view', view='week', date=selected) }}">Week</a></span></div>
+  <div class="cal" role="grid">{% for d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<div class="dow">{{ d }}</div>{% endfor %}
+  {% for w in weeks %}{% for d in w %}{% if d %}
+    <a class="day {{ 'today' if d == today }}" data-date="{{ d.isoformat() }}" href="{{ url_for('journey.view', view=mode, date=d) }}" {% if d == selected %}aria-current="date"{% endif %}>{{ d.day }}
+      <span class="dots">{% if app.get(d) %}<span class="dot app" title="{{ app[d] }} app choices"></span>{% endif %}{% if rec.get(d) %}<span class="dot rec" title="Caregiver record"></span>{% endif %}</span></a>
+  {% else %}<span class="day out"></span>{% endif %}{% endfor %}{% endfor %}</div>
+  <div class="legend"><span><span class="dot app"></span> Choices made in the app</span><span><span class="dot rec"></span> Recorded by caregiver</span></div>
+</div>
+<h2>Activities — {{ selected.strftime('%A, %d %B') }}</h2>
+<div class="rows" id="day-panel" aria-live="polite">
+  {% for l in summary.app_events %}<div class="row"><span class="bub">{{ icon('sparkles') }}</span><span class="grow">{{ l }}<span class="sub">In the app</span></span></div>{% endfor %}
+  {% for r in summary.recorded %}<div class="row"><span class="bub" style="background:#ffeccc">{{ icon('notebook-pen') }}</span><span class="grow">{{ r.title }}{% if r.notes %}<span class="sub">{{ r.notes }}</span>{% else %}<span class="sub">Recorded by caregiver</span>{% endif %}</span>
+    <form method="post" action="{{ url_for('journey.delete_activity', act_id=r.id) }}" data-confirm="Delete this record?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Delete record">{{ icon('trash-2') }}</button></form></div>{% endfor %}
+  {% if not summary.app_events and not summary.recorded %}<div class="row"><span class="grow muted">Nothing recorded this day.</span></div>{% endif %}
+</div>
+<div class="card-box" style="margin-top:1rem"><h2>Record an activity</h2>
+<form method="post" action="{{ url_for('journey.add_activity') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="field"><label for="activity_date">Date</label><input id="activity_date" type="date" name="activity_date" value="{{ selected.isoformat() }}"></div>
+<div class="field"><label for="title">What happened?</label><input id="title" name="title" type="text" maxlength="200" required placeholder="e.g. Danced to music in the living room"></div>
+<div class="field"><label for="notes">Notes (optional)</label><textarea id="notes" name="notes" rows="2" maxlength="500"></textarea></div>
+<button class="btn primary block" type="submit">Save</button></form></div>
+<div class="card-box"><h2>Interest trends (last 6 weeks)</h2>
+{% if trends.rows %}{% for r in trends.rows %}<div class="bar-row"><b class="small">{{ r.label }}</b><div class="spark" role="img" aria-label="{{ r.label }}: {{ r['values']|join(', ') }} per week">{% for v in r['values'] %}<i style="height:{{ (v / r.peak * 100)|round }}%" title="{{ trends.labels[loop.index0] }}: {{ v }}"></i>{% endfor %}</div></div>{% endfor %}
+<p class="hint">Weeks starting {{ trends.labels|join(' · ') }}.</p>{% else %}<p class="muted small">Trends appear after a few choices have been made.</p>{% endif %}
+{% if freq %}<h3 style="margin-top:.8rem">Often chosen</h3>{% for l, n in freq %}<span class="tag">{{ l }} · {{ n }}</span>{% endfor %}{% endif %}
+{% if new_interests %}<h3>New interests discovered</h3>{% for i in new_interests %}<span class="tag">{{ icon(i.icon,'sm') }} {{ i.label }}</span>{% endfor %}{% endif %}</div>
+<div class="card-box"><h2>Favourites</h2><h3>Pictures</h3>{{ mini(fav_pics) }}<h3>Videos</h3>{{ mini(fav_vids) }}<h3>Songs</h3>{{ mini(fav_songs) }}</div>
+<div class="card-box"><h2>Manage history</h2><p class="muted small">Delete stored app activity for this day or for all time.</p><div class="actions">
+<form method="post" action="{{ url_for('journey.clear') }}" data-confirm="Delete all app activity for {{ selected.isoformat() }}?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="scope" value="day"><input type="hidden" name="date" value="{{ selected.isoformat() }}"><button class="btn small" type="submit">Delete this day</button></form>
+<form method="post" action="{{ url_for('journey.clear') }}" data-confirm="Delete ALL stored app activity? This cannot be undone."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="scope" value="all"><button class="btn small red" type="submit">Delete all</button></form></div></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/journey.js') }}"></script>{% endblock %}

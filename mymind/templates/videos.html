@@ -1,0 +1,67 @@
+{% extends "base.html" %}{% block title %}Videos{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/videos.css') }}">
+
+<div class="vp" id="vp">
+
+    <!-- top bar: topic tabs + search -->
+    <header class="vp-top">
+        <div class="vp-tabs" role="group" aria-label="Topic filter">
+            <button class="vp-tab" data-cat="" aria-pressed="true">For me</button>
+            {% for k, c in categories.items() %}
+            <button class="vp-tab" data-cat="{{ k }}" aria-pressed="false">{{ icon(c.icon,'sm') }} {{ c.label
+                }}</button>
+            {% endfor %}
+        </div>
+        <form id="search" class="vp-search" role="search">
+            <label class="sr-only" for="q">Search videos</label>
+            {{ icon('search') }}
+            <input id="q" type="search" maxlength="60" placeholder="Search videos" autocomplete="off">
+        </form>
+    </header>
+
+    <div class="vp-layout">
+
+        <!-- featured player -->
+        <section class="vp-stage-wrap" aria-label="Video player">
+            <div id="stage" class="vp-stage"></div>
+        </section>
+
+        <!-- title, meta, actions -->
+        <section class="vp-info" id="info" aria-live="polite">
+            <div class="vp-info-head">
+                <div class="vp-info-text">
+                    <h1 id="v-title" class="vp-title">Loading…</h1>
+                    <p id="v-meta" class="vp-meta"></p>
+                </div>
+                <button id="v-fav" class="vp-fav" type="button" aria-pressed="false">
+                    {{ icon('heart') }}<span id="v-fav-text">Save</span>
+                </button>
+            </div>
+            <div id="v-reason" class="vp-reason hidden">
+                <span class="vp-reason-label">Why you are seeing this</span>
+                <p id="v-reason-text"></p>
+            </div>
+            <p class="vp-safe">{{ icon('shield-check','sm') }} Plays in the official YouTube player with safe-search on.
+            </p>
+        </section>
+
+        <!-- sidebar: up next -->
+        <aside class="vp-side" aria-labelledby="side-h">
+            <h2 id="side-h" class="vp-h">Up next</h2>
+            <ol id="side" class="vp-list"></ol>
+        </aside>
+
+        <!-- recommended grid -->
+        <section class="vp-rec" aria-labelledby="rec-h">
+            <h2 id="rec-h" class="vp-h">Recommended videos</h2>
+            <div id="grid" class="vp-grid"></div>
+            <p id="empty" class="center muted hidden">No videos found. Try another topic.</p>
+            <p class="center vp-more"><button id="more" class="vp-btn" type="button">Show more</button></p>
+        </section>
+
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/videos.js') }}"></script>{% endblock %}

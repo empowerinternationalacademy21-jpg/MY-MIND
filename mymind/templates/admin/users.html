@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Users{% endblock %}
+{% block content %}<h1>Users</h1>
+<form class="searchbar" method="get"><label class="sr-only" for="q">Search username</label>{{ icon('search') }}<input id="q" name="q" value="{{ q }}" placeholder="Search username…"></form>
+<div class="card-box tablewrap"><table><thead><tr><th>Username</th><th>Account</th><th>Subscription</th><th>Expires</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
+{% for r in rows %}{% set u = r.user %}<tr><td>{{ u.username }}{% if u.deletion_requested_at %}<br><span class="badge">Deletion requested</span>{% endif %}</td><td><span class="pill {{ u.account_status }}">{{ u.account_status }}</span></td>
+<td><span class="pill {{ r.state }}">{{ r.state.replace('_',' ') }}</span></td><td>{{ r.sub.expires_at.strftime('%d %b %Y') if r.sub else '—' }}</td><td>{{ u.created_at.strftime('%d %b %Y') }}</td>
+<td><div class="actions">
+<form method="post" action="{{ url_for('admin.user_status', uid=u.id) }}" data-confirm="{{ 'Suspend' if u.account_status=='active' else 'Restore' }} {{ u.username }}?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">{{ 'Suspend' if u.account_status=='active' else 'Restore' }}</button></form>
+<form method="post" action="{{ url_for('admin.reset_password', uid=u.id) }}" data-confirm="Generate a temporary password for {{ u.username }}?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Reset password</button></form>
+{% if u.deletion_requested_at %}<form method="post" action="{{ url_for('admin.delete_user', uid=u.id) }}" data-confirm="Permanently delete {{ u.username }} and ALL their data?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small red" type="submit">Delete data</button></form>{% endif %}</div></td></tr>
+{% else %}<tr><td colspan="6" class="muted">No users found.</td></tr>{% endfor %}</tbody></table></div>
+<p class="hint">Child profile details are intentionally not shown here.</p>
+{% endblock %}

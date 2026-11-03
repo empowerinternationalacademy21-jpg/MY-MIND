@@ -1,0 +1,130 @@
+{% extends "base.html" %}{% block title %}Home{% endblock %}
+{% block body_class %} feed-page{% endblock %}
+{% block topbar_search %}
+<form id="search" class="fd-top-search" role="search">
+  <label class="sr-only" for="q">Search pictures</label>
+  {{ icon('search') }}
+  <input id="q" type="text" placeholder="Search for anything..." maxlength="60" autocomplete="off">
+</form>
+{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/feed.css') }}">
+{% set kid = child_profile.display_name if child_profile and child_profile.display_name else 'friend' %}
+
+<div class="fd">
+  <div class="fd-workspace">
+    <aside class="fd-left" aria-label="Main navigation">
+      <nav class="fd-left-nav">
+        <a class="fd-left-link is-current" href="{{ url_for('feed.home') }}">{{ icon('house') }}<span>Home</span></a>
+        <a class="fd-left-link" href="{{ url_for('pictures.page') }}">{{ icon('image') }}<span>Explore</span></a>
+        <a class="fd-left-link" href="{{ url_for('profile.world') }}">{{ icon('user-round') }}<span>My Spaces</span></a>
+        <a class="fd-left-link" href="{{ url_for('journey.view') }}">{{ icon('calendar') }}<span>My Journey</span></a>
+      </nav>
+      <div class="fd-left-rule"></div>
+      <p class="fd-left-label">Quick access</p>
+      <nav class="fd-left-quick" aria-label="Explore content">
+        <a href="{{ url_for('pictures.page') }}"><span class="fd-space-icon fd-space-icon--picture">{{ icon('image')
+            }}</span>Pictures{{ icon('chevron-right','sm') }}</a>
+        <a href="{{ url_for('videos.page') }}"><span class="fd-space-icon fd-space-icon--video">{{ icon('clapperboard')
+            }}</span>Videos{{ icon('chevron-right','sm') }}</a>
+        <a href="{{ url_for('shots.page') }}"><span class="fd-space-icon fd-space-icon--short">{{ icon('smartphone')
+            }}</span>Shorts{{ icon('chevron-right','sm') }}</a>
+        <a href="{{ url_for('music.page') }}"><span class="fd-space-icon fd-space-icon--music">{{ icon('music')
+            }}</span>Music{{ icon('chevron-right','sm') }}</a>
+      </nav>
+      <div class="fd-left-note"><span>{{ icon('sparkles') }}</span><strong>Your mind matters</strong>
+        <p>Explore. Share. Be you.</p>
+      </div>
+    </aside>
+
+    <section class="fd-main" aria-label="Your feed">
+      <header class="fd-head">
+        <span class="fd-avatar" aria-hidden="true">{{ (kid[:1] or 'F')|upper }}</span>
+        <div class="fd-hello">
+          <h1 class="fd-title">Hello, {{ kid }}!</h1>
+          <p class="fd-sub">What's on your mind today?</p>
+        </div>
+      </header>
+      <section class="fd-compose" aria-label="Explore something">
+        <a class="fd-compose-prompt" href="{{ url_for('pictures.page') }}">{{ icon('image') }}<span>Share something you
+            love...</span></a>
+        <nav class="fd-quick" aria-label="Explore content">
+          <a class="fd-q" href="{{ url_for('pictures.page') }}">{{ icon('image') }}<span>Pictures</span></a>
+          <a class="fd-q" href="{{ url_for('videos.page') }}">{{ icon('clapperboard') }}<span>Videos</span></a>
+          <a class="fd-q" href="{{ url_for('shots.page') }}">{{ icon('smartphone') }}<span>Shorts</span></a>
+          <a class="fd-q" href="{{ url_for('music.page') }}">{{ icon('music') }}<span>Music</span></a>
+          <a class="fd-compose-go" href="{{ url_for('pictures.page') }}">Explore {{ icon('arrow-right','sm') }}</a>
+        </nav>
+      </section>
+
+      <div class="stories" role="group" aria-label="Choose a topic">
+        <button class="story" data-cat="" aria-pressed="true"><span class="ring"><i>All</i></span><span class="lbl">For
+            me</span></button>
+        {% for k, c in categories.items() %}<button class="story" data-cat="{{ k }}" aria-pressed="false"><span
+            class="ring"><i>{{ icon(c.icon,'lg') }}</i></span><span class="lbl">{{ c.label }}</span></button>{% endfor
+        %}
+      </div>
+
+      <section id="favs-wrap" class="fd-strip" hidden>
+        <div class="sec-title"><span class="sec-bubble">{{ icon('heart','sm') }}</span>
+          <h2>My favourites</h2>
+        </div>
+        <div id="favs" class="hrow"></div>
+      </section>
+      <section id="recent-wrap" class="fd-strip" hidden>
+        <div class="sec-title"><span class="sec-bubble">{{ icon('clock','sm') }}</span>
+          <h2>Recently explored</h2>
+        </div>
+        <div id="recent" class="hrow"></div>
+      </section>
+      {# endless feed: feed.js fills #sections and loads more automatically while scrolling #}
+      <div id="sections"></div>
+    </section>
+
+    <aside class="fd-side" aria-label="Your spaces">
+      <section class="fd-side-profile">
+        <span class="fd-avatar">{{ (kid[:1] or 'F')|upper }}</span>
+        <div><strong>{{ kid }}</strong><span>Your world, your choices</span></div>
+        <a href="{{ url_for('profile.world') }}" aria-label="Open My World" title="My World">{{ icon('arrow-right')
+          }}</a>
+      </section>
+      <section class="fd-side-section">
+        <div class="fd-side-heading">
+          <h2>Explore spaces</h2><a href="{{ url_for('pictures.page') }}">See all</a>
+        </div>
+        <a class="fd-space" href="{{ url_for('pictures.page') }}"><span class="fd-space-icon fd-space-icon--picture">{{
+            icon('image') }}</span><span><strong>Pictures</strong><small>Find something you love</small></span>{{
+          icon('chevron-right','sm') }}</a>
+        <a class="fd-space" href="{{ url_for('videos.page') }}"><span class="fd-space-icon fd-space-icon--video">{{
+            icon('clapperboard') }}</span><span><strong>Videos</strong><small>Watch and discover</small></span>{{
+          icon('chevron-right','sm') }}</a>
+        <a class="fd-space" href="{{ url_for('shots.page') }}"><span class="fd-space-icon fd-space-icon--short">{{
+            icon('smartphone') }}</span><span><strong>Shorts</strong><small>Quick little moments</small></span>{{
+          icon('chevron-right','sm') }}</a>
+        <a class="fd-space" href="{{ url_for('music.page') }}"><span class="fd-space-icon fd-space-icon--music">{{
+            icon('music') }}</span><span><strong>Music</strong><small>Songs for every mood</small></span>{{
+          icon('chevron-right','sm') }}</a>
+      </section>
+      <section class="fd-side-section fd-growing">
+        <div class="fd-side-heading">
+          <h2>Growing interests</h2><a href="{{ url_for('profile.world') }}">See all</a>
+        </div>
+        {% for item in interests %}
+        <div class="fd-interest"><span class="fd-interest-icon"
+            style="--interest-color:{{ categories[item.category].color }}">{{ icon(item.icon) }}</span><span
+            class="fd-interest-copy"><strong>{{ item.label }}</strong><span class="fd-interest-track"><i
+                style="width:{{ (item.confidence * 100)|round|int }}%;background:{{ categories[item.category].color }}"></i></span></span><small>{{
+            (item.confidence * 100)|round|int }}%</small></div>
+        {% else %}<p class="fd-interest-empty">Your spaces grow as you explore and save things you love.</p>{% endfor %}
+      </section>
+      <section class="fd-side-note"><span>{{ icon('shield-check') }}</span>
+        <div><strong>A safe space to explore</strong>
+          <p>No public profiles, messages or ads. Your caregiver stays in control.</p>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/feed.js') }}"></script>{% endblock %}

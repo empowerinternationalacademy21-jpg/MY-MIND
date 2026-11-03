@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Family view{% endblock %}
+{% block content %}
+<div class="screen-title"><span class="bub" style="display:inline-grid;width:56px;height:56px;border-radius:50%;background:var(--sky2);place-items:center">{{ icon('shield-check','lg') }}</span>
+<h1 style="margin-top:.6rem">Family view</h1>
+<p>This is a private, read-only view of a child's MyMind world. Enter the view password the caregiver gave you.</p></div>
+{% if error %}<div class="flashes" role="alert"><div class="flash error">{{ icon('triangle-alert') }}<span>{{ error }}</span></div></div>{% endif %}
+<form method="post" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="pw">View password</label><div class="inwrap">{{ icon('lock') }}<input id="pw" name="password" type="password" required autocomplete="off" maxlength="128"></div></div>
+  <button class="btn primary block" type="submit">See the world</button>
+</form>
+<p class="small muted" style="margin-top:.8rem">You can look but not change anything. This isn't the caregiver's account password.</p>
+{% endblock %}
