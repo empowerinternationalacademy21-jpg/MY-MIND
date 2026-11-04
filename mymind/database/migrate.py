@@ -70,10 +70,17 @@ def m0008_family_login(engine):
         c.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_child_username ON users(child_username)"))
 
 
+def m0009_activity_last_active(engine):
+    """Keep the original event start while updating the last-active timestamp for duration heartbeats."""
+    _add_missing_columns(engine, "activity_events", [("last_active_at", "DATETIME")])
+    with engine.begin() as c:
+        c.execute(text("UPDATE activity_events SET last_active_at = created_at WHERE last_active_at IS NULL"))
+
+
 MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_world_assets), (3, "ai 3d assets", m0003_assets3d),
               (4, "parent links", m0004_parent_links), (5, "id verification", m0005_id_verification),
               (6, "child age", m0006_child_age), (7, "activity events", m0007_activity_events),
-              (8, "family login", m0008_family_login)]
+              (8, "family login", m0008_family_login), (9, "activity last active", m0009_activity_last_active)]
 
 def run_migrations():
     engine = db.get_engine()

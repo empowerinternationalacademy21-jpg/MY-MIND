@@ -2,13 +2,14 @@
 import json
 from database.db import Session
 from database.models import (User, ChildProfile, CaregiverQuestionnaire, Interaction, Favorite, InterestProfile, DailyActivity,
-                             RecommendationLog, ConsentRecord, CaregiverSettings, Subscription, PaymentVerificationRequest,
+                             ActivityEvent, RecommendationLog, ConsentRecord, CaregiverSettings, Subscription, PaymentVerificationRequest,
                              AuditLog, ParentLink)
 
 
 def delete_user(user_id):
     child = Session.query(ChildProfile).filter_by(caregiver_user_id=user_id).first()
     if child:
+        Session.query(ActivityEvent).filter_by(child_id=child.id).delete()
         for M in (Interaction, Favorite, InterestProfile, DailyActivity, RecommendationLog, CaregiverQuestionnaire, ParentLink):   # family links die with the child
             Session.query(M).filter_by(child_profile_id=child.id).delete()
         Session.delete(child)
@@ -27,7 +28,7 @@ def export_user(user):
     def iso(v):
         return v.isoformat() if v else None
     child = Session.query(ChildProfile).filter_by(caregiver_user_id=user.id).first()
-    data = {"username": user.username, "created_at": iso(user.created_at)}
+    data = {"username": user.username, "child_username": user.child_username, "created_at": iso(user.created_at)}
     data["subscriptions"] = [{"plan": s.plan_code, "amount": s.amount, "currency": s.currency, "status": s.status,
                               "starts_at": iso(s.starts_at), "expires_at": iso(s.expires_at)}
                              for s in Session.query(Subscription).filter_by(user_id=user.id)]
@@ -39,6 +40,9 @@ def export_user(user):
                              for i in Session.query(InterestProfile).filter_by(child_profile_id=child.id)]
         data["interactions"] = [{"type": i.interaction_type, "category": i.category, "content": i.content.title if i.content else None,
                                  "at": iso(i.occurred_at)} for i in Session.query(Interaction).filter_by(child_profile_id=child.id)]
+        data["activity_events"] = [{"stop": e.stop, "type": e.event_type, "content": e.content_title,
+                                    "duration_seconds": e.duration_seconds, "at": iso(e.created_at)}
+                                   for e in Session.query(ActivityEvent).filter_by(child_id=child.id)]
         data["favorites"] = [{"title": f.content.title, "type": f.content.content_type, "url": f.content.canonical_url}
                              for f in Session.query(Favorite).filter_by(child_profile_id=child.id)]
         data["activities"] = [{"date": a.activity_date.isoformat(), "title": a.title, "notes": a.notes, "source": a.source}

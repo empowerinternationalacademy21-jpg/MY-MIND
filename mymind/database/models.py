@@ -138,6 +138,7 @@ class ActivityEvent(Base):
     duration_seconds = Column(Integer, nullable=False, default=0)
     client_event_id = Column(String(64), nullable=False, unique=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
+    last_active_at = Column(DateTime, default=utcnow, nullable=False)
     content = relationship("ContentItem")
     __table_args__ = (Index("ix_activity_child_time", "child_id", "created_at"),
                       Index("ix_activity_child_stop_time", "child_id", "stop", "created_at"),

@@ -91,3 +91,21 @@ def test_my_journey_clear_removes_activity_events(app, ready):
     ready.post("/journey/clear", {"scope": "all"})
     with app.app_context():
         assert Session.query(ActivityEvent).count() == 0
+
+
+def test_family_export_and_deletion_include_activity_events(app, ready):
+    login_as_child(app, ready)
+    ready.jpost("/api/activity-events", {"events": [
+        {"event_id": event_id(), "event_type": "view", "stop": "home", "duration_seconds": 30},
+    ]})
+    ready.post("/logout")
+    ready.login("mum")
+    from database.models import User
+    from services import account_service
+    with app.app_context():
+        user = Session.query(User).filter_by(username="mum").one()
+        exported = account_service.export_user(user)
+        assert exported["child_username"] == user.child_username
+        assert exported["activity_events"][0]["duration_seconds"] == 30
+        account_service.delete_user(user.id)
+        assert Session.query(ActivityEvent).count() == 0

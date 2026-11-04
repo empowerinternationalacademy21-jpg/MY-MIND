@@ -107,8 +107,10 @@ def daily_streak(child_id, today=None):
 
 def first_last_active_per_day(child_id, start=None, end=None):
     times = defaultdict(list)
-    for (occurred_at,) in _events(child_id, start, end).with_entities(ActivityEvent.created_at):
-        times[occurred_at.date()].append(occurred_at)
+    for occurred_at, last_active_at in (
+            _events(child_id, start, end)
+            .with_entities(ActivityEvent.created_at, ActivityEvent.last_active_at)):
+        times[occurred_at.date()].extend((occurred_at, last_active_at or occurred_at))
     return [
         {"date": day.isoformat(), "first_active_at": min(values).isoformat(),
          "last_active_at": max(values).isoformat()}

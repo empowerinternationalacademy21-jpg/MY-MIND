@@ -53,10 +53,19 @@ def test_family_usernames_share_password_and_enforce_roles(app, ready):
 
     ready.post("/logout")
     assert ready.login(child_name).location.endswith("/world")
-    assert ready.get("/world").status_code == 200
+    world_page = ready.get("/world")
+    assert world_page.status_code == 200
+    assert b"mum" not in world_page.data and child_name.encode() not in world_page.data
     assert ready.get("/settings").status_code == 403
     assert ready.get("/settings/account").status_code == 403
     assert ready.jpost("/api/world/settings", {"theme": "music"}).status_code == 403
+    ready.post("/logout")
+    ready.login("mum")
+    assert ready.jpost("/api/activity-events", {"events": [
+        {"event_id": "caretaker-action-00000001", "event_type": "view", "stop": "home"},
+    ]}).status_code == 403
+    ready.post("/logout")
+    ready.login(child_name)
     assert ready.jpost("/api/activity-events", {"events": [
         {"event_id": "child-action-000000000001", "event_type": "view", "stop": "home"},
     ]}).status_code == 200

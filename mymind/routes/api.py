@@ -239,6 +239,7 @@ def activity_events():
                 return jsonify(error="Invalid activity event."), 400
             if event_type in ("watch", "view"):
                 row.duration_seconds = max(row.duration_seconds, seconds)
+                row.last_active_at = utcnow()
             continue
         Session.add(ActivityEvent(
             child_id=g.child.id, stop=stop, content_id=content_id,
