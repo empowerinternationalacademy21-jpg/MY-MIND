@@ -184,6 +184,21 @@ def test_external_api_failure_falls_back_to_demo(app, ready, monkeypatch):
         r = ready.get(url)
         d = r.get_json()
         assert r.status_code == 200 and d["items"] and d["notice"] and all(i["demo"] for i in d["items"])
+        if url.startswith("/api/videos"):
+            sample = d["items"][0]
+            assert sample["video_id"] == "aqz-KE-bpKQ"
+            assert sample["embed"].startswith("https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ")
+
+
+def test_video_demo_is_playable_without_youtube_api_key(app, ready):
+    app.config["YOUTUBE_API_KEY"] = ""
+    data = ready.get("/api/videos?category=animals").get_json()
+    sample = data["items"][0]
+    assert data["notice"] == "Live video search isn't set up yet. You can still watch this sample video."
+    assert sample["demo"] is True
+    assert sample["video_id"] == "aqz-KE-bpKQ"
+    assert sample["url"] == "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+    assert sample["embed"] == "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ?rel=0&modestbranding=1"
 
 
 def test_real_provider_results_are_mapped_and_filtered(app, ready, monkeypatch):

@@ -53,7 +53,7 @@ Turso is reached through a small **pure-Python HTTPS driver** (`database/hrana.p
 Re-check each provider's current terms before launch. On failure or quota exhaustion the app shows a notice and falls back to labelled demo content.
 
 ## Deployment
-* Set `SECRET_KEY`, `FLASK_ENV=production`, Turso + API variables; start `gunicorn "app:create_app()"` (see `Procfile`); run `python -m database.seed` once.
+* Set `SECRET_KEY`, `FLASK_ENV=production`, Turso + API variables; for YouTube, use the exact variable name `YOUTUBE_API_KEY` in your host's environment settings. Host environment variables take precedence over `.env`; restart or redeploy after changing them. Start `gunicorn "app:create_app()"` (see `Procfile`); run `python -m database.seed` once.
 * Use **HTTPS** — production mode sets `Secure` cookies and refuses the default `SECRET_KEY`.
 * Rate limiter and cache are in-process; with multiple workers/instances move them to Redis.
 * Create/rotate the admin with `flask --app app create-admin`. There is no default admin password.

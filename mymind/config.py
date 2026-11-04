@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv(override=True)      # values in .env win over empty/stale variables already in the shell
+load_dotenv()                   # deployment environment variables take precedence over local .env values
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 

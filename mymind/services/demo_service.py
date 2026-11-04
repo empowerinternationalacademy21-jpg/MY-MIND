@@ -40,6 +40,18 @@ def pictures(category, page=1, n=8, age=None):
 
 def videos(category, page=1, n=6, short=False, age=None):
     cat = category if category in CATEGORIES else "objects"
+    if not short:
+        if page > 1:
+            return []
+        video_id = "aqz-KE-bpKQ"
+        return [dict(provider="demo", provider_content_id=f"sample-bunny-{cat}{_sfx(age)}",
+                     content_type="video", title=f"Sample animation {age_service.demo_noun(age)}: Big Buck Bunny",
+                     description="A sample animation from Blender that plays in the YouTube player.",
+                     thumbnail_url=f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                     canonical_url=f"https://www.youtube.com/watch?v={video_id}", category=cat,
+                     tags=["animation", cat],
+                     attribution={"source": "YouTube sample", "channel": "Blender",
+                                  "youtube_video_id": video_id})]
     out = []
     for i in range((page - 1) * n, page * n):
         kw = _kw(cat, i, age)

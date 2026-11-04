@@ -146,7 +146,7 @@
                 'padding': '.1rem .5rem', 'border-radius': '999px'
             }));
             th.addEventListener('click', function () {
-                if (item.demo || !item.yt) { toast('This is a demo video. Add a YouTube API key to play real videos.'); return; }
+                if (!item.yt) { toast('This video preview is not available to play.'); return; }
                 var f = S(document.createElement('iframe'), { 'position': 'absolute', 'inset': '0', 'width': '100%', 'height': '100%', 'border': '0' });
                 f.src = CONFIG.embedBase + encodeURIComponent(item.yt) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1';
                 f.title = item.title; f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
@@ -242,8 +242,8 @@
     }
 
     function playItem(item) {
-        if (item.demo || !item.yt) {
-            toast('This is a demo video. Add a YouTube API key to play real videos.');
+        if (!item.yt) {
+            toast('This video preview is not available to play.');
             return;
         }
         var f = document.createElement('iframe');

@@ -149,7 +149,10 @@ def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None):
             notice = "Live search is busy right now, so you are seeing items saved earlier." if notice else None
     if items is None:
         if notice is None:
-            notice = "Showing demo content. Add API keys in .env to see real results."
+            if kind == "video" and not youtube_service.configured():
+                notice = "Live video search isn't set up yet. You can still watch this sample video."
+            else:
+                notice = "Showing demo content. Add API keys in .env to see real results."
         if kind == "picture":
             items = demo_service.pictures(category, page, n, age)
         elif kind in ("video", "short"):
@@ -189,14 +192,17 @@ def serialise(items, profile_id):
     for i in items:
         att = json.loads(i.attribution_json or "{}")
         embed = None
-        if i.provider == "youtube":
-            embed = f"https://www.youtube-nocookie.com/embed/{i.provider_content_id}?rel=0&modestbranding=1"
+        video_id = (i.provider_content_id if i.provider == "youtube"
+                    else att.get("youtube_video_id") if i.provider == "demo" else None)
+        if video_id:
+            embed = f"https://www.youtube-nocookie.com/embed/{video_id}?rel=0&modestbranding=1"
         elif i.provider == "spotify":
             embed = f"https://open.spotify.com/embed/track/{i.provider_content_id}"
         # (titles saved earlier with &amp; are repaired here too)
         out.append({"id": i.id, "type": i.content_type, "title": html.unescape(i.title),
                     "thumb": thumb_for(i), "url": i.canonical_url,
-                    "provider": i.provider, "demo": i.provider == "demo", "embed": embed, "category": i.category,
+                    "provider": i.provider, "provider_content_id": i.provider_content_id,
+                    "video_id": video_id, "demo": i.provider == "demo", "embed": embed, "category": i.category,
                     "category_label": CATEGORIES.get(i.category, {}).get("label", i.category), "attribution": att,
                     "favorite": i.id in favs, "reaction": last.get(i.id)})
     return out
