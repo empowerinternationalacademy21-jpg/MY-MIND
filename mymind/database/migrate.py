@@ -1,7 +1,7 @@
 """Tiny migration runner. Add new functions to MIGRATIONS; each runs exactly once."""
 from sqlalchemy import text
 from database import db
-from database.models import Base, WorldAsset, Asset3D, ParentLink
+from database.models import Base, WorldAsset, Asset3D, ParentLink, ActivityEvent
 
 def m0001_initial(engine):
     Base.metadata.create_all(engine)
@@ -45,9 +45,14 @@ def m0006_child_age(engine):
     _add_missing_columns(engine, "child_profiles", [("age_years", "INTEGER")])
 
 
+def m0007_activity_events(engine):
+    """Append-only child activity, with stable client IDs for safely retried heartbeats."""
+    ActivityEvent.__table__.create(engine, checkfirst=True)
+
+
 MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_world_assets), (3, "ai 3d assets", m0003_assets3d),
               (4, "parent links", m0004_parent_links), (5, "id verification", m0005_id_verification),
-              (6, "child age", m0006_child_age)]
+              (6, "child age", m0006_child_age), (7, "activity events", m0007_activity_events)]
 
 def run_migrations():
     engine = db.get_engine()

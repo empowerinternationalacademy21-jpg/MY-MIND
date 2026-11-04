@@ -78,6 +78,8 @@
         var secs = raw.duration_seconds != null ? raw.duration_seconds : raw.duration;
         return {
             id: String(raw.id != null ? raw.id : (raw.item_id != null ? raw.item_id : yt)),
+            type: 'video',
+            provider: raw.provider || 'youtube',
             yt: yt,
             title: raw.title || 'Untitled video',
             channel: raw.channel || raw.channel_title || raw.author || '',
@@ -91,11 +93,12 @@
         };
     }
     function send(item, kind) {
-        return fetch(CONFIG.interactEndpoint, {
-            method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken(), 'X-CSRF-Token': csrfToken() },
-            body: JSON.stringify({ item_id: item.id, type: 'video', kind: kind })
-        }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
+        if (!window.MyMind) return Promise.reject(new Error('Actions are unavailable.'));
+        var contentId = Number(item.id);
+        if (kind === 'favorite' || kind === 'unfavorite') {
+            return window.MyMind.api('/api/favorite', { json: { content_id: contentId } });
+        }
+        return window.MyMind.api('/api/react', { json: { content_id: contentId, type: kind } });
     }
 
 
@@ -246,6 +249,7 @@
             toast('This video preview is not available to play.');
             return;
         }
+        if (window.MyMind.activity) window.MyMind.activity.startWatch(item);
         var f = document.createElement('iframe');
         f.className = 'vp-frame';
         f.src = CONFIG.embedBase + encodeURIComponent(item.yt) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1';
@@ -281,6 +285,11 @@
 
     /* ---------- selection ---------- */
     function select(item, scroll) {
+        var previous = state.featured;
+        if (previous && previous.id !== item.id) {
+            if (window.MyMind.activity) window.MyMind.activity.endWatch();
+            if (scroll && window.MyMind.activity) window.MyMind.activity.log('next', null, Number(previous.id));
+        }
         state.featured = item;
         renderStage(item); renderInfo(item);
         document.querySelectorAll('.vcard[data-id]').forEach(function (c) {
@@ -335,6 +344,7 @@
     function load(reset) {
         if (state.loading) return;
         if (reset) {
+            if (window.MyMind.activity) window.MyMind.activity.endWatch();
             state.page = 1; state.hasMore = true; state.seen = {}; state.count = 0;
             state.featured = null; state.token++;
             emptyMsg.classList.add('hidden'); skeletons();

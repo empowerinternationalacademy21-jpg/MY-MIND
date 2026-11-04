@@ -14,8 +14,166 @@
     let data = {};
     try { data = await r.json(); } catch (e) { }
     if (!r.ok) throw new Error(data.error || "Something went wrong.");
+    const path = url.split("?")[0], payload = o.json || {};
+    if (MM.activity && path === "/api/react") {
+      const eventType = payload.type === "skip" ? "next" : payload.type;
+      if (["like", "dislike", "next"].includes(eventType)) MM.activity.log(eventType, null, payload.content_id);
+    } else if (MM.activity && path === "/api/favorite" && data.favorite) {
+      MM.activity.log("favorite", null, payload.content_id);
+    }
     return data;
   };
+
+  /* ---------- buffered child activity ----------
+     Activity writes never gate content actions. Failed batches stay in session storage and retry quietly. */
+  MM.activity = (function () {
+    const enabled = body.dataset.app === "1";
+    const key = "mymind.activity.pending";
+    const validTypes = new Set(["view", "watch", "like", "dislike", "favorite", "search", "next"]);
+    let pending = [];
+    let timer = null, retryTimer = null, retryCount = 0, flushing = false, lastSearchAt = 0;
+    let currentStop = "", viewSession = null, watchSession = null;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(key) || "[]");
+      if (Array.isArray(saved)) pending = saved.filter((e) => e && typeof e.event_id === "string" && validTypes.has(e.event_type));
+    } catch (e) { pending = []; }
+
+    function persist() {
+      try { sessionStorage.setItem(key, JSON.stringify(pending)); } catch (e) { }
+    }
+    function eventId() {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      const bytes = new Uint8Array(16);
+      if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(bytes);
+      else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    }
+    function schedule(delay = 1000) {
+      if (!enabled || !pending.length || timer || retryTimer) return;
+      timer = setTimeout(() => { timer = null; flush(); }, delay);
+    }
+    function enqueue(event) {
+      if (!enabled) return;
+      const old = pending.findIndex((e) => e.event_id === event.event_id);
+      if (old >= 0) pending[old] = event;
+      else pending.push(event);
+      persist();
+      if (pending.length >= 20) schedule(0); else schedule();
+    }
+    async function flush(keepalive = false) {
+      if (!enabled || flushing || !pending.length) return;
+      flushing = true;
+      const batch = pending.slice(0, 50).map((e) => Object.assign({}, e));
+      try {
+        const response = await fetch("/api/activity-events", {
+          method: "POST", credentials: "same-origin", keepalive,
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+          body: JSON.stringify({ events: batch })
+        });
+        if (!response.ok) throw new Error("Activity request failed.");
+        const sent = new Map(batch.map((e) => [e.event_id, JSON.stringify(e)]));
+        pending = pending.filter((e) => sent.get(e.event_id) !== JSON.stringify(e));
+        retryCount = 0;
+        persist();
+      } catch (e) {
+        retryCount++;
+        if (!retryTimer) retryTimer = setTimeout(() => {
+          retryTimer = null;
+          flush();
+        }, Math.min(60000, 1000 * (2 ** Math.min(retryCount, 6))));
+      } finally {
+        flushing = false;
+        if (pending.length && !retryTimer) schedule(0);
+      }
+    }
+    function makeSession(type, stop, item) {
+      const contentId = item && Number(item.id);
+      const session = {
+        event_id: eventId(), event_type: type, stop,
+        content_id: Number.isSafeInteger(contentId) && contentId > 0 ? contentId : null,
+        duration_seconds: 0, elapsed: 0, runningSince: document.hidden ? null : Date.now(), lastSent: -1
+      };
+      return session;
+    }
+    function updateSession(session, force) {
+      if (!session) return;
+      const elapsed = session.elapsed + (session.runningSince == null ? 0 : Date.now() - session.runningSince);
+      const seconds = Math.floor(elapsed / 1000);
+      if (!force && seconds === session.lastSent) return;
+      session.lastSent = seconds;
+      enqueue({
+        event_id: session.event_id, event_type: session.event_type, stop: session.stop,
+        content_id: session.content_id, duration_seconds: seconds
+      });
+    }
+    function pauseSession(session) {
+      if (!session || session.runningSince == null) return;
+      session.elapsed += Date.now() - session.runningSince;
+      session.runningSince = null;
+      updateSession(session, true);
+    }
+    function resumeSession(session) {
+      if (session && session.runningSince == null && !document.hidden) session.runningSince = Date.now();
+    }
+    function finishView() { if (viewSession) { pauseSession(viewSession); viewSession = null; } }
+    function finishWatch() { if (watchSession) { pauseSession(watchSession); watchSession = null; } }
+
+    const api = {
+      log(type, stop, item) {
+        if (!enabled || !validTypes.has(type)) return;
+        if (type === "search") {
+          if (Date.now() - lastSearchAt < 2000) return;
+          lastSearchAt = Date.now();
+        }
+        const resolvedStop = stop || currentStop;
+        if (!resolvedStop) return;
+        const contentId = item && Number(typeof item === "object" ? item.id : item);
+        enqueue({
+          event_id: eventId(), event_type: type, stop: resolvedStop,
+          content_id: Number.isSafeInteger(contentId) && contentId > 0 ? contentId : null,
+          duration_seconds: 0
+        });
+      },
+      setStop(stop) {
+        if (!enabled || !stop || stop === currentStop) return;
+        finishView();
+        currentStop = stop;
+        viewSession = makeSession("view", stop);
+        updateSession(viewSession, true);
+      },
+      startWatch(item, stop) {
+        if (!enabled || !item || !item.id || !(stop || currentStop)) return;
+        finishWatch();
+        watchSession = makeSession("watch", stop || currentStop, item);
+        updateSession(watchSession, true);
+      },
+      endWatch: finishWatch
+    };
+
+    if (enabled) {
+      const initialStop = body.dataset.activityStop;
+      if (initialStop) api.setStop(initialStop);
+      const params = new URLSearchParams(location.search);
+      if (params.get("q")) api.log("search", null);
+      document.addEventListener("submit", (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('form[role="search"]')) return;
+        const input = form.querySelector('input[type="search"], input[name="q"], #q');
+        if (input && input.value.trim()) api.log("search", null);
+      }, true);
+      setInterval(() => { updateSession(viewSession, false); updateSession(watchSession, false); }, 15000);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) { pauseSession(viewSession); pauseSession(watchSession); }
+        else { resumeSession(viewSession); resumeSession(watchSession); }
+      });
+      window.addEventListener("pagehide", () => {
+        finishWatch(); finishView();
+        flush(true);
+      });
+      if (pending.length) schedule(0);
+    }
+    return api;
+  })();
 
   MM.toast = function (msg) {
     const box = document.getElementById("toasts");
@@ -228,6 +386,7 @@
     else if (item.embed) {
       box.appendChild(MM.player(item));
       if (item.provider === "youtube") box.appendChild(el("p", "tile__meta", "If the video does not start, use “Watch on YouTube” below."));
+      if (item.type === "video" || item.type === "short") MM.activity.startWatch(item);
     } else {
       const n = el("p", "notice"); n.append(ic("info"), el("span", null, "This is demo content, so there is nothing to play. Add API keys to see real videos and music.")); box.appendChild(n);
       if (item.thumb) { const img = el("img", "big"); img.src = item.thumb; img.alt = ""; box.appendChild(img); }
@@ -238,7 +397,11 @@
     }
     box.appendChild(MM.tools(item, null, { hideOnDislike: false, withFav: true }));
     dlg.showModal();
-    dlg.onclose = () => { box.replaceChildren(); if (item.embed && Date.now() - opened > 10000) MM.react(item, "watched"); };
+    dlg.onclose = () => {
+      box.replaceChildren();
+      if (item.type === "video" || item.type === "short") MM.activity.endWatch();
+      if (item.embed && Date.now() - opened > 10000) MM.react(item, "watched");
+    };
   };
 
   /* ---------- grid helpers ---------- */

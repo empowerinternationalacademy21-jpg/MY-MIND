@@ -25,6 +25,7 @@
 <body
   class="{{ 'reduced-motion ' if cg.reduced_motion }}{{ 'large-text ' if cg.large_text }}{{ 'high-contrast ' if cg.high_contrast }}{{ 'public' if not user }}{% block body_class %}{% endblock %}"
   data-app="{{ 1 if in_app and active != 'settings' else 0 }}"
+  data-activity-stop="{{ {'home':'home','pictures':'pictures','videos':'videos','shots':'shorts','music':'music','world':'home'}.get(active|default(''), '') if in_app else '' }}"
   data-screen="{{ cg.screen_time_minutes if in_app else 0 }}" data-speak="{{ 1 if cg.sound_labels else 0 }}">
   {% include "_icons.html" %}
   {% macro brandmark() %}<a class="brandmark" href="{{ url_for('auth.index') }}"

@@ -12,7 +12,7 @@
   const seen = new Set(), items = [], cards = new Map();
 
   // viewer state (the viewer is an endless, vertically snapping feed of full-screen slides)
-  let dlg = null, feed = null, count = null, activeObs = null, idx = 0, built = false, playTimer = null;
+  let dlg = null, feed = null, count = null, activeObs = null, idx = 0, lastActivityIdx = -1, built = false, playTimer = null;
   const states = new Map();                        // item id -> { item, el, stage, playing, timer }
 
   /* ---------- small helpers ---------- */
@@ -149,6 +149,8 @@
   function setActive(el) {
     const i = Array.prototype.indexOf.call(feed.children, el);
     if (i < 0) return;
+    if (lastActivityIdx >= 0 && i > lastActivityIdx) MM.activity.log("next", null, items[lastActivityIdx]);
+    lastActivityIdx = i;
     idx = i; updateCount();
     const st = states.get(el.dataset.id);
     states.forEach((other, id) => { if (other !== st) resetMedia(id); });   // pause every short that is not on screen
@@ -198,6 +200,7 @@
     if (explicit) MM.react(item, "selected");                       // only a deliberate tap counts as a choice, autoplay does not
     st.media.replaceChildren(embedFrame(item));
     st.playing = true; clearTimeout(st.timer);
+    MM.activity.startWatch(item);
     st.timer = setTimeout(() => MM.react(item, "watched"), 10000);  // "watched" = still on this short after 10 s
   }
   function scheduleAutoplay(st) {                                   // short delay so fast flicks do not start every video
@@ -210,7 +213,11 @@
   }
   function resetMedia(id) {
     const st = states.get(id);
-    if (st && st.playing) { clearTimeout(st.timer); st.playing = false; st.stage.replaceChildren(mediaFor(st)); }
+    if (st && st.playing) {
+      clearTimeout(st.timer); st.playing = false;
+      MM.activity.endWatch();
+      st.stage.replaceChildren(mediaFor(st));
+    }
   }
   function stopAll() { clearTimeout(playTimer); states.forEach((st, id) => resetMedia(id)); }
 
@@ -272,7 +279,7 @@
       items.forEach(addSlide); built = true;
     }
     if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
-    idx = i; updateCount();
+    idx = i; lastActivityIdx = i; updateCount();
     const jump = () => { const s = feed.children[i]; if (s) feed.scrollTop = s.offsetTop; };
     jump(); requestAnimationFrame(jump);                           // land exactly on the tapped short
     const st0 = states.get(items[i].id); if (AUTOPLAY && st0) scheduleAutoplay(st0);

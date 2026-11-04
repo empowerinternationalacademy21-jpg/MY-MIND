@@ -124,6 +124,23 @@ class Interaction(Base):
     __table_args__ = (Index("ix_inter_child_time", "child_profile_id", "occurred_at"),)
 
 
+class ActivityEvent(Base):
+    __tablename__ = "activity_events"
+    id = Column(Integer, primary_key=True)
+    child_id = Column(Integer, ForeignKey("child_profiles.id", ondelete="CASCADE"), nullable=False)
+    stop = Column(String(24), nullable=False)
+    content_id = Column(Integer, ForeignKey("content_items.id", ondelete="SET NULL"))
+    content_title = Column(String(300))
+    event_type = Column(String(12), nullable=False)  # view | watch | like | dislike | favorite | search | next
+    duration_seconds = Column(Integer, nullable=False, default=0)
+    client_event_id = Column(String(64), nullable=False, unique=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    content = relationship("ContentItem")
+    __table_args__ = (Index("ix_activity_child_time", "child_id", "created_at"),
+                      Index("ix_activity_child_stop_time", "child_id", "stop", "created_at"),
+                      Index("ix_activity_child_type_time", "child_id", "event_type", "created_at"))
+
+
 class Favorite(Base):
     __tablename__ = "favorites"
     id = Column(Integer, primary_key=True)

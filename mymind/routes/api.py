@@ -1,9 +1,11 @@
 """JSON endpoints used by the vanilla-JS front end. All require an active, onboarded caregiver."""
+import re
 from datetime import datetime, timedelta
-from flask import Blueprint, jsonify, request, g, abort
+from flask import Blueprint, jsonify, request, g, abort, current_app
+from sqlalchemy.exc import IntegrityError
 from database.db import Session
-from database.models import ContentItem, Favorite, Interaction, utcnow
-from services import content_service as cs, recommendation_service as rec, settings_service, age_service
+from database.models import ActivityEvent, ContentItem, Favorite, Interaction, utcnow
+from services import activity_service, content_service as cs, recommendation_service as rec, settings_service, age_service
 from services.categories import CATEGORIES, PICTURE_CATEGORIES
 from routes.helpers import subscribed_required
 
@@ -176,3 +178,76 @@ def favorite():
     Session.add(Favorite(child_profile_id=g.child.id, content_item_id=item.id)); Session.commit()
     rec.record_interaction(g.child.id, item, "favorite")
     return jsonify(ok=True, favorite=True)
+
+
+@bp.route("/activity-events", methods=["POST"])
+@subscribed_required
+def activity_events():
+    """Accept buffered events independently of child-facing actions; retry IDs make heartbeats idempotent."""
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify(error="Invalid activity batch."), 400
+    events = data.get("events")
+    if not isinstance(events, list) or not events or len(events) > 50:
+        return jsonify(error="Invalid activity batch."), 400
+
+    parsed, content_ids, event_ids = [], set(), set()
+    event_id_re = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
+    for event in events:
+        if not isinstance(event, dict):
+            return jsonify(error="Invalid activity event."), 400
+        event_type = event.get("event_type")
+        try:
+            stop = activity_service.normalize_stop(event.get("stop"))
+        except (TypeError, ValueError):
+            return jsonify(error="Invalid activity stop."), 400
+        event_id = event.get("event_id")
+        seconds = event.get("duration_seconds", 0)
+        content_id = event.get("content_id")
+        if (not isinstance(event_type, str) or event_type not in activity_service.EVENT_TYPES
+                or not isinstance(event_id, str) or not event_id_re.fullmatch(event_id)
+                or isinstance(seconds, bool) or not isinstance(seconds, int) or not 0 <= seconds <= 604800
+                or (content_id is not None and (isinstance(content_id, bool) or not isinstance(content_id, int)))
+                or event_id in event_ids):
+            return jsonify(error="Invalid activity event."), 400
+        event_ids.add(event_id)
+        if content_id is not None:
+            content_ids.add(content_id)
+        parsed.append((event_id, stop, event_type, seconds, content_id))
+
+    content = {item.id: item for item in Session.query(ContentItem).filter(ContentItem.id.in_(content_ids)).all()} if content_ids else {}
+    if len(content) != len(content_ids):
+        return jsonify(error="Unknown content item."), 400
+    if any(event_type == "watch" and content_id is not None
+           and content[content_id].content_type not in ("video", "short")
+           for _, _, event_type, _, content_id in parsed):
+        return jsonify(error="Invalid watched content."), 400
+
+    ids = [row[0] for row in parsed]
+    existing = {row.client_event_id: row for row in
+                Session.query(ActivityEvent).filter(ActivityEvent.client_event_id.in_(ids)).all()}
+    if any(row.child_id != g.child.id for row in existing.values()):
+        return jsonify(error="Invalid activity event."), 400
+
+    for event_id, stop, event_type, seconds, content_id in parsed:
+        row = existing.get(event_id)
+        item = content.get(content_id)
+        if row:
+            if row.event_type != event_type or row.stop != stop:
+                return jsonify(error="Invalid activity event."), 400
+            if event_type in ("watch", "view"):
+                row.duration_seconds = max(row.duration_seconds, seconds)
+            continue
+        Session.add(ActivityEvent(
+            child_id=g.child.id, stop=stop, content_id=content_id,
+            content_title=item.title if item else None, event_type=event_type,
+            duration_seconds=seconds, client_event_id=event_id,
+        ))
+
+    try:
+        Session.commit()
+    except IntegrityError:
+        Session.rollback()
+        current_app.logger.warning("activity batch conflicted during retry")
+        return jsonify(error="Activity is temporarily unavailable."), 503
+    return jsonify(ok=True, accepted=len(parsed))

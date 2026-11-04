@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, jsonify, abort
 from sqlalchemy import func
 from database.db import Session
-from database.models import Interaction, DailyActivity, InterestProfile, Favorite, ContentItem, utcnow
+from database.models import ActivityEvent, Interaction, DailyActivity, InterestProfile, Favorite, ContentItem, utcnow
 from services import recommendation_service as rec
 from services.categories import label_for
 from routes.helpers import subscribed_required
@@ -148,13 +148,16 @@ def delete_activity(act_id):
 def clear():
     scope = request.form.get("scope")
     q = Session.query(Interaction).filter(Interaction.child_profile_id == g.child.id)
+    activity = Session.query(ActivityEvent).filter(ActivityEvent.child_id == g.child.id)
     if scope == "day":
         d = parse_day(request.form.get("date")) or abort(400)
         a, b = day_range(d)
         q = q.filter(Interaction.occurred_at >= a, Interaction.occurred_at < b)
+        activity = activity.filter(ActivityEvent.created_at >= a, ActivityEvent.created_at < b)
     elif scope != "all":
         abort(400)
     n = q.delete(synchronize_session=False)
+    n += activity.delete(synchronize_session=False)
     Session.commit()
     flash(f"Deleted {n} app activity record(s). Interest scores are kept; reset them in My World if you wish.", "success")
     return redirect(url_for("journey.view"))

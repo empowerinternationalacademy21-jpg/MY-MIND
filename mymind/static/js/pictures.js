@@ -78,7 +78,15 @@
       body: JSON.stringify(favorite
         ? { content_id: Number(item.id) }
         : { content_id: Number(item.id), type: kind === 'open' ? 'selected' : kind })
-    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (window.MyMind && window.MyMind.activity) {
+        if (kind === 'favorite') window.MyMind.activity.log('favorite', null, Number(item.id));
+        else if (kind === 'like' || kind === 'dislike') window.MyMind.activity.log(kind, null, Number(item.id));
+        else if (kind === 'skip') window.MyMind.activity.log('next', null, Number(item.id));
+      }
+      return r;
+    });
   }
 
   /* ---------- favourites strip ---------- */
@@ -259,6 +267,7 @@
   function runSearch() {
     var v = searchInput.value.trim();
     if (v === state.q) return;
+    if (v && window.MyMind && window.MyMind.activity) window.MyMind.activity.log('search');
     state.q = v; state.loading = false; load(true);
   }
   searchForm.addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(debounce); runSearch(); });

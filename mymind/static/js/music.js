@@ -61,11 +61,18 @@
     }
 
     async function playNext() {
-        if (current < queue.length - 1) return play(queue[current + 1]);
+        const previous = queue[current];
+        if (current < queue.length - 1) {
+            if (previous) MM.activity.log("next", null, previous.id);
+            return play(queue[current + 1]);
+        }
         if (loading) { MM.toast("Loading more songs…"); return; }
         if (done) { MM.toast("That's all for now."); return; }
         const before = queue.length; await next();
-        if (queue.length > before) play(queue[before]); else MM.toast("No more songs right now.");
+        if (queue.length > before) {
+            if (previous) MM.activity.log("next", null, previous.id);
+            play(queue[before]);
+        } else MM.toast("No more songs right now.");
     }
     const playPrev = () => { if (current > 0) play(queue[current - 1]); else MM.toast("This is the first song."); };
 

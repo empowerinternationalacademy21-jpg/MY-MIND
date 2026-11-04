@@ -178,6 +178,7 @@
   function offset() { return { x: 0, z: 3.4 }; }                          // the sheet covers the lower part of the map, so the island sits in the upper part
   function openStop(key, from) {
     var s = STOPS()[key]; if (!s) return;
+    MM.activity.setStop(key);
     closeGear(true);
     lastFocus = from || lastFocus || document.activeElement; openKey = key; tick();
     if (scene) scene.focus(key, offset());
@@ -194,6 +195,7 @@
   function closeSheet(quiet) {
     if (!openKey && !quiet) return;
     openKey = null; sheetFriends = null; sheet.hidden = true; sheet.replaceChildren(); stage.classList.remove("sheet-open");
+    MM.activity.setStop("home");
     if (window.MMAsset3D) window.MMAsset3D.closeAll();
     if (scene) scene.unfocus();
     if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
