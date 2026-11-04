@@ -41,11 +41,14 @@ def create_app(test_config=None):
     @app.before_request
     def load_user():
         g.user = None
+        g.auth_role = None
         uid = session.get("uid")
         if uid:
             user = Session.get(User, uid)
             if user and user.account_status == "active":
                 g.user = user
+                stored_role = session.get("login_role")
+                g.auth_role = stored_role if stored_role in ("caregiver", "child") else user.role
             else:
                 session.clear()
                 if user:
@@ -105,7 +108,8 @@ def create_app(test_config=None):
         if g.get("user") and g.user.role == "caregiver":
             from routes.helpers import child_of
             child = child_of(g.user)
-        return dict(csrf_token=csrf_token, brand=BRAND, footer_text=FOOTER, user=g.get("user"), cg=cg, child_profile=child,
+        return dict(csrf_token=csrf_token, brand=BRAND, footer_text=FOOTER, user=g.get("user"), auth_role=g.get("auth_role"),
+                    cg=cg, child_profile=child,
                     tagline=settings_service.get("brand_tagline") or "Your thoughts. Your world.")
 
     def icon(name, cls=""):

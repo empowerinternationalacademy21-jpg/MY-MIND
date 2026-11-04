@@ -107,8 +107,10 @@
       toolbar.append(btn("w3d-tool", null, "plus", function () { scene && scene.zoomBy(0.8); }, "Zoom in"), btn("w3d-tool", null, "minus", function () { scene && scene.zoomBy(1.25); }, "Zoom out"),
         btn("w3d-tool", null, "locate-fixed", function () { closeSheet(); scene && scene.reset(); }, "Show the whole map"));
     }
-    var g = btn("w3d-tool w3d-tool--gear", null, "sliders-horizontal", function () { toggleGear(); }, "World settings (for caregivers)");
-    g.id = "w3d-gear-btn"; g.setAttribute("aria-expanded", "false"); g.setAttribute("aria-controls", "w3d-gear"); toolbar.appendChild(g);
+    if (document.body.dataset.role !== "child") {
+      var g = btn("w3d-tool w3d-tool--gear", null, "sliders-horizontal", function () { toggleGear(); }, "World settings (for caregivers)");
+      g.id = "w3d-gear-btn"; g.setAttribute("aria-expanded", "false"); g.setAttribute("aria-controls", "w3d-gear"); toolbar.appendChild(g);
+    }
   }
 
   // ------------------------------------------------------------------ 3D labels

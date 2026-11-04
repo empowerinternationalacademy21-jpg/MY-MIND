@@ -38,10 +38,12 @@ def has_questionnaire(child):
     return bool(child and Session.query(CaregiverQuestionnaire).filter_by(child_profile_id=child.id).first())
 
 
-def next_step(user):
+def next_step(user, login_role=None):
     """Where should this account go next? Used after login and by guards."""
     if user.role == "admin":
         return "admin.dashboard"
+    if login_role == "child":
+        return "profile.world"
     if verification_service.needs_verification(user):
         return "verification.start"                  # 18+ check comes before plans, trial, questionnaire and the feed
     state = payment_service.access_state(user.id)
@@ -59,8 +61,23 @@ def login_required(f):
             if wants_json():
                 return jsonify(error="Please log in."), 401
             return redirect(url_for("auth.login", next=request.path))
+        if _child_session() and request.endpoint not in CHILD_ENDPOINTS:
+            abort(403)
         return f(*a, **kw)
     return wrapper
+
+
+CHILD_ENDPOINTS = {
+    "feed.home", "feed.explore", "pictures.page", "videos.page", "shots.page", "music.page",
+    "api.pictures", "api.videos", "api.shots", "api.music", "api.feed", "api.favorites", "api.recent",
+    "api.related", "api.react", "api.favorite", "api.activity_events",
+    "profile.world", "world.asset_file", "world.api_assets", "world.asset3d_file",
+    "world.api_world", "world.api_world_stop",
+}
+
+
+def _child_session():
+    return getattr(g, "auth_role", None) == "child"
 
 
 def admin_required(f):
@@ -82,10 +99,15 @@ def caregiver_required(f):
     @wraps(f)
     @login_required
     def wrapper(*a, **kw):
+        if _child_session():
+            abort(403)
         if g.user.role != "caregiver":
             return redirect(url_for("admin.dashboard"))
         if verification_service.needs_verification(g.user) and request.endpoint not in VERIFY_EXEMPT:
             return deny("Please confirm you are 18 or older first.", "verification.start")
+        if (g.user.caretaker_pin_enabled and not session.get("caretaker_pin_verified")
+                and request.endpoint != "auth.caretaker_pin"):
+            return deny("Enter your caretaker PIN to continue.", "auth.caretaker_pin")
         return f(*a, **kw)
     return wrapper
 
@@ -93,8 +115,24 @@ def caregiver_required(f):
 def subscribed_required(f):
     """Active admin-approved subscription AND completed onboarding. Checked server-side on every request."""
     @wraps(f)
-    @caregiver_required
+    @login_required
     def wrapper(*a, **kw):
+        if g.user.role != "caregiver":
+            abort(403)
+        if _child_session():
+            if request.endpoint not in CHILD_ENDPOINTS:
+                abort(403)
+            g.child = child_of(g.user)
+            if not g.child or not has_questionnaire(g.child):
+                abort(403)
+            if payment_service.access_state(g.user.id) != "active":
+                abort(403)
+            return f(*a, **kw)
+        if verification_service.needs_verification(g.user) and request.endpoint not in VERIFY_EXEMPT:
+            return deny("Please confirm you are 18 or older first.", "verification.start")
+        if (g.user.caretaker_pin_enabled and not session.get("caretaker_pin_verified")
+                and request.endpoint != "auth.caretaker_pin"):
+            return deny("Enter your caretaker PIN to continue.", "auth.caretaker_pin")
         state = payment_service.access_state(g.user.id)
         if state != "active":
             return deny("An active subscription is required.", "subscriptions.status")

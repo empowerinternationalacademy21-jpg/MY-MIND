@@ -184,6 +184,8 @@ def favorite():
 @subscribed_required
 def activity_events():
     """Accept buffered events independently of child-facing actions; retry IDs make heartbeats idempotent."""
+    if g.auth_role != "child":
+        return jsonify(error="Not allowed."), 403
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
         return jsonify(error="Invalid activity batch."), 400

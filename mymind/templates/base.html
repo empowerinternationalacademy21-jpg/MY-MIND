@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
   {% block head_extra %}{% endblock %}
 </head>
-{% set in_app = active is defined and user and user.role == 'caregiver' %}
+{% set in_app = active is defined and user and user.role == 'caregiver' and auth_role in ['caregiver', 'child'] %}
 {% set is_admin = user and user.role == 'admin' %}
 {% set main_nav =
 [('home','feed.home','house','Home'),('pictures','pictures.page','image','Pictures'),('videos','videos.page','clapperboard','Videos'),('shots','shots.page','smartphone','Shots'),('music','music.page','music','Music')]
@@ -24,8 +24,9 @@
 
 <body
   class="{{ 'reduced-motion ' if cg.reduced_motion }}{{ 'large-text ' if cg.large_text }}{{ 'high-contrast ' if cg.high_contrast }}{{ 'public' if not user }}{% block body_class %}{% endblock %}"
-  data-app="{{ 1 if in_app and active != 'settings' else 0 }}"
-  data-activity-stop="{{ {'home':'home','pictures':'pictures','videos':'videos','shots':'shorts','music':'music','world':'home'}.get(active|default(''), '') if in_app else '' }}"
+  data-role="{{ auth_role or '' }}"
+  data-app="{{ 1 if in_app and auth_role == 'child' and active != 'settings' else 0 }}"
+  data-activity-stop="{{ {'home':'home','pictures':'pictures','videos':'videos','shots':'shorts','music':'music','world':'home'}.get(active|default(''), '') if in_app and auth_role == 'child' else '' }}"
   data-screen="{{ cg.screen_time_minutes if in_app else 0 }}" data-speak="{{ 1 if cg.sound_labels else 0 }}">
   {% include "_icons.html" %}
   {% macro brandmark() %}<a class="brandmark" href="{{ url_for('auth.index') }}"
@@ -37,14 +38,15 @@
     <header class="topbar">
       {% if active == 'home' %}{{ brandmark() }}{% block topbar_search %}{% endblock %}<span style="flex:1"></span>
       <nav class="right" aria-label="Quick links">
-        <a class="iconbtn" href="{{ url_for('journey.view') }}" aria-label="My Journey">{{ icon('calendar') }}</a>
+        {% if auth_role != 'child' %}<a class="iconbtn" href="{{ url_for('journey.view') }}" aria-label="My Journey">{{ icon('calendar') }}</a>{% endif %}
         <a class="iconbtn" href="{{ url_for('profile.world') }}" aria-label="My World">{{ icon('user-round') }}</a>
-        <a class="iconbtn" href="{{ url_for('profile.settings') }}" aria-label="Settings">{{ icon('settings') }}</a>
+        {% if auth_role != 'child' %}<a class="iconbtn" href="{{ url_for('profile.settings') }}" aria-label="Settings">{{ icon('settings') }}</a>{% endif %}
+        {% if auth_role == 'child' %}<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Log out">{{ icon('log-out') }}</button></form>{% endif %}
       </nav>
       {% else %}
       <a class="iconbtn" href="{{ url_for('feed.home') }}" aria-label="Back to Home">{{ icon('chevron-left') }}</a>
       <div class="title">{% block topbar_title %}{{ self.title() }}{% endblock %}</div>
-      <a class="iconbtn" href="{{ url_for('profile.settings') }}" aria-label="Settings">{{ icon('settings') }}</a>
+      {% if auth_role != 'child' %}<a class="iconbtn" href="{{ url_for('profile.settings') }}" aria-label="Settings">{{ icon('settings') }}</a>{% endif %}
       {% endif %}
     </header>
     {% elif is_admin %}

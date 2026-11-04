@@ -14,8 +14,11 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     username = Column(String(40), nullable=False, unique=True)   # normalised (lower-case)
+    child_username = Column(String(30), unique=True)             # second login name; shares this account's password hash
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default="caregiver")  # caregiver | admin
+    caretaker_pin_hash = Column(String(255))
+    caretaker_pin_enabled = Column(Boolean, nullable=False, default=False)
     account_status = Column(String(20), nullable=False, default="active")  # active | suspended
     deletion_requested_at = Column(DateTime)
     # ---- ID verification (18+ caretaker). Only the OUTCOME is stored: never a name, email, date of birth or document number ----

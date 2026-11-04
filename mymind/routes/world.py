@@ -45,7 +45,9 @@ def asset3d_file(asset_id, which):
     if not row:
         abort(404)
     if g.user.role != "admin":
-        if g.user.role != "caregiver" or verification_service.needs_verification(g.user) or row.status != "published" or which == "concept":
+        if (g.user.role != "caregiver" or g.auth_role not in ("caregiver", "child")
+                or (g.auth_role == "caregiver" and verification_service.needs_verification(g.user))
+                or row.status != "published" or which == "concept"):
             abort(404)
     name = a3d_library.filename_for(row, which)
     if not name or not re.match(r"^[A-Za-z0-9._-]+$", name):

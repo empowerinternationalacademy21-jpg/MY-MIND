@@ -50,9 +50,30 @@ def m0007_activity_events(engine):
     ActivityEvent.__table__.create(engine, checkfirst=True)
 
 
+def m0008_family_login(engine):
+    """Add the second family username and optional caretaker PIN without changing existing password hashes."""
+    _add_missing_columns(engine, "users", [
+        ("child_username", "VARCHAR(30)"), ("caretaker_pin_hash", "VARCHAR(255)"),
+        ("caretaker_pin_enabled", "BOOLEAN NOT NULL DEFAULT 0")])
+    with engine.begin() as c:
+        rows = c.execute(text("SELECT id, username FROM users WHERE role = 'caregiver' AND child_username IS NULL")).all()
+        used = {r[0] for r in c.execute(text("SELECT username FROM users WHERE username IS NOT NULL")).all()}
+        used.update(r[0] for r in c.execute(text("SELECT child_username FROM users WHERE child_username IS NOT NULL")).all())
+        for user_id, username in rows:
+            stem = "".join(ch for ch in username.lower() if ch.isalnum() or ch in "._")[:23] or "friend"
+            candidate, suffix = f"{stem}.child", 2
+            while candidate in used:
+                candidate = f"{stem[:max(1, 29 - len(str(suffix)))]}.{suffix}"
+                suffix += 1
+            c.execute(text("UPDATE users SET child_username = :name WHERE id = :id"), {"name": candidate, "id": user_id})
+            used.add(candidate)
+        c.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_child_username ON users(child_username)"))
+
+
 MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_world_assets), (3, "ai 3d assets", m0003_assets3d),
               (4, "parent links", m0004_parent_links), (5, "id verification", m0005_id_verification),
-              (6, "child age", m0006_child_age), (7, "activity events", m0007_activity_events)]
+              (6, "child age", m0006_child_age), (7, "activity events", m0007_activity_events),
+              (8, "family login", m0008_family_login)]
 
 def run_migrations():
     engine = db.get_engine()

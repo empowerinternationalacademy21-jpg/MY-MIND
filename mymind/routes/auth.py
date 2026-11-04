@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, current_app
 from database.db import Session
 from services import auth_service, cache, payment_service, recovery_service, settings_service, verification_service
-from routes.helpers import next_step
+from routes.helpers import next_step, login_required, caregiver_required, child_of, has_questionnaire
 
 bp = Blueprint("auth", __name__)
 
@@ -9,7 +9,7 @@ bp = Blueprint("auth", __name__)
 @bp.route("/")
 def index():
     if g.user:
-        return redirect(url_for(next_step(g.user)))
+        return redirect(url_for(next_step(g.user, g.auth_role)))
     return render_template("landing.html", plans=settings_service.plans(), trial_days=payment_service.trial_days())
 
 
@@ -29,6 +29,7 @@ def register():
             return render_template("register.html", username=request.form.get("username", "")), 400
         session.clear()
         session["uid"] = user.id
+        session["login_role"] = "caregiver"
         session.permanent = True
         if verification_service.required():
             flash("Welcome to MyMind! One more step: please confirm you are 18 or older.", "success")
@@ -45,7 +46,11 @@ def register():
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if g.user:
-        return redirect(url_for(next_step(g.user)))
+        if g.auth_role == "child":
+            return redirect(url_for("profile.world"))
+        if g.user.role == "caregiver":
+            return redirect(url_for("auth.caretaker_pin" if g.user.caretaker_pin_enabled and not session.get("caretaker_pin_verified") else "auth.caretaker"))
+        return redirect(url_for(next_step(g.user, g.auth_role)))
     if request.method == "POST":
         c = current_app.config
         uname = auth_service.normalize_username(request.form.get("username"))
@@ -53,7 +58,7 @@ def login():
         if cache.rate_peek(key, c["LOGIN_MAX_ATTEMPTS"], c["LOGIN_WINDOW_SECONDS"]):
             flash("Too many attempts. Please wait a few minutes and try again.", "error")
             return render_template("login.html"), 429
-        user = auth_service.authenticate(uname, request.form.get("password", ""))
+        user, login_role = auth_service.authenticate_identity(uname, request.form.get("password", ""))
         if not user:
             cache.rate_limited(key, c["LOGIN_MAX_ATTEMPTS"], c["LOGIN_WINDOW_SECONDS"])   # count failures only
             flash("Incorrect username or password.", "error")
@@ -64,12 +69,48 @@ def login():
         cache.rate_reset(key)
         session.clear()
         session["uid"] = user.id
+        session["login_role"] = login_role
+        session["caretaker_pin_verified"] = login_role != "caregiver" or not user.caretaker_pin_enabled
         session.permanent = request.form.get("remember") == "on"   # "Remember me": persistent cookie only if ticked
-        nxt = request.args.get("next", "")
-        if nxt.startswith("/") and not nxt.startswith("//"):
-            return redirect(nxt)
-        return redirect(url_for(next_step(user)))
+        if login_role == "child":
+            return redirect(url_for("profile.world"))
+        if login_role == "caregiver":
+            if user.caretaker_pin_enabled:
+                return redirect(url_for("auth.caretaker_pin"))
+            return redirect(url_for("auth.caretaker"))
+        return redirect(url_for(next_step(user, login_role)))
     return render_template("login.html")
+
+
+@bp.route("/caretaker")
+@caregiver_required
+def caretaker():
+    child = child_of(g.user)
+    state = payment_service.access_state(g.user.id)
+    setup = "verification" if verification_service.needs_verification(g.user) else (
+        "subscription" if state != "active" else "onboarding" if not has_questionnaire(child) else "ready")
+    return render_template("caretaker.html", child=child, setup=setup)
+
+
+@bp.route("/caretaker-pin", methods=["GET", "POST"])
+@login_required
+def caretaker_pin():
+    if g.user.role != "caregiver" or g.auth_role != "caregiver":
+        return render_template("error.html", code=403, msg="You don't have access to this page."), 403
+    if not g.user.caretaker_pin_enabled:
+        session["caretaker_pin_verified"] = True
+        return redirect(url_for("auth.caretaker"))
+    key = f"caretaker-pin:{g.user.id}:{request.remote_addr}"
+    if request.method == "POST":
+        if cache.rate_peek(key, 5, 300):
+            return render_template("caretaker_pin.html", locked=True), 429
+        if auth_service.verify_password(g.user.caretaker_pin_hash or "", request.form.get("pin", "")):
+            cache.rate_reset(key)
+            session["caretaker_pin_verified"] = True
+            return redirect(url_for("auth.caretaker"))
+        cache.rate_limited(key, 5, 300)
+        return render_template("caretaker_pin.html", error="That PIN isn't right."), 401
+    return render_template("caretaker_pin.html")
 
 
 @bp.route("/logout", methods=["POST"])

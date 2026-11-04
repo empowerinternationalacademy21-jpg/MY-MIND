@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, Response, session
 from database.db import Session
@@ -145,6 +146,54 @@ def settings():
                            plans=settings_service.plans(), admin_contact=settings_service.payment_display())
 
 
+@bp.route("/settings/account", methods=["GET", "POST"])
+@caregiver_required
+def account_settings():
+    if request.method == "POST":
+        f = request.form
+        pin_enabled = "caretaker_pin_enabled" in f
+        new_pin = (f.get("new_pin") or "").strip()
+        current_pin = (f.get("current_pin") or "").strip()
+
+        if g.user.caretaker_pin_enabled and not auth_service.verify_password(g.user.caretaker_pin_hash or "", current_pin):
+            flash("Current caretaker PIN is incorrect.", "error")
+            return render_template("account_settings.html", active="settings"), 400
+        if pin_enabled and (new_pin or not g.user.caretaker_pin_enabled) and not re.fullmatch(r"\d{4,6}", new_pin):
+            flash("Caretaker PIN must be 4–6 digits.", "error")
+            return render_template("account_settings.html", active="settings"), 400
+        if f.get("new_password") or f.get("confirm_password"):
+            try:
+                auth_service.validate_password(f.get("new_password", ""), f.get("caretaker_username", ""))
+                if f.get("child_username", "").strip().lower() in f.get("new_password", "").lower():
+                    raise auth_service.AuthError("Password must not contain the child username.")
+                if f.get("new_password") != f.get("confirm_password"):
+                    raise auth_service.AuthError("New passwords do not match.")
+            except auth_service.AuthError as exc:
+                flash(str(exc), "error")
+                return render_template("account_settings.html", active="settings"), 400
+
+        try:
+            auth_service.update_family_credentials(
+                g.user, f.get("caretaker_username"), f.get("child_username"), f.get("current_password", ""),
+                f.get("new_password", ""), f.get("confirm_password", ""))
+        except auth_service.AuthError as exc:
+            flash(str(exc), "error")
+            return render_template("account_settings.html", active="settings"), 400
+
+        if pin_enabled:
+            if new_pin:
+                g.user.caretaker_pin_hash = auth_service.hash_password(new_pin)
+            g.user.caretaker_pin_enabled = True
+        else:
+            g.user.caretaker_pin_hash = None
+            g.user.caretaker_pin_enabled = False
+            session["caretaker_pin_verified"] = True
+        Session.commit()
+        flash("Family login settings saved.", "success")
+        return redirect(url_for("profile.account_settings"))
+    return render_template("account_settings.html", active="settings")
+
+
 @bp.route("/settings/preferences", methods=["POST"])
 @caregiver_required
 def save_preferences():
@@ -187,6 +236,8 @@ def change_password():
     else:
         try:
             auth_service.validate_password(f.get("new", ""), g.user.username)
+            if g.user.child_username and g.user.child_username in f.get("new", "").lower():
+                raise auth_service.AuthError("Password must not contain the child username.")
             if f.get("new") != f.get("confirm"):
                 raise auth_service.AuthError("New passwords do not match.")
             g.user.password_hash = auth_service.hash_password(f["new"]); Session.commit()

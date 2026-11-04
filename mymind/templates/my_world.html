@@ -84,7 +84,7 @@
   {% else %}<p class="world-empty-note">Your favorite pictures, videos and songs will collect here.</p>{% endif %}
 </section>
 
-<details class="world-details">
+{% if auth_role != 'child' %}<details class="world-details">
   <summary>{{ icon('sliders-horizontal') }} Interest settings and family notes</summary>
   <div class="world-details__body">
     <section class="world-detail-section">
@@ -133,6 +133,7 @@
         value="{{ csrf_token() }}"><button class="btn red block" type="submit">Reset interests</button></form>
   </div>
 </details>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='vendor/three-gltf.min.js') }}"></script>
