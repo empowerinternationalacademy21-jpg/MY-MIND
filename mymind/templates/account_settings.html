@@ -1,0 +1,49 @@
+{% extends "base.html" %}{% block title %}Family login settings{% endblock %}
+{% block content %}
+<section class="auth-panel" aria-labelledby="account-title">
+  <div class="auth-heading">
+    <span class="auth-heading__icon">{{ icon('shield-check') }}</span>
+    <p class="auth-eyebrow">Caretaker settings</p>
+    <h1 id="account-title">Family login</h1>
+    <p>Use one shared password with separate caretaker and child usernames.</p>
+  </div>
+  <form method="post" class="auth-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="caretaker-username">Caretaker username</label>
+      <input id="caretaker-username" name="caretaker_username" type="text" minlength="3" maxlength="30"
+        pattern="[A-Za-z0-9._]{3,30}" autocomplete="username" required value="{{ user.username }}">
+    </div>
+    <div class="field"><label for="child-username">Child username</label>
+      <input id="child-username" name="child_username" type="text" minlength="3" maxlength="30"
+        pattern="[A-Za-z0-9._]{3,30}" autocomplete="off" required value="{{ user.child_username }}">
+    </div>
+    <p class="hint">Usernames are private to the caretaker and are never shown in the child's world. Changing the password updates both logins.</p>
+    <div class="field"><label for="current-password">Current shared password</label>
+      <input id="current-password" name="current_password" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="field"><label for="new-password">New shared password <span class="muted">(optional)</span></label>
+      <input id="new-password" name="new_password" type="password" autocomplete="new-password" minlength="10">
+      <p class="hint">At least 10 characters, including a letter and a number.</p>
+    </div>
+    <div class="field"><label for="confirm-password">Confirm new password</label>
+      <input id="confirm-password" name="confirm_password" type="password" autocomplete="new-password">
+    </div>
+
+    <hr>
+    <h2>Caretaker PIN</h2>
+    <p class="hint">When enabled, this extra PIN is required after the shared password before opening caretaker pages.</p>
+    <label class="choice"><input type="checkbox" name="caretaker_pin_enabled" value="on"
+      {% if user.caretaker_pin_enabled %}checked{% endif %}><span>Require a caretaker PIN</span></label>
+    {% if user.caretaker_pin_enabled %}
+    <div class="field"><label for="current-pin">Current caretaker PIN</label>
+      <input id="current-pin" name="current_pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" autocomplete="off" required>
+    </div>
+    {% endif %}
+    <div class="field"><label for="new-pin">New PIN <span class="muted">(leave blank to keep the current PIN)</span></label>
+      <input id="new-pin" name="new_pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" autocomplete="new-password">
+    </div>
+    <button class="btn primary block" type="submit">Save family login settings</button>
+  </form>
+  <p class="auth-switch"><a href="{{ url_for('profile.settings') }}">Back to settings</a></p>
+</section>
+{% endblock %}

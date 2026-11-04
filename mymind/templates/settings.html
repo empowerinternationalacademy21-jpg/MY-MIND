@@ -2,6 +2,7 @@
 {% macro sec(icon_name, label, sub='') %}<summary class="row">{{ '' }}<span class="bub">{{ icon(icon_name) }}</span><span class="grow">{{ label }}{% if sub %}<span class="sub">{{ sub }}</span>{% endif %}</span><span class="go">{{ icon('chevron-right') }}</span></summary>{% endmacro %}
 {% block content %}
 <p class="muted small">Signed in as <b>{{ user.username }}</b></p>
+<p><a class="btn small" href="{{ url_for('profile.account_settings') }}">Caretaker and child login settings</a></p>
 <form method="post" action="{{ url_for('profile.save_preferences') }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="rows">

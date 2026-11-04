@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Caretaker dashboard{% endblock %}
+{% block content %}
+<section class="card-box" aria-labelledby="caretaker-title">
+  <p class="muted small">Caretaker space</p>
+  <h1 id="caretaker-title">Your family's dashboard</h1>
+  {% if setup == 'verification' %}
+  <p>Complete the caretaker age check to continue setting up your account.</p>
+  <a class="btn primary" href="{{ url_for('verification.start') }}">Continue age check</a>
+  {% elif setup == 'subscription' %}
+  <p>Choose and activate a plan to open your child's world.</p>
+  <a class="btn primary" href="{{ url_for('subscriptions.status') }}">View plans</a>
+  {% elif setup == 'onboarding' %}
+  <p>Finish the caregiver questionnaire to prepare your child's world.</p>
+  <a class="btn primary" href="{{ url_for('onboarding.onboarding') }}">Finish setup</a>
+  {% else %}
+  <p>{% if child %}{{ child.display_name }}'s activity and world will be available here.{% else %}Your child's profile is ready.{% endif %}</p>
+  <p class="notice">The activity dashboard is being prepared for the next MyMind update.</p>
+  <a class="btn" href="{{ url_for('profile.settings') }}">Caretaker settings</a>
+  <a class="btn" href="{{ url_for('profile.world') }}">Preview My World</a>
+  {% endif %}
+</section>
+{% endblock %}

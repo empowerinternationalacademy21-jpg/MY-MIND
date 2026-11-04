@@ -188,6 +188,8 @@ def account_settings():
             g.user.caretaker_pin_hash = None
             g.user.caretaker_pin_enabled = False
             session["caretaker_pin_verified"] = True
+        if g.user.caretaker_pin_enabled:
+            session["caretaker_pin_verified"] = False
         Session.commit()
         flash("Family login settings saved.", "success")
         return redirect(url_for("profile.account_settings"))
