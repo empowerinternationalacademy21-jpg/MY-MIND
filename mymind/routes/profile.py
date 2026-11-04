@@ -158,7 +158,7 @@ def account_settings():
         if g.user.caretaker_pin_enabled and not auth_service.verify_password(g.user.caretaker_pin_hash or "", current_pin):
             flash("Current caretaker PIN is incorrect.", "error")
             return render_template("account_settings.html", active="settings"), 400
-        if pin_enabled and (new_pin or not g.user.caretaker_pin_enabled) and not re.fullmatch(r"\d{4,6}", new_pin):
+        if pin_enabled and (new_pin or not g.user.caretaker_pin_enabled) and not re.fullmatch(r"[0-9]{4,6}", new_pin):
             flash("Caretaker PIN must be 4–6 digits.", "error")
             return render_template("account_settings.html", active="settings"), 400
         if f.get("new_password") or f.get("confirm_password"):
