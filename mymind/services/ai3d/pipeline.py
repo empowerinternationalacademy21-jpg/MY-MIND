@@ -54,6 +54,69 @@ def create_job(admin, archetype, options, provider_name, name="", caption="", fl
     return job
 
 
+MANUAL_MAX_TRIANGLES = 400_000          # hard stop: far beyond what a phone can draw
+
+
+def add_manual(admin, archetype, raw, name="", caption="", publish=False, make_default=False):
+    """An administrator's OWN model (made in Blender or any free tool), exported as a self-contained .glb. It is validated,
+    optionally web-optimised and stored privately. With publish=True (the admin upload form's default) it goes live in My World at once;
+    otherwise it waits in REVIEW like an AI model. An island base can also become the default island everyone sees until they choose another."""
+    try:
+        info = safe_prompts.archetype_info(archetype)
+        name = safe_prompts.check_label(name, "name")[:80]
+        caption = safe_prompts.check_label(caption, "caption")[:240]
+    except safe_prompts.PromptRefused as exc:
+        raise PipelineError(str(exc))
+    limit = current_app.config["AI3D_MANUAL_MAX_BYTES"]
+    if not raw:
+        raise PipelineError("Please choose a .glb file to upload.")
+    if len(raw) > limit:
+        raise PipelineError(f"That file is {len(raw) // (1024 * 1024)} MB. The limit is {limit // (1024 * 1024)} MB: shrink the textures or use Draco/Meshopt compression when exporting.")
+    try:
+        doc = glb.parse(raw)
+        stats = glb.stats(raw)
+    except glb.GlbError as exc:
+        raise PipelineError(str(exc))
+    for item in list(doc.get("buffers", [])) + list(doc.get("images", [])):
+        uri = item.get("uri") if isinstance(item, dict) else None
+        if uri and not str(uri).startswith("data:"):
+            raise PipelineError("This model points to outside files. In Blender export as 'glTF Binary (.glb)' so the textures are packed inside it.")
+    if stats["meshes"] == 0 or stats["triangles"] == 0:
+        raise PipelineError("The model has no mesh in it. Select your objects and tick 'Selected Objects' only if they are all selected, then export again.")
+    if stats["triangles"] > MANUAL_MAX_TRIANGLES:
+        raise PipelineError(f"{stats['triangles']:,} triangles is too heavy for phones (limit {MANUAL_MAX_TRIANGLES:,}). Use Blender's Decimate modifier and export again.")
+    data, opt = optimize.optimize(raw)
+    final = {**glb.stats(data), **opt}
+    budget = current_app.config["AI3D_TARGET_POLYS"] * (8 if info["kind"] == "landmark" else 2)
+    warnings = [opt["note"]] if opt.get("optimizer") == "failed" else []
+    if final["triangles"] > budget:
+        warnings.append(f"{final['triangles']:,} triangles is above the {budget:,} suggested for this piece; it may be slow on older phones.")
+    if final["bytes"] > 8 * 1024 * 1024:
+        warnings.append(f"The file is {final['bytes'] // (1024 * 1024)} MB; large files load slowly on mobile data.")
+    job = Asset3D(category=info["category"], archetype=archetype, kind=info["kind"], name=name or info["label"], caption=caption,
+                  provider="manual", options_json="{}", prompt="Uploaded by an administrator", stage="done", status="review",
+                  tasks_json=json.dumps({"flow": "manual"}), created_by=admin.id)
+    Session.add(job)
+    Session.flush()
+    fname = f"{job.id}-glb-{secrets.token_hex(6)}.glb"
+    with open(os.path.join(library.private_dir(), fname), "wb") as fh:
+        fh.write(data)
+    job.glb_filename = fname
+    job.stats_json = json.dumps({**final, "clip_bytes": {}, "warnings": warnings})
+    job.rigged = info["kind"] == "character" and final["skins"] > 0
+    auth_service.audit(admin.id, "ai3d_manual_upload", "asset3d", job.id, archetype)
+    if publish:
+        job.status, job.reviewed_by = "published", admin.id
+        auth_service.audit(admin.id, "ai3d_published", "asset3d", job.id, archetype)
+        if info["category"] == "island":
+            from services import settings_service
+            have_default = any(str(a.id) == (settings_service.get("default_island_id") or "") for a in library.island_bases() if a.id != job.id)
+            if make_default or not have_default:                                    # the first island is always the default
+                settings_service.set_value("default_island_id", str(job.id))
+    Session.commit()
+    return job
+
+
 def _fail(job, message):
     job.status, job.error, job.next_poll_at = "failed", (message or "Something went wrong.")[:400], None
 

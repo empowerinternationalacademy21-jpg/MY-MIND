@@ -465,3 +465,54 @@ def test_newest_published_piece_wins_and_unpublishing_reverts_to_the_built_in_lo
     assert nature()["id"] == ids[0]
     admin.post(f"/admin/3d/{ids[0]}/unpublish")
     assert nature() is None and ready.get("/api/world").get_json()["island_base"] is None
+
+
+# ---------------- admin uploads their own .glb (free path, e.g. from Blender) ----------------
+def _upload(admin, raw, archetype="lm_island", filename="island.glb", **extra):
+    import io
+    data = {"archetype": archetype, "model": (io.BytesIO(raw), filename), "name": "My island", **extra}
+    data["csrf_token"] = admin.token()
+    return admin.c.post("/admin/3d/upload", data=data, content_type="multipart/form-data", follow_redirects=False)
+
+
+def test_admin_can_upload_own_glb_review_then_publish(app, admin):
+    from glb_factory import make_island_glb
+    r = _upload(admin, make_island_glb())
+    assert r.status_code == 302 and "/admin/3d/" in r.location
+    row = job_row(app)
+    with app.app_context():
+        from database.models import Asset3D
+        a = Session.query(Asset3D).one()
+        assert (a.provider, a.status, a.kind, a.category, a.archetype) == ("manual", "review", "landmark", "island", "lm_island") and a.glb_filename
+        jid = a.id
+    admin.post(f"/admin/3d/{jid}/publish")
+    with app.app_context():
+        from services.ai3d import library
+        assert library.landmarks()["island"].id == jid
+
+
+def test_upload_rejects_bad_files(app, admin):
+    from glb_factory import make_glb
+    import json, struct
+    assert _upload(admin, b"not a model").status_code == 302
+    assert _upload(admin, make_glb(), filename="x.png").status_code == 302
+    glb = make_glb()
+    doc_len = struct.unpack_from("<I", glb, 12)[0]
+    doc = json.loads(glb[20:20 + doc_len]); doc["buffers"][0]["uri"] = "http://evil.example/x.bin"      # external file reference
+    js = json.dumps(doc).encode(); js += b" " * ((4 - len(js) % 4) % 4)
+    rest = glb[20 + doc_len:]
+    bad = b"glTF" + struct.pack("<II", 2, 12 + 8 + len(js) + len(rest)) + struct.pack("<I4s", len(js), b"JSON") + js + rest
+    assert _upload(admin, bad).status_code == 302
+    assert _upload(admin, make_glb(), archetype="nope").status_code == 302
+    with app.app_context():
+        from database.models import Asset3D
+        assert Session.query(Asset3D).count() == 0
+
+
+def test_only_admins_can_upload(app, ready):
+    from glb_factory import make_island_glb
+    r = _upload(ready, make_island_glb())
+    assert r.status_code in (302, 403) and "/admin/3d/" not in (r.location or "")
+    with app.app_context():
+        from database.models import Asset3D
+        assert Session.query(Asset3D).count() == 0

@@ -14,6 +14,21 @@
   <button class="btn primary block" type="submit">Create the island kit</button>
 </form></section>
 
+<section class="card-box"><h2>Upload your own model (free, from Blender)</h2>
+<p class="small muted">Made an island or landmark in Blender? Export it as <b>glTF Binary (.glb)</b> and upload it here. No AI credits are used. It goes live in My World straight away (untick the first box below to keep it for review instead), and you can still preview, Unpublish or Delete it afterwards. Choose <b>Island piece: Island base</b> for the big island itself, or a place (Home, Pictures, Videos...) for the landmark that stands on it.</p>
+<form method="post" action="{{ url_for('admin_ai3d.upload') }}" enctype="multipart/form-data" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="u-arch">What is it?</label><select id="u-arch" name="archetype" required>
+    <optgroup label="Island kit">{% for k in kit %}<option value="{{ k.key }}">Island piece: {{ k.label }}</option>{% endfor %}</optgroup>
+    {% for cat, groups in catalog.items() %}<optgroup label="{{ cat|capitalize }}">{% for kind, label in (('item','Items'),('character','Characters')) %}{% for a in groups[kind] %}<option value="{{ a.key }}">{{ label[:-1] }}: {{ a.label }}</option>{% endfor %}{% endfor %}</optgroup>{% endfor %}</select></div>
+  <div class="field"><label for="u-file">Model file (.glb, up to 25 MB)</label><input id="u-file" name="model" type="file" accept=".glb,model/gltf-binary" required></div>
+  <div class="field"><label for="u-name">Name (optional)</label><input id="u-name" name="name" type="text" maxlength="80" placeholder="For islands: the look's name, e.g. Tropical Beach"><p class="hint">You can upload many island bases. Each published one appears by this name in World settings &gt; Island look, and people choose the one they like. With none chosen, the newest is used.</p></div>
+  <div class="field"><label for="u-cap">Caption (optional)</label><input id="u-cap" name="caption" type="text" maxlength="240"></div>
+  <label class="choice"><input type="checkbox" name="publish" checked><span>Show it in My World right away</span></label>
+  <label class="choice"><input type="checkbox" name="make_default"><span>Island bases: make this the default island for everyone who hasn't chosen one (the first island you upload is the default automatically)</span></label>
+  <button class="btn primary block" type="submit">Upload</button>
+</form></section>
+
 <section class="card-box"><h2>New model</h2>
 <form method="post" action="{{ url_for('admin_ai3d.create') }}" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -61,6 +61,25 @@ def kit():
     return redirect(url_for("admin_ai3d.jobs"))
 
 
+@bp.route("/upload", methods=["POST"])
+@admin_required
+def upload():
+    """Free path: upload a .glb you made yourself (Blender etc.). It goes to review; publish it from its page."""
+    f = request.files.get("model")
+    if not f or not (f.filename or "").lower().endswith(".glb"):
+        flash("Please choose a .glb file (in Blender: File > Export > glTF 2.0 and pick 'glTF Binary (.glb)').", "error")
+        return redirect(url_for("admin_ai3d.jobs"))
+    try:
+        publish = "publish" in request.form
+        job = pipeline.add_manual(g.user, request.form.get("archetype", ""), f.read(), request.form.get("name", ""), request.form.get("caption", ""),
+                                  publish=publish, make_default="make_default" in request.form)
+    except pipeline.PipelineError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("admin_ai3d.jobs"))
+    flash("Uploaded and live in My World. Check how it looks below." if publish else "Uploaded. Check how it looks below, then press Publish to show it in My World.", "success")
+    return redirect(url_for("admin_ai3d.detail", job_id=job.id))
+
+
 @bp.route("/<int:job_id>")
 @admin_required
 def detail(job_id):

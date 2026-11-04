@@ -28,6 +28,23 @@ def landmarks():
     return out
 
 
+def island_bases():
+    """Every published island base (the island 'looks' a caregiver can choose from), oldest first. Newest is the default."""
+    return Session.query(Asset3D).filter(Asset3D.status == "published", Asset3D.kind == "landmark", Asset3D.category == "island").order_by(Asset3D.id.asc()).all()
+
+
+def default_island():
+    """The island base everyone sees until they choose another: the one the administrator marked as default,
+    otherwise the newest published one, otherwise None (the built-in look)."""
+    from services import settings_service
+    bases = island_bases()
+    wanted = (settings_service.get("default_island_id") or "").strip()
+    for a in bases:
+        if str(a.id) == wanted:
+            return a
+    return bases[-1] if bases else None
+
+
 def clips(asset):
     try:
         d = json.loads(asset.clips_json or "{}")

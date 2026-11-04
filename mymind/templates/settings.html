@@ -12,6 +12,9 @@
 <div class="choices avatars">{% for a in avatars %}<label class="choice"><input type="radio" name="avatar" value="{{ a }}" {{ 'checked' if child.avatar == a }}><span>{{ icon(a) }}<span class="sr-only">{{ a }}</span></span></label>{% endfor %}</div>
 <p style="margin-top:.8rem"><a href="{{ url_for('parent_links.page') }}">Parent links (family view)</a> · <a href="{{ url_for('onboarding.onboarding') }}">Edit the questionnaire</a> · <a href="{{ url_for('profile.updates') }}">Daily-life update</a></p>
 {% else %}<p class="muted">Complete the questionnaire to create the child profile.</p>{% endif %}</div></details>
+{% if island_options %}<details class="row-d">{{ sec('landmark','My World island', 'Choose the island look') }}<div class="inside">
+<div class="field"><label for="isl">Island look</label><select id="isl" name="island"><option value="auto" {{ 'selected' if island_current == 'auto' }}>Automatic (default island)</option>{% for o in island_options %}<option value="{{ o.key }}" {{ 'selected' if island_current == o.key }}>{{ o.label }}</option>{% endfor %}</select>
+<p class="hint">Pick the island you want to see in My World. Automatic follows the default island. You can also change this from the settings button inside My World.</p></div></div></details>{% endif %}
 <details class="row-d">{{ sec('accessibility','Accessibility') }}<div class="inside"><div class="choices">
 {% for key, lab in [('large_text','Larger text'),('high_contrast','High contrast'),('reduced_motion','Reduce motion'),('sound_labels','Speak button labels aloud'),('show_real_people','Show licensed pictures of real people (athletes, musicians) in My World')] %}<label class="choice"><input type="checkbox" name="{{ key }}" {{ 'checked' if cg[key] }}><span>{{ lab }}</span></label>{% endfor %}</div></div></details>
 <details class="row-d">{{ sec('shield-check','Content Restrictions') }}<div class="inside">

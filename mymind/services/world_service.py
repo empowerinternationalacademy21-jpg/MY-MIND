@@ -55,7 +55,7 @@ STOP_DEFS = {
 PATH_ORDER = ("home", "pictures", "music", "colors", "animals", "art", "nature", "vehicles", "food", "videos", "shots", "sports")   # bridges follow this walk
 DECOR_KIND = {"sports": "balls", "music": "notes", "food": "treats", "colors": "shapes", "nature": "trees", "animals": "paws", "vehicles": "cones", "art": "paint"}
 
-DEFAULTS = {"theme": "auto", "strength": "balanced", "interests": [], "sports_zones": [], "rotation": True, "animation": True,
+DEFAULTS = {"theme": "auto", "island": "auto", "strength": "balanced", "interests": [], "sports_zones": [], "rotation": True, "animation": True,
             "hidden_stops": [], "decor_off": [], "baseline": {}}
 
 
@@ -99,6 +99,11 @@ def update_settings(user_id, raw):
             if value != "auto" and value not in THEMES:
                 raise WorldError("Unknown theme.")
             world["theme"] = value
+        elif key == "island":
+            ok = {"auto", "classic"} | {str(a.id) for a in a3d_library.island_bases()}
+            if not isinstance(value, str) or value not in ok:
+                raise WorldError("That island look is not available.")
+            world["island"] = value
         elif key == "strength":
             if value not in STRENGTH:
                 raise WorldError("Unknown strength.")
@@ -207,6 +212,27 @@ def friends3d_for(key):
     return [a for a in a3d_library.published() if a.category == key]
 
 
+def _island_choice(w):
+    """-> (chosen asset or None, option list). 'auto' = the newest published island base; 'classic' = the built-in look."""
+    bases = a3d_library.island_bases()
+    by_id = {str(a.id): a for a in bases}
+    pick = w.get("island", "auto")
+    if pick == "classic":
+        chosen = None
+    else:
+        chosen = by_id.get(pick) or a3d_library.default_island()            # 'auto', unknown or unpublished choices fall back to the default island
+    options = ([{"key": "classic", "label": "Classic (built-in)"}] + [{"key": str(a.id), "label": a.name or f"Island {a.id}", "caption": a.caption} for a in bases]) if bases else []
+    return chosen, options
+
+
+def island_settings(user_id):
+    """-> (options, current key) for the Settings page picker. options is empty until an island is published."""
+    w = get_settings(user_id)
+    _, options = _island_choice(w)
+    keys = {o["key"] for o in options}
+    return options, (w["island"] if w["island"] in keys else "auto")
+
+
 def payload(user, child):
     w = get_settings(user.id)
     interests = rec.get_interests(child.id)
@@ -215,6 +241,7 @@ def payload(user, child):
     shots_ok = settings_service.get("shots_enabled") == "1" and settings_service.caregiver_settings(user.id)["shots_enabled"]
     stops = []
     kit = a3d_library.landmarks()                       # published island-kit models; anything missing falls back to the built-in procedural look
+    island, island_options = _island_choice(w)
     badges = {}
     for a in wl.visible(w["real_people"], kind="island", theme=theme if theme != "mixed" else None):          # uploaded island art becomes the stop's badge
         badges.setdefault(a.stop, wl.as_dict(a)["url"])
@@ -234,12 +261,12 @@ def payload(user, child):
     return {"child": {"name": child.display_name, "avatar": child.avatar},
             "theme": {"key": theme, "label": t["label"], "icon": t["icon"], "reason": reason, "source": source, "palette": {k: t[k] for k in ("sky", "water", "grass", "sand", "accent")}},
             "stops": stops, "bridges": bridges,
-            "island_base": ({"id": kit["island"].id, "url": f"/assets3d/{kit['island'].id}/glb"} if "island" in kit else None),
+            "island_base": ({"id": island.id, "url": f"/assets3d/{island.id}/glb"} if island else None),
             "backgrounds": [a["url"] for a in (wl.as_dict(x) for x in wl.visible(w["real_people"], kind="background", theme=theme if theme != "mixed" else None))][:1],
-            "settings": {k: w[k] for k in ("theme", "strength", "interests", "sports_zones", "rotation", "animation", "hidden_stops", "decor_off", "sound", "real_people")},
+            "settings": {k: w[k] for k in ("theme", "island", "strength", "interests", "sports_zones", "rotation", "animation", "hidden_stops", "decor_off", "sound", "real_people")},
             "reduced_motion": w["reduced_motion"],
             "rotation_seconds": max(30, int(_rotation_seconds())),
-            "options": {"themes": [{"key": k, "label": v["label"]} for k, v in THEMES.items()], "strengths": list(STRENGTH),
+            "options": {"islands": island_options, "themes": [{"key": k, "label": v["label"]} for k, v in THEMES.items()], "strengths": list(STRENGTH),
                         "interests": [{"key": k, "label": (THEMES[k]["label"] if k in THEMES else "Sports")} for k in tuple(THEMES_FOR_TICK)],
                         "zones": list(ZONES), "stops": [{"key": k, "label": STOP_DEFS[k]["label"]} for k in STOP_DEFS if k != "home"]}}
 

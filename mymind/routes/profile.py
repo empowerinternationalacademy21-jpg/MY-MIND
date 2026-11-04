@@ -137,7 +137,8 @@ def settings():
     reqs = {r.subscription_id: r for r in Session.query(PaymentVerificationRequest)
             .filter(PaymentVerificationRequest.subscription_id.in_([s.id for s in subs] or [0]))}
     age = child.age_years if child else None
-    return render_template("settings.html", child=child, subs=subs, reqs=reqs, avatars=AVATARS, active="settings",
+    island_options, island_current = world_service.island_settings(g.user.id)
+    return render_template("settings.html", island_options=island_options, island_current=island_current, child=child, subs=subs, reqs=reqs, avatars=AVATARS, active="settings",
                            age_bands=[age_service.BANDS[k] for k in age_service.BAND_ORDER], age_band=age_service.band_for(age),
                            min_age=age_service.MIN_AGE, max_age=age_service.MAX_AGE,
                            state=payment_service.access_state(g.user.id), active_sub=payment_service.active_subscription(g.user.id),
@@ -161,6 +162,11 @@ def save_preferences():
         "reduced_motion": "reduced_motion" in f, "large_text": "large_text" in f, "sound_labels": "sound_labels" in f,
         "high_contrast": "high_contrast" in f, "show_real_people": "show_real_people" in f, "shots_enabled": "shots_enabled" in f, "screen_time_minutes": minutes,
         "avoid_keywords": ", ".join(safety.parse_keywords(f.get("avoid_keywords")))[:600]})
+    if "island" in f:                                        # island look chosen on the Settings page (same setting as My World's gear menu)
+        try:
+            world_service.update_settings(g.user.id, {"island": f.get("island", "auto")})
+        except world_service.WorldError as e:
+            flash(str(e), "error")
     child = child_of(g.user)
     if child:
         child.display_name = (f.get("display_name") or "Friend").strip()[:40] or "Friend"

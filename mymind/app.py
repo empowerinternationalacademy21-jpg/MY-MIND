@@ -57,6 +57,8 @@ def create_app(test_config=None):
             return
         if request.method == "POST" and request.path == "/admin/world/upload":      # admin art uploads need a larger body than other forms
             request.max_content_length = app.config["WORLD_UPLOAD_MAX_BYTES"] + 64 * 1024
+        if request.method == "POST" and request.path == "/admin/3d/upload":          # admin uploads of a Blender .glb
+            request.max_content_length = app.config["AI3D_MANUAL_MAX_BYTES"] + 64 * 1024
         if request.method in ("POST", "PUT", "PATCH", "DELETE") and not check_csrf():
             if wants_json():
                 return jsonify(error="Security check failed. Please refresh the page."), 400

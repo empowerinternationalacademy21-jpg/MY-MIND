@@ -294,6 +294,7 @@
     var title = el("h3"); title.id = "w3d-gear-title"; title.tabIndex = -1; title.textContent = "World settings";
     var head = el("header", "w3d-sheet__head"); head.append(title, btn("w3d-close", null, "x", function () { closeGear(); }, "Close settings"));
     var theme = el("select"); [["auto", "Automatic (from choices)"]].concat(O.themes.map(function (t) { return [t.key, t.label]; })).forEach(function (o) { var op = el("option", null, o[1]); op.value = o[0]; op.selected = S.theme === o[0]; theme.appendChild(op); });
+    var island = el("select"); (O.islands || []).length && [["auto", "Automatic (default island)"]].concat(O.islands.map(function (i) { return [i.key, i.label]; })).forEach(function (o) { var op = el("option", null, o[1]); op.value = o[0]; op.selected = (S.island || "auto") === o[0]; island.appendChild(op); });
     var strength = el("select"); O.strengths.forEach(function (k) { var op = el("option", null, { light: "Light: fewer decorations", balanced: "Balanced", strong: "Strong: more decorations" }[k]); op.value = k; op.selected = S.strength === k; strength.appendChild(op); });
     var interests = checks("interests", O.interests, S.interests), zones = checks("zones", O.zones, S.sports_zones, function (z) { return z.charAt(0).toUpperCase() + z.slice(1); });
     var hidden = checks("hidden", O.stops, S.hidden_stops), decor = checks("decor", O.stops, S.decor_off);
@@ -305,7 +306,8 @@
     });
     var flatNow = store("mm-world-flat") === "1";
     form.append(head, reasonBox, reset,
-      field("World style", theme, "Automatic only changes after repeated positive choices, and a close second keeps the world mixed."), field("Decoration strength", strength),
+      field("World style", theme, "Automatic only changes after repeated positive choices, and a close second keeps the world mixed."),
+      (O.islands || []).length ? field("Island look", island, "Pick the shape and scenery of the islands in My World.") : el("span"), field("Decoration strength", strength),
       el("fieldset", "w3d-fs"), el("fieldset", "w3d-fs"), el("fieldset", "w3d-fs"), el("fieldset", "w3d-fs"), el("fieldset", "w3d-fs"));
     var fs = form.querySelectorAll("fieldset");
     fs[0].append(el("legend", null, "Interests I confirm"), interests, el("p", "small muted", "Confirming an interest can unlock its place and style. Football and Basketball styles also need a sports zone below."));
@@ -322,6 +324,7 @@
       var body = { theme: f.get("theme") || theme.value, strength: strength.value, interests: all("interests"), sports_zones: all("zones"), hidden_stops: all("hidden"), decor_off: all("decor"),
                    rotation: on("rotation"), animation: on("animation"), sound: on("sound"), real_people: on("real_people") };
       body.theme = theme.value;
+      if ((O.islands || []).length) body.island = island.value;
       var wantFlat = on("flat");
       MM.api("/api/world/settings", { json: body }).then(function (d) {
         if (mode === "3d" || flatNow) { store("mm-world-flat", wantFlat ? "1" : "0"); mode = wantFlat ? "flat" : decideMode(); }

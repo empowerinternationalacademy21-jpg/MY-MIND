@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()                   # deployment environment variables take precedence over local .env values
+load_dotenv(override=True)      # values in .env win over empty/stale variables already in the shell
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -51,6 +51,7 @@ class Config:
     AI3D_TEXTURE_SIZE = int(os.getenv("AI3D_TEXTURE_SIZE", "2048"))       # 1024 or 2048
     AI3D_MAX_JOBS_PER_DAY = int(os.getenv("AI3D_MAX_JOBS_PER_DAY", "20"))  # credit guard-rail
     AI3D_MAX_DOWNLOAD_BYTES = 40 * 1024 * 1024
+    AI3D_MANUAL_MAX_BYTES = 25 * 1024 * 1024                                         # admin uploads of your own .glb (Blender etc.)
     AI3D_DOWNLOAD_HOSTS = tuple(h.strip() for h in os.getenv("AI3D_DOWNLOAD_HOSTS", "assets.meshy.ai,tripo-data.rg1.data.tripo3d.com,.tripo3d.com,.tripo3d.ai").split(",") if h.strip())
     AI3D_PRIVATE_DIR = os.getenv("AI3D_PRIVATE_DIR", "") or os.path.join(BASE_DIR, "instance", "ai3d_private")
     # ---- Caretaker 18+ verification (Sumsub). Server-side only. ----
