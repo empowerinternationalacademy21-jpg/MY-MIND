@@ -406,6 +406,7 @@
     function runSearch() {
         var v = searchInput.value.trim();
         if (v === state.q) return;
+        if (v && window.MyMind.activity) window.MyMind.activity.log('search');
         state.q = v; state.loading = false; load(true);
     }
     searchForm.addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(debounce); runSearch(); });

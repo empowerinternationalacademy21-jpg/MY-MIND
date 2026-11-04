@@ -17,7 +17,9 @@
     const path = url.split("?")[0], payload = o.json || {};
     if (MM.activity && path === "/api/react") {
       const eventType = payload.type === "skip" ? "next" : payload.type;
-      if (["like", "dislike", "next"].includes(eventType)) MM.activity.log(eventType, null, payload.content_id);
+      if (data.counted !== false && ["like", "dislike", "next"].includes(eventType)) {
+        MM.activity.log(eventType, null, payload.content_id);
+      }
     } else if (MM.activity && path === "/api/favorite" && data.favorite) {
       MM.activity.log("favorite", null, payload.content_id);
     }
