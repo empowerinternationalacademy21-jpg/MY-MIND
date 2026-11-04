@@ -258,7 +258,7 @@ def test_picture_topic_alias_and_large_scroll_pages(app, ready, monkeypatch):
 
     assert sports["category"] == "sports" and len(sports["items"]) == 20
     assert food["category"] == "food" and len(food["items"]) == 20
-    assert all(call[1] == category and call[3] == 20 for call, category in zip(searches, ("sports", "food")))
+    assert [(call[1], call[3]) for call in searches] == [("sports", 20), ("food", 20)]
     assert sports["more"] is True
 
 
