@@ -23,8 +23,8 @@ def search_images(query, category="objects", page=1, per_page=8):
     query = (query or "").strip()[:80]
     if not query:
         return []
-    per_page = max(1, min(int(per_page), 20))
-    page = max(1, min(int(page), 20))
+    per_page = max(1, min(int(per_page), 80))
+    page = max(1, int(page))
     key = ("px", query, category, page, per_page)
     hit = cache_get(key)
     if hit is not None:

@@ -240,6 +240,51 @@ def test_spotify_and_pexels_mapping(app):
     assert image_service.map_photo(p, "animals")["attribution"]["source"] == "Pexels"
 
 
+def test_picture_topic_alias_and_large_scroll_pages(app, ready, monkeypatch):
+    app.config["PEXELS_API_KEY"] = "test-key"
+    searches = []
+
+    def search(query, category, page, per_page):
+        searches.append((query, category, page, per_page))
+        return [dict(provider="pexels", provider_content_id=f"{category}-{page}-{i}", content_type="picture",
+                     title=f"{category} photo", description="", thumbnail_url=f"https://img.example/{category}-{i}.jpg",
+                     canonical_url=f"https://pexels.example/{category}-{i}", category=category, tags=[],
+                     attribution={"photographer": "Photographer", "source": "Pexels"})
+                for i in range(per_page)]
+
+    monkeypatch.setattr(image_service, "search_images", search)
+    sports = ready.get("/api/pictures?cat=sports").get_json()
+    food = ready.get("/api/pictures?cat=food").get_json()
+
+    assert sports["category"] == "sports" and len(sports["items"]) == 20
+    assert food["category"] == "food" and len(food["items"]) == 20
+    assert all(call[1] == category and call[3] == 20 for call, category in zip(searches, ("sports", "food")))
+    assert sports["more"] is True
+
+
+def test_pexels_search_supports_later_scroll_pages(app, monkeypatch):
+    requests = []
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"photos": []}
+
+    def get(_url, params, **_kwargs):
+        requests.append(params)
+        return Response()
+
+    monkeypatch.setattr(image_service.requests, "get", get)
+    with app.app_context():
+        app.config["PEXELS_API_KEY"] = "test-key"
+        image_service.search_images("pizza", "food", page=37, per_page=20)
+
+    assert requests[0]["page"] == 37
+    assert requests[0]["per_page"] == 20
+
+
 def test_security_headers(client):
     r = client.get("/")
     assert "frame-ancestors 'none'" in r.headers["Content-Security-Policy"] and b"Built and Powered by Emtrixz" in r.data

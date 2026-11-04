@@ -22,7 +22,7 @@ def _block():
 
 
 def _cat():
-    c = request.args.get("category", "")
+    c = request.args.get("category") or request.args.get("cat", "")
     return c if c in age_service.allowed_categories(_age()) else ""
 
 
@@ -61,7 +61,7 @@ def _listing(kind, n):
 @bp.route("/pictures")
 @subscribed_required
 def pictures():
-    return _listing("picture", 8)
+    return _listing("picture", 20)
 
 
 @bp.route("/videos")

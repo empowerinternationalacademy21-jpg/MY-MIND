@@ -9,7 +9,7 @@
     listEndpoint: '/api/pictures',          // GET ?q=&cat=&page=
     reactEndpoint: '/api/react',
     favoriteEndpoint: '/api/favorite',
-    pageSize: 24,
+    pageSize: 20,
     iconPrefix: '#i-'                       // must match ids in templates/_icons.html
   };
 
@@ -231,7 +231,9 @@
       });
       grid.appendChild(frag);
       if (data && data.notice) toast(data.notice);   // e.g. "Using demo pictures"
-      var more = (data && typeof data.has_more === 'boolean') ? data.has_more : list.length >= CONFIG.pageSize;
+      var more = data && typeof data.more === 'boolean' ? data.more
+        : data && typeof data.has_more === 'boolean' ? data.has_more
+          : list.length >= CONFIG.pageSize;
       state.hasMore = more && list.length > 0;
       state.page++;
       renderRecent();
@@ -262,6 +264,14 @@
   searchForm.addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(debounce); runSearch(); });
   searchInput.addEventListener('input', function () { clearTimeout(debounce); debounce = setTimeout(runSearch, 400); });
   moreBtn.addEventListener('click', function () { load(false); });
+  if ('IntersectionObserver' in window) {
+    var loadObserver = new IntersectionObserver(function (entries) {
+      if (entries.some(function (entry) { return entry.isIntersecting; }) && state.hasMore && !state.loading) {
+        load(false);
+      }
+    }, { rootMargin: '700px 0px' });
+    loadObserver.observe(moreBtn.parentNode);
+  }
 
   var initial = new URLSearchParams(location.search).get('q');
   if (initial) { searchInput.value = initial; state.q = initial.trim(); }
