@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from conftest import PW, Client, subscribe_and_approve
 from database.db import Session
-from database.models import User, Subscription, PaymentVerificationRequest, AuditLog, utcnow
+from database.models import User, ChildProfile, Subscription, PaymentVerificationRequest, AuditLog, utcnow
 
 
 def test_registration_and_password_hashing(app, client):
@@ -38,6 +38,79 @@ def test_login_logout_and_protection(client):
     assert client.login("mum").status_code == 302
     client.post("/logout")
     assert "/login" in client.get("/home").location
+
+
+def test_family_usernames_share_password_and_enforce_roles(app, ready):
+    with app.app_context():
+        user = Session.query(User).filter_by(username="mum").one()
+        child_name = user.child_username
+        assert child_name and child_name != user.username
+        assert user.password_hash.startswith("$argon2id$")
+
+    ready.post("/logout")
+    assert ready.login("mum").location.endswith("/caretaker")
+    assert ready.get("/caretaker").status_code == 200
+
+    ready.post("/logout")
+    assert ready.login(child_name).location.endswith("/world")
+    assert ready.get("/world").status_code == 200
+    assert ready.get("/settings").status_code == 403
+    assert ready.get("/settings/account").status_code == 403
+    assert ready.jpost("/api/world/settings", {"theme": "music"}).status_code == 403
+    assert ready.jpost("/api/activity-events", {"events": [
+        {"event_id": "child-action-000000000001", "event_type": "view", "stop": "home"},
+    ]}).status_code == 200
+
+    ready.post("/logout")
+    assert ready.login(child_name, "wrong-password1").status_code == 401
+    assert ready.login("mum", "wrong-password1").status_code == 401
+
+
+def test_caretaker_account_settings_change_both_usernames_and_shared_password(app, ready):
+    with app.app_context():
+        child_name = Session.query(User).filter_by(username="mum").one().child_username
+    response = ready.post("/settings/account", {
+        "caretaker_username": "guardian",
+        "child_username": "kiddo",
+        "current_password": PW,
+        "new_password": "NewShared12345",
+        "confirm_password": "NewShared12345",
+    })
+    assert response.status_code == 302
+    ready.post("/logout")
+    assert ready.login("mum", "NewShared12345").status_code == 401
+    assert ready.login(child_name, "NewShared12345").status_code == 401
+    assert ready.login("guardian", "NewShared12345").location.endswith("/caretaker")
+    ready.post("/logout")
+    assert ready.login("kiddo", "NewShared12345").location.endswith("/world")
+
+
+def test_optional_caretaker_pin_is_hashed_and_required(app, ready):
+    with app.app_context():
+        child_name = Session.query(User).filter_by(username="mum").one().child_username
+    response = ready.post("/settings/account", {
+        "caretaker_username": "mum",
+        "child_username": child_name,
+        "current_password": PW,
+        "caretaker_pin_enabled": "on",
+        "new_pin": "0426",
+    })
+    assert response.status_code == 302
+    ready.post("/logout")
+    assert ready.login("mum").location.endswith("/caretaker-pin")
+    assert ready.get("/caretaker").status_code == 302
+    assert ready.post("/caretaker-pin", {"pin": "0000"}).status_code == 401
+    assert ready.post("/caretaker-pin", {"pin": "0426"}).location.endswith("/caretaker")
+    assert ready.get("/caretaker").status_code == 200
+    with app.app_context():
+        user = Session.query(User).filter_by(username="mum").one()
+        assert user.caretaker_pin_enabled
+        assert user.caretaker_pin_hash.startswith("$argon2id$")
+        assert "0426" not in user.caretaker_pin_hash
+
+    ready.post("/logout")
+    assert ready.login(child_name).location.endswith("/world")
+    assert ready.get("/settings").status_code == 403
 
 
 def test_login_rate_limit(client):

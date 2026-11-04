@@ -10,7 +10,17 @@ def event_id():
     return str(uuid.uuid4())
 
 
+def login_as_child(app, client):
+    with app.app_context():
+        child = Session.query(ChildProfile).one()
+        username = child.caregiver.child_username
+    client.post("/logout")
+    assert client.login(username).status_code == 302
+    return client
+
+
 def test_activity_batch_is_idempotent_and_aggregates(app, ready):
+    login_as_child(app, ready)
     item = ready.get("/api/videos").get_json()["items"][0]
     view_id, watch_id, favorite_id = event_id(), event_id(), event_id()
     assert ready.jpost("/api/activity-events", {"events": [
@@ -46,6 +56,7 @@ def test_activity_batch_is_idempotent_and_aggregates(app, ready):
 
 
 def test_activity_batch_rejects_invalid_events(app, ready):
+    login_as_child(app, ready)
     invalid = {"event_id": event_id(), "event_type": "view", "stop": "unknown-stop"}
     assert ready.jpost("/api/activity-events", {"events": [invalid]}).status_code == 400
     assert ready.jpost("/api/activity-events", {"events": [
@@ -71,9 +82,12 @@ def test_child_page_render_and_read_only_visitor_do_not_write_activity(app, read
 
 
 def test_my_journey_clear_removes_activity_events(app, ready):
+    login_as_child(app, ready)
     ready.jpost("/api/activity-events", {"events": [
         {"event_id": event_id(), "event_type": "view", "stop": "home"},
     ]})
+    ready.post("/logout")
+    ready.login("mum")
     ready.post("/journey/clear", {"scope": "all"})
     with app.app_context():
         assert Session.query(ActivityEvent).count() == 0
