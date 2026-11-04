@@ -33,7 +33,7 @@ def export_user(user):
                              for s in Session.query(Subscription).filter_by(user_id=user.id)]
     if child:
         q = Session.query(CaregiverQuestionnaire).filter_by(child_profile_id=child.id).first()
-        data["child"] = {"display_name": child.display_name, "avatar": child.avatar}
+        data["child"] = {"display_name": child.display_name, "avatar": child.avatar, "age_years": child.age_years}
         data["questionnaire"] = json.loads(q.responses_json) if q else {}
         data["interests"] = [{"category": i.category, "score": i.interest_score, "evidence": i.evidence_count}
                              for i in Session.query(InterestProfile).filter_by(child_profile_id=child.id)]

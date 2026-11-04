@@ -13,6 +13,7 @@ import random
 from datetime import timedelta
 from database.db import Session
 from database.models import (InterestProfile, Interaction, Favorite, ContentItem, RecommendationLog, utcnow)
+from services import age_service
 from services.categories import (CATEGORIES, INTEREST_TO_CATEGORY, ACTIVITY_TO_CATEGORY, CONTENT_PREF_TO_CATEGORY, label_for)
 
 WEIGHTS = {"selected": 0.5, "watched": 1.5, "like": 3.0, "favorite": 4.0, "explore": 1.5,
@@ -137,10 +138,12 @@ def disliked_ids(profile_id):
                     Interaction.content_item_id.isnot(None)).all()}
 
 
-def pick_feed_categories(profile_id, n=4, rng=None):
-    """Weighted pick of liked categories + EXPLORE_SLOTS new ones (never one-interaction lock-in)."""
+def pick_feed_categories(profile_id, n=4, rng=None, age=None):
+    """Weighted pick of liked categories + EXPLORE_SLOTS new ones (never one-interaction lock-in).
+    With an `age`, only categories suited to that age are picked (stored interests outside it are kept, just not shown)."""
     rng = rng or random.Random()
-    ranked = get_interests(profile_id)
+    allowed = set(age_service.allowed_categories(age))
+    ranked = [r for r in get_interests(profile_id) if r["category"] in allowed]
     positives = [r for r in ranked if r["score"] > 0.5]
     chosen = []
     pool = positives[:]
@@ -152,7 +155,7 @@ def pick_feed_categories(profile_id, n=4, rng=None):
         chosen.append((pick["category"], reason_for(pick)))
     known = {c for c, _ in chosen}
     disliked_cats = {r["category"] for r in ranked if r["score"] < -1}
-    candidates = [c for c in CATEGORIES if c not in known and c not in disliked_cats]
+    candidates = [c for c in age_service.allowed_categories(age) if c not in known and c not in disliked_cats]
     rng.shuffle(candidates)
     for c in candidates:
         if len(chosen) >= n:
@@ -171,15 +174,15 @@ def reason_for(r):
     return f"We suggested {lab} because the caregiver mentioned this interest. It will change as choices are made."
 
 
-def related_terms(content, limit=2):
+def related_terms(content, limit=2, age=None):
     """Anonymous topic keywords only (never names or notes) used for related searches."""
     tags = []
     try:
         tags = [t for t in json.loads(content.tags_json or "[]") if isinstance(t, str)]
     except ValueError:
         pass
-    words = tags[:1] or CATEGORIES.get(content.category, {}).get("keywords", [content.category])[:1]
-    cat_kws = CATEGORIES.get(content.category, {}).get("keywords", [])
+    cat_kws = age_service.keywords_for(content.category, age) if content.category in CATEGORIES else [content.category]
+    words = tags[:1] or cat_kws[:1]
     return (words + [k for k in cat_kws if k not in words])[:limit]
 
 

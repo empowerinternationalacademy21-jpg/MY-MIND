@@ -2,6 +2,7 @@
 Everything here is labelled as demo content in the UI (provider == 'demo')."""
 import os, re
 from services.categories import CATEGORIES
+from services import age_service
 
 _ICON_CACHE = {}
 
@@ -13,42 +14,48 @@ def _icon_inner(name):
             _ICON_CACHE[m.group(1)] = m.group(2)
     return _ICON_CACHE.get(name, "")
 
-def _kw(category, i):
-    kws = CATEGORIES.get(category, CATEGORIES["objects"])["keywords"]
+def _kw(category, i, age=None):
+    kws = age_service.keywords_for(category if category in CATEGORIES else "objects", age)
     return kws[i % len(kws)]
+
+
+def _sfx(age):
+    """Ids stay as before when no age is set; with an age they carry the band so each band has its own demo items."""
+    k = age_service.band_key(age)
+    return f"-{k}" if k else ""
 
 def _slice(items, page, n):
     return items[(page - 1) * n: page * n] if page > 0 else items[:n]
 
-def pictures(category, page=1, n=8):
+def pictures(category, page=1, n=8, age=None):
     cat = category if category in CATEGORIES else "objects"
     out = []
     for i in range((page - 1) * n, page * n):
-        kw = _kw(cat, i)
-        out.append(dict(provider="demo", provider_content_id=f"pic-{cat}-{i}", content_type="picture",
+        kw = _kw(cat, i, age)
+        out.append(dict(provider="demo", provider_content_id=f"pic-{cat}-{i}{_sfx(age)}", content_type="picture",
                         title=f"{kw.title()} (demo picture)", description="Demo illustration",
                         thumbnail_url=f"/demo-art/{cat}/{i}.svg", canonical_url="", category=cat,
                         tags=[kw, cat], attribution={"source": "MyMind demo art"}))
     return out
 
-def videos(category, page=1, n=6, short=False):
+def videos(category, page=1, n=6, short=False, age=None):
     cat = category if category in CATEGORIES else "objects"
     out = []
     for i in range((page - 1) * n, page * n):
-        kw = _kw(cat, i)
-        out.append(dict(provider="demo", provider_content_id=f"{'short' if short else 'vid'}-{cat}-{i}",
+        kw = _kw(cat, i, age)
+        out.append(dict(provider="demo", provider_content_id=f"{'short' if short else 'vid'}-{cat}-{i}{_sfx(age)}",
                         content_type="short" if short else "video",
-                        title=f"{kw.title()} for kids (demo {'short' if short else 'video'})", description="Demo placeholder. Add a YouTube API key to see real videos.",
+                        title=f"{kw.title()} {age_service.demo_noun(age)} (demo {'short' if short else 'video'})", description="Demo placeholder. Add a YouTube API key to see real videos.",
                         thumbnail_url=f"/demo-art/{cat}/{i + 20}.svg", canonical_url="", category=cat,
                         tags=[kw, cat], attribution={"source": "demo"}))
     return out
 
-def songs(category, page=1, n=6):
+def songs(category, page=1, n=6, age=None):
     cat = category if category in CATEGORIES else "objects"
     out = []
     for i in range((page - 1) * n, page * n):
-        kw = _kw(cat, i)
-        out.append(dict(provider="demo", provider_content_id=f"song-{cat}-{i}", content_type="song",
+        kw = _kw(cat, i, age)
+        out.append(dict(provider="demo", provider_content_id=f"song-{cat}-{i}{_sfx(age)}", content_type="song",
                         title=f"{kw.title()} Song (demo)", description="Demo placeholder. Add Spotify credentials to see real tracks.",
                         thumbnail_url=f"/demo-art/{cat}/{i + 40}.svg", canonical_url="", category=cat,
                         tags=[kw, cat], attribution={"artist": "Demo Artist", "album": "Demo Album"}))

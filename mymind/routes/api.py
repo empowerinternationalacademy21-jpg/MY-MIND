@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, g, abort
 from database.db import Session
 from database.models import ContentItem, Favorite, Interaction, utcnow
-from services import content_service as cs, recommendation_service as rec, settings_service
+from services import content_service as cs, recommendation_service as rec, settings_service, age_service
 from services.categories import CATEGORIES, PICTURE_CATEGORIES
 from routes.helpers import subscribed_required
 
@@ -12,13 +12,18 @@ REACTIONS = {"like", "dislike", "skip", "selected", "watched", "explore"}
 MAX_PAGES = 50          # endless scrolling stops here (keeps API quota use bounded)
 
 
+def _age():
+    """The child's age (3-25) or None. Drives age-appropriate categories, search words and safety words."""
+    return getattr(g.child, "age_years", None)
+
+
 def _block():
-    return cs.blocklist_for(settings_service.caregiver_settings(g.user.id))
+    return cs.blocklist_for(settings_service.caregiver_settings(g.user.id), _age())
 
 
 def _cat():
     c = request.args.get("category", "")
-    return c if c in CATEGORIES else ""
+    return c if c in age_service.allowed_categories(_age()) else ""
 
 
 def _page():
@@ -41,12 +46,12 @@ def _listing(kind, n):
     cat, q, page = _cat(), _q(), _page()
     sub = page                                   # page number *within* the chosen category / search
     if not cat and not q:
-        picks = rec.pick_feed_categories(g.child.id, 4)
-        cats = [c for c, _ in picks] or ["objects"]
+        picks = rec.pick_feed_categories(g.child.id, 4, age=_age())
+        cats = [c for c, _ in picks] or [age_service.allowed_categories(_age())[0]]
         cat = cats[(page - 1) % len(cats)]
         sub = (page - 1) // len(cats) + 1
-    cat = cat or "objects"
-    models, notice = cs.fetch_models(kind, cat, q, sub, n, _block())
+    cat = cat or ("objects" if _age() is None else age_service.allowed_categories(_age())[0])
+    models, notice = cs.fetch_models(kind, cat, q, sub, n, _block(), _age())
     hidden = rec.disliked_ids(g.child.id)
     models = [m for m in models if m.id not in hidden]
     return jsonify(items=cs.serialise(models, g.child.id), notice=notice, category=cat,
@@ -85,7 +90,7 @@ def feed():
     page = _page()
     block = _block()
     chosen = _cat()                              # topic chip on the home page: show only that topic
-    picks = [(chosen, "You picked this topic")] if chosen else rec.pick_feed_categories(g.child.id, 4)
+    picks = [(chosen, "You picked this topic")] if chosen else rec.pick_feed_categories(g.child.id, 4, age=_age())
     shown = rec.recently_shown_ids(g.child.id)
     hidden = rec.disliked_ids(g.child.id)
     sections, notice = [], None
@@ -94,7 +99,7 @@ def feed():
         # YouTube searches cost API quota, so only the first two sections get a video row and a song row
         plan = [("picture", 4)] + ([("video", 3)] if idx < 2 else []) + ([("song", 3)] if idx < 2 else [])
         for kind, n in plan:
-            models, nt = cs.fetch_models(kind, cat, "", page, n, block)
+            models, nt = cs.fetch_models(kind, cat, "", page, n, block, _age())
             notice = notice or nt
             models = [m for m in models if m.id not in hidden]
             fresh = [m for m in models if m.id not in shown]
@@ -133,7 +138,7 @@ def recent():
 @subscribed_required
 def related(content_id):
     item = Session.get(ContentItem, content_id) or abort(404)
-    bundle, notice = cs.related_bundle(g.child.id, item, _block())
+    bundle, notice = cs.related_bundle(g.child.id, item, _block(), _age())
     return jsonify(source=cs.serialise([item], g.child.id)[0], notice=notice, **bundle)
 
 

@@ -3,7 +3,7 @@ from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, Response, session
 from database.db import Session
 from database.models import ChildProfile, Favorite, ContentItem, DailyActivity, Subscription, PaymentVerificationRequest, utcnow
-from services import recommendation_service as rec, settings_service, auth_service, payment_service, account_service, safety
+from services import recommendation_service as rec, settings_service, auth_service, payment_service, account_service, safety, age_service
 from services.categories import CATEGORIES
 from services import world_service
 from routes.helpers import subscribed_required, caregiver_required, child_of
@@ -136,7 +136,10 @@ def settings():
     subs = Session.query(Subscription).filter_by(user_id=g.user.id).order_by(Subscription.id.desc()).all()
     reqs = {r.subscription_id: r for r in Session.query(PaymentVerificationRequest)
             .filter(PaymentVerificationRequest.subscription_id.in_([s.id for s in subs] or [0]))}
+    age = child.age_years if child else None
     return render_template("settings.html", child=child, subs=subs, reqs=reqs, avatars=AVATARS, active="settings",
+                           age_bands=[age_service.BANDS[k] for k in age_service.BAND_ORDER], age_band=age_service.band_for(age),
+                           min_age=age_service.MIN_AGE, max_age=age_service.MAX_AGE,
                            state=payment_service.access_state(g.user.id), active_sub=payment_service.active_subscription(g.user.id),
                            plans=settings_service.plans(), admin_contact=settings_service.payment_display())
 
@@ -145,6 +148,11 @@ def settings():
 @caregiver_required
 def save_preferences():
     f = request.form
+    try:
+        new_age = age_service.parse_age(f.get("age"))        # blank = leave the age as it is
+    except age_service.AgeError as e:
+        flash(str(e), "error")
+        return redirect(url_for("profile.settings"))
     try:
         minutes = max(5, min(int(f.get("screen_time_minutes", 30)), 240))
     except ValueError:
@@ -157,6 +165,8 @@ def save_preferences():
     if child:
         child.display_name = (f.get("display_name") or "Friend").strip()[:40] or "Friend"
         child.avatar = f.get("avatar") if f.get("avatar") in AVATARS else child.avatar
+        if new_age is not None:
+            child.age_years = new_age
         Session.commit()
     flash("Settings saved.", "success")
     return redirect(url_for("profile.settings"))

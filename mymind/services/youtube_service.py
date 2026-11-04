@@ -80,27 +80,28 @@ def map_item(raw, category, short=False, duration=None, kind=None):
                 tags=[], attribution=att)
 
 
-def _search(query, category, max_results, kind, page):
+def _search(query, category, max_results, kind, page, audience="kids"):
     query = (query or "").strip()[:80]
     if not query:
         return []
     page = max(1, int(page or 1))
-    key = ("yt", query, category, max_results, kind, page)
+    key = ("yt", query, category, max_results, kind, page, audience)
     hit = cache_get(key)
     if hit is not None:
         return hit
 
     token = None
     if page > 1:
-        token = cache_get(("ytnext", query, kind, page - 1))
+        token = cache_get(("ytnext", query, kind, audience, page - 1))
         if token is None and page - 1 <= MAX_PAGE_DEPTH:
-            _search(query, category, max_results, kind, page - 1)              # fills the token cache
-            token = cache_get(("ytnext", query, kind, page - 1))
+            _search(query, category, max_results, kind, page - 1, audience)   # fills the token cache
+            token = cache_get(("ytnext", query, kind, audience, page - 1))
         if token is None or token == END:
             cache_set(key, [], CACHE_SECONDS)
             return []                                                          # no more results for this query
 
-    q = {"video": f"{query} kids", "short": f"{query} kids #shorts", "song": f"{query} kids song"}[kind]
+    aud = f" {audience.strip()}" if audience and audience.strip() else ""     # "kids" for young users, nothing for teens/adults
+    q = {"video": f"{query}{aud}", "short": f"{query}{aud} #shorts", "song": f"{query}{aud} song"}[kind]
     ask = min(max_results * (4 if kind == "short" else 2), 50)
     params = {"part": "snippet", "type": "video", "q": q, "maxResults": ask,
               "safeSearch": "strict", "videoEmbeddable": "true", "videoSyndicated": "true",
@@ -110,7 +111,7 @@ def _search(query, category, max_results, kind, page):
     if token:
         params["pageToken"] = token
     data = _get("search", params)
-    cache_set(("ytnext", query, kind, page), data.get("nextPageToken") or END, CACHE_SECONDS)
+    cache_set(("ytnext", query, kind, audience, page), data.get("nextPageToken") or END, CACHE_SECONDS)
 
     raws = [r for r in data.get("items", []) if r.get("id", {}).get("videoId")]
     meta = get_video_metadata([r["id"]["videoId"] for r in raws])
@@ -131,15 +132,15 @@ def _search(query, category, max_results, kind, page):
     return items
 
 
-def search_videos(query, category="objects", max_results=8, short=False, page=1):
+def search_videos(query, category="objects", max_results=8, short=False, page=1, audience="kids"):
     """Videos or shorts. Raises ServiceError on failure (caller falls back to saved items / demo).
 
     `max_results` is the page size we aim for; because non-embeddable / too-long videos are filtered out we ask YouTube
     for more and return everything that passes (up to 2x), so pages stay full instead of shrinking.
     """
-    return _search(query, category, max_results, "short" if short else "video", page)
+    return _search(query, category, max_results, "short" if short else "video", page, audience)
 
 
-def search_music(query, category="music", max_results=8, page=1):
+def search_music(query, category="music", max_results=8, page=1, audience="kids"):
     """Songs from YouTube's Music category, played through the official embed (audio + video)."""
-    return _search(query, category, max_results, "song", page)
+    return _search(query, category, max_results, "song", page, audience)

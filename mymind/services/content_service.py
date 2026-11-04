@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from database.db import Session
 from database.models import ContentItem, Favorite, Interaction
 from services import (youtube_service, spotify_service, image_service, demo_service, safety, settings_service,
-                      recommendation_service as rec)
+                      age_service, recommendation_service as rec)
 from services.cache import cache_get, cache_set
 from services.categories import CATEGORIES
 from services.errors import ServiceError
@@ -76,12 +76,14 @@ def upsert_many(dicts):
     return [found[k] for k in keys if k in found]
 
 
-def blocklist_for(user_settings):
+def blocklist_for(user_settings, age=None):
+    """Admin words + caregiver words + (for younger children) the age band's extra words."""
     admin = settings_service.get_all()
-    return safety.parse_keywords(admin.get("blocked_keywords")) + safety.parse_keywords(user_settings.get("avoid_keywords"))
+    return (safety.parse_keywords(admin.get("blocked_keywords")) + safety.parse_keywords(user_settings.get("avoid_keywords"))
+            + age_service.extra_blocklist(age))
 
 
-def _topic_round(category, q, page):
+def _topic_round(category, q, page, age=None):
     """Pick the search words and the 'round' (which provider page of that search) for an endless-scroll page.
 
     No free-text search: each page uses the NEXT keyword of the category (variety); once every keyword was used,
@@ -91,26 +93,27 @@ def _topic_round(category, q, page):
     q = (q or "").strip()
     if q:
         return q, page
-    kws = CATEGORIES.get(category, CATEGORIES["objects"]).get("keywords") or ["kids"]
+    kws = age_service.keywords_for(category if category in CATEGORIES else "objects", age) or ["kids"]
     return kws[(page - 1) % len(kws)], (page - 1) // len(kws) + 1
 
 
-def _provider_items(kind, topic, category, rnd, n):
+def _provider_items(kind, topic, category, rnd, n, age=None):
     """Live results, or None when no provider is configured. Raises ServiceError when the provider fails."""
     if kind == "picture":
         return image_service.search_images(topic, category, rnd, n) if image_service.configured() else None
+    audience = age_service.audience_for(age)
     if kind in ("video", "short"):
-        return (youtube_service.search_videos(topic, category, n, short=(kind == "short"), page=rnd)
+        return (youtube_service.search_videos(topic, category, n, short=(kind == "short"), page=rnd, audience=audience)
                 if youtube_service.configured() else None)
     # songs: Spotify when it works, otherwise YouTube's Music category (plays with audio and video)
     if spotify_service.configured() and cache_get(SPOTIFY_OFF) is None:
         try:
-            return spotify_service.search_tracks(f"{topic} kids", category, n, page=rnd)
+            return spotify_service.search_tracks(f"{topic} {audience}".strip(), category, n, page=rnd)
         except ServiceError as exc:
             current_app.logger.warning("provider failure (song/spotify): %s — using YouTube music for a while", exc)
             cache_set(SPOTIFY_OFF, True, SPOTIFY_OFF_SECONDS)
     if youtube_service.configured():
-        return youtube_service.search_music(topic, category, n, page=rnd)
+        return youtube_service.search_music(topic, category, n, page=rnd, audience=audience)
     return None
 
 
@@ -125,13 +128,14 @@ def _stored(kind, category, n, page):
                  attribution=json.loads(r.attribution_json or "{}")) for r in rows]
 
 
-def fetch(kind, category="objects", q="", page=1, n=8, block=None):
-    """kind: picture | video | short | song. Returns (list[dict], notice|None). Never raises."""
-    topic, rnd = _topic_round(category, q, page)
+def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None):
+    """kind: picture | video | short | song. Returns (list[dict], notice|None). Never raises.
+    `age` (3-25, or None) picks the age band's search words, audience word and demo labels."""
+    topic, rnd = _topic_round(category, q, page, age)
     notice = None
     items = None
     try:
-        items = _provider_items(kind, topic, category, rnd, n)
+        items = _provider_items(kind, topic, category, rnd, n, age)
     except ServiceError as exc:
         current_app.logger.warning("provider failure (%s): %s", kind, exc)
         notice = exc.user_message
@@ -147,19 +151,19 @@ def fetch(kind, category="objects", q="", page=1, n=8, block=None):
         if notice is None:
             notice = "Showing demo content. Add API keys in .env to see real results."
         if kind == "picture":
-            items = demo_service.pictures(category, page, n)
+            items = demo_service.pictures(category, page, n, age)
         elif kind in ("video", "short"):
-            items = demo_service.videos(category, page, n, short=(kind == "short"))
+            items = demo_service.videos(category, page, n, short=(kind == "short"), age=age)
         else:
-            items = demo_service.songs(category, page, n)
+            items = demo_service.songs(category, page, n, age)
         if q:   # demo content ignores free text, but keep a polite match on the topic
             items = [dict(i, title=f"{q.title()} · {i['title']}") for i in items] if len(q) < 40 else items
     items = safety.filter_items(items, block)
     return items, notice
 
 
-def fetch_models(kind, category, q, page, n, block):
-    dicts, notice = fetch(kind, category, q, page, n, block)
+def fetch_models(kind, category, q, page, n, block, age=None):
+    dicts, notice = fetch(kind, category, q, page, n, block, age)
     return upsert_many(dicts), notice
 
 
@@ -192,22 +196,21 @@ def serialise(items, profile_id):
         # (titles saved earlier with &amp; are repaired here too)
         out.append({"id": i.id, "type": i.content_type, "title": html.unescape(i.title),
                     "thumb": thumb_for(i), "url": i.canonical_url,
-                    "provider": i.provider, "provider_content_id": i.provider_content_id,
-                    "demo": i.provider == "demo", "embed": embed, "category": i.category,
+                    "provider": i.provider, "demo": i.provider == "demo", "embed": embed, "category": i.category,
                     "category_label": CATEGORIES.get(i.category, {}).get("label", i.category), "attribution": att,
                     "favorite": i.id in favs, "reaction": last.get(i.id)})
     return out
 
 
-def related_bundle(profile_id, content, block):
+def related_bundle(profile_id, content, block, age=None):
     """Pictures + videos + songs related to one liked picture/video/song (via anonymous topic keywords)."""
-    terms = rec.related_terms(content)
+    terms = rec.related_terms(content, age=age)
     hidden = rec.disliked_ids(profile_id) | {content.id}
     bundle, notices = {}, []
     for key, kind, n in (("pictures", "picture", 6), ("videos", "video", 4), ("songs", "song", 4)):
         found = []
         for t in terms:
-            models, notice = fetch_models(kind, content.category, t, 1, n, block)
+            models, notice = fetch_models(kind, content.category, t, 1, n, block, age)
             if notice:
                 notices.append(notice)
             found += [m for m in models if m.id not in hidden and m not in found]

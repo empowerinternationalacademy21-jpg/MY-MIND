@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from database.db import Session
 from database.models import ChildProfile, CaregiverQuestionnaire, ConsentRecord, utcnow
 from services import recommendation_service as rec, settings_service, safety
-from services import categories as C
+from services import categories as C, age_service
 from routes.helpers import paid_required, child_of
 
 bp = Blueprint("onboarding", __name__)
@@ -32,6 +32,11 @@ def parse_form():
     return r
 
 
+def _age_ctx():
+    return {"min_age": age_service.MIN_AGE, "max_age": age_service.MAX_AGE,
+            "age_bands": [age_service.BANDS[k] for k in age_service.BAND_ORDER]}
+
+
 @bp.route("/onboarding", methods=["GET", "POST"])
 @paid_required
 def onboarding():
@@ -44,16 +49,23 @@ def onboarding():
     if request.method == "POST":
         if request.form.get("consent") != "yes":
             flash("Please give your consent so we can store the profile and create recommendations.", "error")
-            return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS), 400
+            return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS, **_age_ctx()), 400
+        try:
+            age = age_service.parse_age(request.form.get("age"))
+        except age_service.AgeError as e:
+            flash(str(e), "error")
+            return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS, **_age_ctx()), 400
         name = _text("display_name", 40) or "Friend"
         avatar = request.form.get("avatar") if request.form.get("avatar") in AVATARS else "smile"
         responses = parse_form()
         if not child:
-            child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar)
+            child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar, age_years=age)
             Session.add(child)
             Session.flush()
         else:
             child.display_name, child.avatar = name, avatar
+            if age is not None:
+                child.age_years = age
         q = Session.query(CaregiverQuestionnaire).filter_by(child_profile_id=child.id).first()
         if q:
             q.responses_json, q.updated_at = json.dumps(responses), utcnow()
@@ -68,4 +80,4 @@ def onboarding():
             settings_service.save_caregiver_settings(g.user.id, {"avoid_keywords": merged})
         flash("Thank you! Your child's personal world is ready.", "success")
         return redirect(url_for("feed.home"))
-    return render_template("onboarding.html", child=child, r=existing, C=C, avatars=AVATARS)
+    return render_template("onboarding.html", child=child, r=existing, C=C, avatars=AVATARS, **_age_ctx())

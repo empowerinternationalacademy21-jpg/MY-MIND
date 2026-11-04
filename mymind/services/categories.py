@@ -17,7 +17,17 @@ CATEGORIES = {
     "stories":  {"label": "Stories",   "icon": "book-open", "color": "#a0522d", "keywords": ["storybook", "bedtime story", "picture book", "fairy tale"]},
     "dancing":  {"label": "Dancing",   "icon": "party-popper", "color": "#d6336c", "keywords": ["dance", "kids dance", "ballet", "dance party"]},
     "water":    {"label": "Water Play", "icon": "droplets", "color": "#339af0", "keywords": ["splash", "swimming pool", "rain", "waves"]},
+    # ---- added for the age feature (ages 3-25): only offered once an age is set (see services/age_service.py) ----
+    "learning":   {"label": "Learning",       "icon": "notebook-pen", "color": "#3b82a0", "keywords": ["alphabet", "counting numbers", "learn to read", "fun facts"]},
+    "science":    {"label": "Science",        "icon": "rocket", "color": "#5c6bc0", "keywords": ["science experiments", "space", "dinosaurs", "how things work"]},
+    "technology": {"label": "Technology",     "icon": "smartphone", "color": "#00897b", "keywords": ["coding", "robots", "how computers work", "technology"]},
+    "wellbeing":  {"label": "Calm & Wellbeing", "icon": "hand-heart", "color": "#43a047", "keywords": ["calm breathing", "mindfulness", "stretching", "healthy sleep"]},
+    "social":     {"label": "Social Skills",  "icon": "message-circle", "color": "#e57373", "keywords": ["making friends", "kindness", "how to talk to people", "teamwork"]},
+    "careers":    {"label": "Careers & Life Skills", "icon": "badge-check", "color": "#8d6e63", "keywords": ["career ideas", "job interview tips", "life skills", "study skills"]},
 }
+# The original 16 categories. With no age set, only these are used, so existing accounts behave exactly as before.
+LEGACY_CATEGORIES = ["animals", "nature", "food", "vehicles", "music", "sports", "toys", "people", "places", "colors",
+                     "art", "objects", "cartoons", "stories", "dancing", "water"]
 # Picture-page filter shows these (spec list); others still exist as interests.
 PICTURE_CATEGORIES = ["animals", "nature", "food", "vehicles", "music", "sports", "toys", "people", "places", "colors", "art", "objects"]
 
@@ -28,7 +38,10 @@ ACTIVITIES = [("videos", "Watches videos"), ("music", "Listens to music"), ("toy
               ("books", "Looks at books or pictures"), ("nature", "Explores nature"), ("household", "Joins in household activities")]
 INTERESTS = [("animals", "Animals"), ("music", "Music"), ("cartoons", "Cartoons"), ("vehicles", "Vehicles"), ("nature", "Nature"),
              ("food", "Food"), ("sports", "Sports"), ("dancing", "Dancing"), ("toys", "Toys"), ("people", "Family and friendships"),
-             ("colors", "Colors and shapes"), ("water", "Water and outdoor play"), ("stories", "Stories"), ("unknown", "Unknown / still exploring")]
+             ("colors", "Colors and shapes"), ("water", "Water and outdoor play"), ("stories", "Stories"),
+             ("learning", "Learning and school"), ("science", "Science"), ("technology", "Technology"),
+             ("wellbeing", "Calm and wellbeing"), ("social", "Social skills and friendships"),
+             ("careers", "Careers and life skills"), ("unknown", "Unknown / still exploring")]
 COMMUNICATION = [("words", "Spoken words"), ("phrases", "Short phrases"), ("gestures", "Gestures"), ("pointing", "Pointing"),
                  ("cards", "Picture cards"), ("devices", "Communication devices"), ("expressions", "Facial expressions or sounds"),
                  ("combination", "A combination of methods"), ("other", "Other")]

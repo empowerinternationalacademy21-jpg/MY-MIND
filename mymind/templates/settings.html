@@ -7,6 +7,8 @@
 <div class="rows">
 <details class="row-d" open>{{ sec('user-round','Child Profile') }}<div class="inside">
 {% if child %}<div class="field"><label for="dn">Nickname</label><input id="dn" name="display_name" type="text" maxlength="40" value="{{ child.display_name }}"></div>
+<div class="field"><label for="age">Age (years, {{ min_age }} to {{ max_age }})</label><input id="age" name="age" type="number" inputmode="numeric" min="{{ min_age }}" max="{{ max_age }}" step="1" value="{{ child.age_years if child.age_years else '' }}" placeholder="e.g. 7">
+<p class="hint">{% if age_band %}Showing content for <b>{{ age_band.label }}</b> (ages {{ age_band.min }}-{{ age_band.max }}): {{ age_band.blurb }}{% else %}No age set yet, so the original mix of topics is shown. Enter an age to get content that suits it.{% endif %} Update it on each birthday.</p></div>
 <div class="choices avatars">{% for a in avatars %}<label class="choice"><input type="radio" name="avatar" value="{{ a }}" {{ 'checked' if child.avatar == a }}><span>{{ icon(a) }}<span class="sr-only">{{ a }}</span></span></label>{% endfor %}</div>
 <p style="margin-top:.8rem"><a href="{{ url_for('parent_links.page') }}">Parent links (family view)</a> · <a href="{{ url_for('onboarding.onboarding') }}">Edit the questionnaire</a> · <a href="{{ url_for('profile.updates') }}">Daily-life update</a></p>
 {% else %}<p class="muted">Complete the questionnaire to create the child profile.</p>{% endif %}</div></details>

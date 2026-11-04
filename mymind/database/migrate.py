@@ -40,8 +40,14 @@ def m0005_id_verification(engine):
         ("verify_underage_attempts", "INTEGER NOT NULL DEFAULT 0")])
 
 
+def m0006_child_age(engine):
+    """The child's age in years (3-25) drives age-appropriate content. NULL for existing profiles until a caregiver sets it."""
+    _add_missing_columns(engine, "child_profiles", [("age_years", "INTEGER")])
+
+
 MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_world_assets), (3, "ai 3d assets", m0003_assets3d),
-              (4, "parent links", m0004_parent_links), (5, "id verification", m0005_id_verification)]
+              (4, "parent links", m0004_parent_links), (5, "id verification", m0005_id_verification),
+              (6, "child age", m0006_child_age)]
 
 def run_migrations():
     engine = db.get_engine()

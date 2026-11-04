@@ -38,6 +38,7 @@ class ChildProfile(Base):
     caregiver_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
     display_name = Column(String(40), nullable=False, default="Friend")  # nickname only
     avatar = Column(String(20), nullable=False, default="smile")
+    age_years = Column(Integer)                      # 3-25, set by the caregiver; NULL = not set (original behaviour). Years only, never a date of birth
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     caregiver = relationship("User", back_populates="child")
