@@ -197,6 +197,7 @@ def test_real_provider_results_are_mapped_and_filtered(app, ready, monkeypatch):
     titles = [i["title"] for i in d["items"]]
     assert "Cute puppies play" in titles and "Scary horror puppies" not in titles
     assert d["items"][0]["embed"].startswith("https://www.youtube-nocookie.com/embed/")
+    assert d["items"][0]["provider_content_id"] == good["provider_content_id"]
     assert d["items"][0]["thumb"] == good["thumbnail_url"]
     assert d["items"][0]["url"] == good["canonical_url"]
 

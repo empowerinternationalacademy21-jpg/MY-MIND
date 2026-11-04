@@ -192,7 +192,8 @@ def serialise(items, profile_id):
         # (titles saved earlier with &amp; are repaired here too)
         out.append({"id": i.id, "type": i.content_type, "title": html.unescape(i.title),
                     "thumb": thumb_for(i), "url": i.canonical_url,
-                    "provider": i.provider, "demo": i.provider == "demo", "embed": embed, "category": i.category,
+                    "provider": i.provider, "provider_content_id": i.provider_content_id,
+                    "demo": i.provider == "demo", "embed": embed, "category": i.category,
                     "category_label": CATEGORIES.get(i.category, {}).get("label", i.category), "attribution": att,
                     "favorite": i.id in favs, "reaction": last.get(i.id)})
     return out

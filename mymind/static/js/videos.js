@@ -8,7 +8,7 @@
     var CONFIG = {
         listEndpoint: '/api/videos',            // GET ?q=&cat=&page=&limit=
         interactEndpoint: '/api/interactions',  // POST JSON {item_id, type, kind}
-        embedBase: 'https://www.youtube.com/embed/',  // must be allowed by your CSP frame-src
+        embedBase: 'https://www.youtube-nocookie.com/embed/',  // must be allowed by your CSP frame-src
         pageSize: 24,
         sideCount: 7,                           // how many items go in "Up next"
         iconPrefix: '#i-'                       // must match ids in templates/_icons.html
@@ -73,7 +73,7 @@
         return n + ' views';
     }
     function normalize(raw) {
-        var yt = raw.video_id || raw.youtube_id || raw.yt_id || '';
+        var yt = raw.video_id || raw.youtube_id || raw.yt_id || raw.provider_content_id || '';
         if (!yt && typeof raw.id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(raw.id)) yt = raw.id;
         var secs = raw.duration_seconds != null ? raw.duration_seconds : raw.duration;
         return {
