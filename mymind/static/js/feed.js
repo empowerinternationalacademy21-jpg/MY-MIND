@@ -138,7 +138,11 @@
     const g = document.getElementById(id), wrap = document.getElementById(id + "-wrap");
     try {
       const d = await MM.api(url);
-      if (d.items.length) { g.replaceChildren(...d.items.map((i) => MM.card(i, { hideOnDislike: false }))); wrap.hidden = false; }
+      if (d.items.length) {
+        const opts = { hideOnDislike: false, recent: id === "recent" };
+        g.replaceChildren(...d.items.map((i) => MM.card(i, opts)));
+        wrap.hidden = false;
+      }
     } catch (e) { }
   }
   load(false);

@@ -124,6 +124,44 @@
     scroll-snap-align: start
 }
 
+.hrow .recent-media-card {
+    flex: none;
+    width: 250px;
+    height: 350px;
+    scroll-snap-align: start
+}
+
+.recent-media-card .tile__media {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    background: #e9edf2
+}
+
+.recent-media-card .tile__media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover
+}
+
+.recent-media-card .tile__body {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    flex: 1;
+    min-height: 0
+}
+
+.recent-media-card .tile__title {
+    min-height: 2.5em
+}
+
+.recent-media-card .tools {
+    margin-top: auto
+}
+
 /* a feed "post" */
 .post {
     margin: 1.2rem 0 1.5rem;

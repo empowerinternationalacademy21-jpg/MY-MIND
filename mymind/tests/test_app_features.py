@@ -120,6 +120,31 @@ def test_clear_history(app, ready):
         assert Session.query(Interaction).count() == 0
 
 
+def test_recent_youtube_items_keep_or_derive_thumbnails(app, ready):
+    with app.app_context():
+        stored = cs.upsert({"provider": "youtube", "provider_content_id": "QwErTy123_-",
+                            "content_type": "video", "title": "Stored thumbnail", "thumbnail_url": "https://img.example/stored.jpg",
+                            "canonical_url": "https://www.youtube.com/watch?v=QwErTy123_-", "category": "animals"})
+        older = cs.upsert({"provider": "youtube", "provider_content_id": "legacy-video",
+                           "content_type": "video", "title": "Legacy thumbnail", "thumbnail_url": "",
+                           "canonical_url": "https://youtu.be/abcDEF123_-", "category": "animals"})
+        stored_id, older_id = stored.id, older.id
+        older.thumbnail_url = ""
+        Session.commit()
+
+    ready.jpost("/api/react", {"content_id": stored_id, "type": "selected"})
+    ready.jpost("/api/react", {"content_id": older_id, "type": "selected"})
+    items = ready.get("/api/recent").get_json()["items"]
+
+    assert items[0]["id"] == older_id
+    assert items[0]["video_id"] == "abcDEF123_-"
+    assert items[0]["thumb"] == "https://i.ytimg.com/vi/abcDEF123_-/hqdefault.jpg"
+    saved = next(item for item in items if item["id"] == stored_id)
+    assert saved["thumb"] == "https://img.example/stored.jpg"
+    with app.app_context():
+        assert Session.get(ContentItem, older_id).thumbnail_url == items[0]["thumb"]
+
+
 def test_user_data_isolation(app, ready, admin):
     b = Client(app); b.register("dad"); subscribe_and_approve(app, b, admin, ref="DADREF99"); b.post("/onboarding", ONB)
     ready.post("/journey/activity", {"title": "Private moment", "activity_date": date.today().isoformat()})

@@ -155,6 +155,8 @@ def react():
                                                 Interaction.interaction_type == rtype,
                                                 Interaction.occurred_at > utcnow() - timedelta(seconds=30)).first())
     if not recent:                      # ignore rapid duplicate taps so they can't inflate scores
+        if rtype in {"selected", "watched", "like", "explore"} and not item.thumbnail_url:
+            item.thumbnail_url = cs.thumb_for(item)
         rec.record_interaction(g.child.id, item, rtype)
     return jsonify(ok=True, type=rtype, counted=not recent)
 

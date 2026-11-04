@@ -65,10 +65,44 @@
     '<rect width="160" height="120" fill="url(#g)"/><circle cx="80" cy="60" r="24" fill="#fff" opacity=".9"/>' +
     '<path d="M72 48l22 12-22 12z" fill="#1f78f0"/></svg>');
   MM.placeholder = PLACEHOLDER;
+  MM.youtubeVideoId = function (item) {
+    const stored = item.video_id || (item.attribution && item.attribution.youtube_video_id);
+    if (stored) return stored;
+    if (item.provider === "youtube" && item.provider_content_id) return item.provider_content_id;
+    const value = item.url || item.embed || "";
+    try {
+      const url = new URL(value, location.href), host = url.hostname.toLowerCase();
+      if (host === "youtu.be") return url.pathname.split("/").filter(Boolean)[0] || "";
+      if (host !== "youtube.com" && !host.endsWith(".youtube.com") && host !== "youtube-nocookie.com") return "";
+      const queryId = url.searchParams.get("v");
+      if (queryId) return queryId;
+      const parts = url.pathname.split("/").filter(Boolean);
+      return parts.length > 1 && ["embed", "shorts", "live", "v"].includes(parts[0]) ? parts[1] : "";
+    } catch (e) { return ""; }
+  };
+  MM.videoThumbnail = function (item) {
+    if (item.thumb) return item.thumb;
+    const id = MM.youtubeVideoId(item);
+    return id ? "https://i.ytimg.com/vi/" + encodeURIComponent(id) + "/hqdefault.jpg" : PLACEHOLDER;
+  };
   document.addEventListener("error", (e) => {
     const t = e.target;
-    if (!(t instanceof HTMLImageElement) || t.dataset.fb) return;
-    t.dataset.fb = "1";
+    if (!(t instanceof HTMLImageElement)) return;
+    const id = t.dataset.youtubeId;
+    if (id && t.dataset.fb !== "placeholder") {
+      const current = t.currentSrc || t.src;
+      if (!current.includes("/mqdefault.jpg")) {
+        t.dataset.fb = current.includes("/hqdefault.jpg") ? "mq" : "hq";
+        const quality = t.dataset.fb === "mq" ? "mqdefault" : "hqdefault";
+        t.src = "https://i.ytimg.com/vi/" + encodeURIComponent(id) + "/" + quality + ".jpg";
+        return;
+      }
+      if (current.includes("/mqdefault.jpg")) {
+        t.dataset.fb = "mq";
+      }
+    }
+    if (t.dataset.fb === "placeholder") return;
+    t.dataset.fb = "placeholder";
     t.src = PLACEHOLDER;
   }, true);
 
@@ -113,8 +147,8 @@
     dislike.onclick = async () => { await MM.react(item, "dislike"); dislike.setAttribute("aria-pressed", "true"); like.setAttribute("aria-pressed", "false"); MM.toast("Okay, we'll show less like this."); if (opts.hideOnDislike !== false && card) card.style.opacity = ".35"; };
     wrap.append(like, dislike);
     if (opts.withFav) wrap.appendChild(MM.favButton(item, "tool"));
-    if (item.type === "video" || item.type === "short") {
-      const skip = mkBtn("tool", "skip-forward", "Skip"); skip.onclick = async () => { await MM.react(item, "skip"); if (card) card.style.opacity = ".35"; if (opts.onSkip) opts.onSkip(card); }; wrap.appendChild(skip);
+    if (item.type === "video" || item.type === "short" || opts.withSkip) {
+      const skip = mkBtn("tool", "skip-forward", opts.withSkip ? "Next" : "Skip"); skip.onclick = async () => { await MM.react(item, "skip"); if (card) card.style.opacity = ".35"; if (opts.onSkip) opts.onSkip(card); }; wrap.appendChild(skip);
     }
     const more = el("a", "tool"); more.href = "/explore/" + item.id; more.title = "More like this"; more.setAttribute("aria-label", "More like this"); more.dataset.label = "More like this";
     more.appendChild(ic("search")); more.addEventListener("click", () => MM.react(item, "explore")); wrap.appendChild(more);
@@ -129,6 +163,7 @@
     const a2 = el("a", null, "Pexels"); a2.href = "https://www.pexels.com"; a2.target = "_blank"; a2.rel = "noopener noreferrer"; p.append(a2); return p;
   };
   MM.card = function (item, opts = {}) {
+    if (opts.recent) return MM.recentMediaCard(item, opts);
     if (item.type === "song") return MM.songRow(item, opts);
     const card = el("article", "tile tile--" + item.type);
     const media = el("button", "tile__media"); media.type = "button"; media.setAttribute("aria-label", "Open " + item.title);
@@ -144,6 +179,29 @@
     const meta = el("p", "tile__meta", item.category_label); if (item.demo) { const d = el("span", "badge", "Demo"); d.style.marginLeft = ".35rem"; meta.appendChild(d); }
     b.appendChild(meta); const at = attribution(item); if (at) b.appendChild(at);
     b.appendChild(MM.tools(item, card, opts)); card.appendChild(b);
+    return card;
+  };
+  MM.recentMediaCard = function (item, opts = {}) {
+    const hasMedia = item.type !== "picture";
+    const card = el("article", "tile tile--" + item.type + " recent-media-card");
+    const media = el("button", "tile__media"); media.type = "button";
+    media.setAttribute("aria-label", "Open " + item.title);
+    const img = el("img"); img.src = hasMedia ? MM.videoThumbnail(item) : (item.thumb || PLACEHOLDER); img.alt = "";
+    img.loading = "lazy"; img.dataset.youtubeId = hasMedia ? MM.youtubeVideoId(item) : ""; media.appendChild(img);
+    media.addEventListener("click", () => MM.open(item));
+    if (hasMedia) {
+      const play = el("span", "kind"); play.appendChild(ic("play", "sm")); media.appendChild(play);
+      if (item.attribution.duration) media.appendChild(el("span", "dur", fmt(item.attribution.duration)));
+    }
+    card.append(media, MM.favButton(item));
+    const body = el("div", "tile__body");
+    body.appendChild(el("h3", "tile__title", item.title));
+    body.appendChild(el("p", "tile__meta", item.attribution.channel || item.attribution.artist
+      || item.attribution.photographer || item.category_label));
+    body.appendChild(MM.tools(item, card, Object.assign({}, opts, {
+      hideOnDislike: false, withSkip: item.type !== "picture"
+    })));
+    card.appendChild(body);
     return card;
   };
   MM.songRow = function (item, opts = {}) {

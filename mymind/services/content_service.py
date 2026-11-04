@@ -7,6 +7,8 @@ Source order for every kind of content:
 """
 import html
 import json
+import re
+from urllib.parse import parse_qs, urlparse
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
 from database.db import Session
@@ -26,9 +28,14 @@ def _key(d):
 
 
 def _build(d):
+    thumbnail_url = d.get("thumbnail_url") or ""
+    if not thumbnail_url:
+        video_id = youtube_video_id(d)
+        if video_id:
+            thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
     return ContentItem(provider=d["provider"], provider_content_id=d["provider_content_id"], content_type=d["content_type"],
                        title=d["title"][:300], description=(d.get("description") or "")[:500],
-                       thumbnail_url=(d.get("thumbnail_url") or "")[:600], canonical_url=(d.get("canonical_url") or "")[:600],
+                       thumbnail_url=thumbnail_url[:600], canonical_url=(d.get("canonical_url") or "")[:600],
                        category=d.get("category") if d.get("category") in CATEGORIES else "objects",
                        tags_json=json.dumps(d.get("tags", [])), attribution_json=json.dumps(d.get("attribution", {})))
 
@@ -171,12 +178,50 @@ def fetch_models(kind, category, q, page, n, block, age=None):
 
 
 def thumb_for(i):
-    """Every item gets a thumbnail: its own picture, else YouTube's frame for the video, else a themed demo picture."""
+    """Prefer the stored image, then derive a YouTube frame, then use themed demo art."""
     if i.thumbnail_url:
         return i.thumbnail_url
-    if i.provider == "youtube":
-        return f"https://i.ytimg.com/vi/{i.provider_content_id}/hqdefault.jpg"
+    video_id = youtube_video_id(i)
+    if video_id:
+        return f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
     return f"/demo-art/{i.category if i.category in CATEGORIES else 'objects'}/1.svg"
+
+
+def youtube_video_id(item):
+    if isinstance(item, dict):
+        provider = item.get("provider")
+        provider_content_id = item.get("provider_content_id")
+        att = item.get("attribution") or {}
+        canonical_url = item.get("canonical_url") or ""
+    else:
+        provider = item.provider
+        provider_content_id = item.provider_content_id
+        att = json.loads(item.attribution_json or "{}")
+        canonical_url = item.canonical_url or ""
+    candidate = provider_content_id if provider == "youtube" else att.get("youtube_video_id")
+    if isinstance(candidate, str) and re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
+        return candidate
+
+    url = canonical_url
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if host == "youtu.be":
+            candidate = parsed.path.strip("/").split("/")[0]
+        elif (host == "youtube.com" or host.endswith(".youtube.com")
+              or host == "youtube-nocookie.com" or host.endswith(".youtube-nocookie.com")):
+            parts = [part for part in parsed.path.split("/") if part]
+            candidate = (parse_qs(parsed.query).get("v") or [None])[0]
+            if not candidate and len(parts) >= 2 and parts[0] in ("embed", "shorts", "live", "v"):
+                candidate = parts[1]
+        else:
+            candidate = None
+    except ValueError:
+        candidate = None
+    if candidate and re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
+        return candidate
+    fallback = provider_content_id if provider == "youtube" else att.get("youtube_video_id")
+    return fallback if isinstance(fallback, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,80}", fallback) else None
 
 
 def serialise(items, profile_id):
@@ -192,8 +237,7 @@ def serialise(items, profile_id):
     for i in items:
         att = json.loads(i.attribution_json or "{}")
         embed = None
-        video_id = (i.provider_content_id if i.provider == "youtube"
-                    else att.get("youtube_video_id") if i.provider == "demo" else None)
+        video_id = youtube_video_id(i) if i.content_type in ("video", "short", "song") else None
         if video_id:
             embed = f"https://www.youtube-nocookie.com/embed/{video_id}?rel=0&modestbranding=1"
         elif i.provider == "spotify":
