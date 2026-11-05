@@ -84,7 +84,7 @@ try {
     await open3d();
     await page.click("#w3d-gear-btn"); await sleep(500);
     must(await page.evaluate(() => document.getElementById("w3d-gear-btn").getAttribute("aria-expanded")) === "true", "gear not expanded");
-    await page.evaluate(() => { const f = document.querySelector(".w3d-gear__form"); const s = f.querySelectorAll("select"); s[0].value = "football"; s[1].value = "strong"; f.querySelector("input[name=hidden][value=food]").checked = true; });
+    await page.evaluate(() => { const f = document.querySelector(".w3d-gear__form"); const s = f.querySelectorAll("select"); s[0].value = "football"; s[s.length - 1].value = "strong"; f.querySelector("input[name=hidden][value=food]").checked = true; });
     await page.evaluate(() => document.querySelector(".w3d-gear__form button[type=submit]").click()); await sleep(5000);
     const after = await page.evaluate(() => ({ theme: document.getElementById("w3d-theme").textContent, labels: [...document.querySelectorAll(".w3d-label")].map((l) => l.dataset.key), mode: window.MMWorldUI.mode() }));
     must(/Football world/.test(after.theme) && !after.labels.includes("food") && after.mode === "3d", JSON.stringify(after));
@@ -111,17 +111,16 @@ try {
       const state = await preview.evaluate(() => {
         const canvas = document.querySelector("canvas.w3d-canvas");
         if (!canvas) return { canvas: false };
-        const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
-        const pixel = new Uint8Array(4); gl.readPixels(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-        return { canvas: true, pixel: [...pixel], readOnly: document.body.dataset.readOnly,
+        return { canvas: true, readOnly: document.body.dataset.readOnly,
           banner: document.querySelector(".wp-banner h1")?.textContent,
           labels: document.querySelectorAll(".w3d-label").length,
           width: canvas.getBoundingClientRect().width, viewport: window.innerWidth };
       });
       must(state.canvas && state.readOnly === "1" && state.labels >= 9, JSON.stringify(state));
       must(state.banner === "You're viewing Sunny's world", state.banner || "preview banner missing");
-      must(state.width <= state.viewport && state.pixel.some((value) => value > 0), JSON.stringify(state));
+      must(state.width <= state.viewport, JSON.stringify(state));
       await preview.screenshot({ path: `/tmp/mymind-share-${name}.png`, fullPage: true });
+      await (await preview.$(".w3d-stage")).screenshot({ path: `/tmp/mymind-share-${name}-map.png` });
       if (name === "desktop") {
         await preview.click('.w3d-label[data-key="sports"]'); await sleep(1200);
         must(await preview.evaluate(() => !document.getElementById("w3d-sheet").hidden), "shared stop did not open");

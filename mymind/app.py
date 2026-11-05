@@ -79,7 +79,7 @@ def create_app(test_config=None):
         csp = (
             "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'wasm-unsafe-eval'; "      # wasm: Draco/Meshopt decoders for 3D models
-            "frame-src https://www.youtube-nocookie.com https://open.spotify.com; media-src 'self' blob:; "
+            "frame-src 'self' https://www.youtube-nocookie.com https://open.spotify.com; media-src 'self' blob:; "
             "worker-src 'self' blob:; connect-src 'self' blob:; "
             "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
         if request.path.startswith("/verify"):      # only the verification page may load the Sumsub WebSDK and frame it
