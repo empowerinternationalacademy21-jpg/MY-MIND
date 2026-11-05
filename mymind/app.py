@@ -74,7 +74,8 @@ def create_app(test_config=None):
     @app.after_request
     def headers(resp):
         resp.headers["X-Content-Type-Options"] = "nosniff"
-        resp.headers["X-Frame-Options"] = "DENY"
+        embedded_preview = request.endpoint == "world_share.caretaker_preview"
+        resp.headers["X-Frame-Options"] = "SAMEORIGIN" if embedded_preview else "DENY"
         resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         csp = (
             "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
@@ -86,6 +87,8 @@ def create_app(test_config=None):
             csp = (csp.replace("script-src 'self'", "script-src 'self' https://static.sumsub.com")
                       .replace("frame-src ", "frame-src https://static.sumsub.com https://*.sumsub.com ")
                       .replace("connect-src 'self' blob:", "connect-src 'self' blob: https://*.sumsub.com"))
+        if embedded_preview:
+            csp = csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
         resp.headers["Content-Security-Policy"] = csp
         if request.path.startswith(("/p/", "/world/share/")):  # secret family links must never be indexed, cached or leaked via Referer
             resp.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
