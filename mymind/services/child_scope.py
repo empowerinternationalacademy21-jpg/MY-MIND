@@ -63,6 +63,22 @@ def resolve_child_uid(caregiver_id, public_uid):
                     ChildProfile.archived_at.is_(None)).first())
 
 
+def children_for_caregiver(caregiver_id, include_archived=False):
+    query = (Session.query(ChildProfile)
+             .join(CaregiverChildAccess, CaregiverChildAccess.child_id == ChildProfile.id)
+             .filter(CaregiverChildAccess.caregiver_id == caregiver_id,
+                     CaregiverChildAccess.status == "active"))
+    if not include_archived:
+        query = query.filter(ChildProfile.archived_at.is_(None))
+    return query.order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc())
+
+
+def caregivers_for_child(child_id):
+    return (Session.query(CaregiverChildAccess)
+            .filter_by(child_id=child_id, status="active")
+            .order_by(CaregiverChildAccess.created_at.asc()).all())
+
+
 def query(model, caregiver_id, child_id):
     """Query one child-owned model with mandatory child and caregiver predicates."""
     child_column = _CHILD_COLUMN.get(model)
@@ -75,8 +91,10 @@ def query(model, caregiver_id, child_id):
 
 
 def primary_caregiver_id(child_id):
-    child = Session.query(ChildProfile.id, ChildProfile.caregiver_user_id).filter_by(id=child_id).first()
-    return child[1] if child else None
+    grant = (Session.query(CaregiverChildAccess.caregiver_id)
+             .filter_by(child_id=child_id, status="active")
+             .order_by(CaregiverChildAccess.created_at.asc()).first())
+    return grant[0] if grant else None
 
 
 def write_audit(caregiver_id, child_id, action, ip_address, target_type=None, target_id=None, detail=None):
