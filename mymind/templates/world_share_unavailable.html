@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}World link unavailable{% endblock %}
+{% block content %}
+<section class="card-box center" style="max-width:560px;margin:12vh auto 0">
+  <span class="bub" style="display:inline-grid;width:56px;height:56px;border-radius:50%;place-items:center;background:var(--sky)">{{ icon('link-2-off','lg') }}</span>
+  <h1 style="margin-top:.8rem">This link has expired or was revoked</h1>
+  <p class="muted">Ask the caretaker to create a new private link to this world.</p>
+</section>
+{% endblock %}

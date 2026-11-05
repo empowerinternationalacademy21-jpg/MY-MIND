@@ -70,7 +70,8 @@ def payment_display():
 
 # ---- caregiver settings ----
 CG_DEFAULTS = {"reduced_motion": False, "large_text": False, "sound_labels": False, "sound_on": True,
-               "screen_time_minutes": 30, "shots_enabled": True, "avoid_keywords": "", "restriction": "strict",
+               "screen_time_minutes": 30, "recommendation_limit_minutes": 120,
+               "shots_enabled": True, "avoid_keywords": "", "restriction": "strict",
                "high_contrast": False, "show_real_people": False, "world": {}}
 
 

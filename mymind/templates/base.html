@@ -25,7 +25,8 @@
 <body
   class="{{ 'reduced-motion ' if cg.reduced_motion }}{{ 'large-text ' if cg.large_text }}{{ 'high-contrast ' if cg.high_contrast }}{{ 'public' if not user }}{% block body_class %}{% endblock %}"
   data-role="{{ auth_role or '' }}"
-  data-app="{{ 1 if in_app and auth_role == 'child' and active != 'settings' else 0 }}"
+  data-read-only="{{ 1 if world_mode|default('') == 'preview' or read_only_child|default(false) else 0 }}"
+  data-app="{{ 1 if in_app and auth_role == 'child' and active != 'settings' and not read_only_child|default(false) else 0 }}"
   data-activity-stop="{{ {'home':'home','pictures':'pictures','videos':'videos','shots':'shorts','music':'music','world':'home'}.get(active|default(''), '') if in_app and auth_role == 'child' else '' }}"
   data-screen="{{ cg.screen_time_minutes if in_app else 0 }}" data-speak="{{ 1 if cg.sound_labels else 0 }}">
   {% include "_icons.html" %}
@@ -33,7 +34,7 @@
     aria-label="{{ brand }} home"><span>M</span><span>y</span><span>M</span><span>i</span><span>n</span><span>d</span></a>{%
   endmacro %}
   <a class="sr-only" href="#main">Skip to content</a>
-  {% block page %}<div class="shell {{ 'wide' if is_admin }} {{ 'public' if not user }}">
+  {% block page %}<div class="shell {{ 'wide' if is_admin or world_mode|default('') == 'preview' }} {{ 'public' if not user or world_mode|default('') == 'preview' }}">
     {% if in_app %}
     <header class="topbar">
       {% if active == 'home' %}{{ brandmark() }}{% block topbar_search %}{% endblock %}<span style="flex:1"></span>
@@ -55,7 +56,7 @@
           value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Log out">{{ icon('log-out')
           }}</button></form>
     </header>
-    {% elif user %}
+    {% elif user and world_mode|default('') != 'preview' %}
     <header class="topbar">{{ brandmark() }}<span style="flex:1"></span>
       <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token"
           value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Log out">{{ icon('log-out')

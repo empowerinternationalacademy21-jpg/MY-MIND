@@ -32,19 +32,21 @@ class User(Base):
     verify_underage_attempts = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
-    child = relationship("ChildProfile", uselist=False, back_populates="caregiver")
+    children = relationship("ChildProfile", back_populates="caregiver")
 
 
 class ChildProfile(Base):
     __tablename__ = "child_profiles"
     id = Column(Integer, primary_key=True)
-    caregiver_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    caregiver_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     display_name = Column(String(40), nullable=False, default="Friend")  # nickname only
     avatar = Column(String(20), nullable=False, default="smile")
+    child_username = Column(String(30), unique=True)
     age_years = Column(Integer)                      # 3-25, set by the caregiver; NULL = not set (original behaviour). Years only, never a date of birth
+    archived_at = Column(DateTime)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
-    caregiver = relationship("User", back_populates="child")
+    caregiver = relationship("User", back_populates="children")
 
 
 class CaregiverQuestionnaire(Base):
@@ -77,6 +79,7 @@ class Subscription(Base):
     status = Column(String(24), nullable=False, default="pending_payment")
     starts_at = Column(DateTime)
     expires_at = Column(DateTime)
+    cancel_at_period_end = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     __table_args__ = (Index("ix_sub_user_status", "user_id", "status"),)
 
@@ -289,3 +292,27 @@ class ParentLink(Base):
     last_viewed_at = Column(DateTime)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     __table_args__ = (Index("ix_parent_link_child", "child_profile_id"),)
+
+
+class WorldShareLink(Base):
+    """Revocable, token-only read access to one child's world and activity summary."""
+    __tablename__ = "world_share_links"
+    id = Column(Integer, primary_key=True)
+    child_profile_id = Column(Integer, ForeignKey("child_profiles.id", ondelete="CASCADE"), nullable=False)
+    token_hash = Column(String(64), nullable=False, unique=True)
+    expires_at = Column(DateTime)
+    revoked_at = Column(DateTime)
+    last_opened_at = Column(DateTime)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ix_world_share_child", "child_profile_id"),)
+
+
+class CaregiverRecommendationState(Base):
+    __tablename__ = "caregiver_recommendation_states"
+    id = Column(Integer, primary_key=True)
+    child_profile_id = Column(Integer, ForeignKey("child_profiles.id", ondelete="CASCADE"), nullable=False)
+    recommendation_key = Column(String(100), nullable=False)
+    dismissed_at = Column(DateTime)
+    remind_until = Column(DateTime)
+    __table_args__ = (UniqueConstraint("child_profile_id", "recommendation_key", name="uq_rec_state_child_key"),
+                      Index("ix_rec_state_child", "child_profile_id"))

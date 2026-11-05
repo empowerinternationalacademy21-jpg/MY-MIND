@@ -183,6 +183,15 @@
     box.appendChild(t); setTimeout(() => t.remove(), 3000);
   };
 
+    document.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-copy-target]");
+      if (!button) return;
+      const input = document.getElementById(button.dataset.copyTarget);
+      if (!input) return;
+      try { await navigator.clipboard.writeText(input.value); MM.toast("Link copied."); }
+      catch (e) { input.focus(); input.select(); MM.toast("Select the link and copy it."); }
+    });
+
   /* inline Lucide icon from the page sprite (black line icons) */
   const ic = (name, cls) => {
     const s = document.createElementNS(NS, "svg"); s.setAttribute("class", "ic" + (cls ? " " + cls : "")); s.setAttribute("aria-hidden", "true");
@@ -286,6 +295,7 @@
   });
 
   MM.react = async function (item, type) {
+    if (body.dataset.readOnly === "1") return;
     try { await MM.api("/api/react", { json: { content_id: item.id, type } }); } catch (e) { MM.toast(e.message); }
   };
 
@@ -295,12 +305,16 @@
     if (pressed !== undefined) b.setAttribute("aria-pressed", pressed ? "true" : "false"); return b;
   };
   MM.favButton = function (item, cls) {
+    if (body.dataset.readOnly === "1") {
+      const marker = el("span", cls || "fav"); marker.setAttribute("aria-label", "Favorite"); marker.appendChild(ic("heart")); return marker;
+    }
     const fav = mkBtn(cls || "fav", "heart", "Favorite", item.favorite);
     fav.onclick = async (e) => { e.stopPropagation(); try { const r = await MM.api("/api/favorite", { json: { content_id: item.id } }); fav.setAttribute("aria-pressed", r.favorite); MM.toast(r.favorite ? "Added to favorites" : "Removed from favorites"); } catch (err) { MM.toast(err.message); } };
     return fav;
   };
   MM.tools = function (item, card, opts = {}) {
     const wrap = el("div", "tools");
+    if (opts.readOnly || body.dataset.readOnly === "1") return wrap;
     const like = mkBtn("tool", "thumbs-up", "I like this", item.reaction === "like");
     const dislike = mkBtn("tool dis", "thumbs-down", "Not for me", item.reaction === "dislike");
     like.onclick = async () => { await MM.react(item, "like"); like.setAttribute("aria-pressed", "true"); dislike.setAttribute("aria-pressed", "false"); MM.toast("Nice choice!"); };
@@ -381,14 +395,14 @@
   /* ---------- viewer modal (picture / YouTube embed / Spotify embed) ---------- */
   MM.open = function (item) {
     const dlg = document.getElementById("viewer"); const box = dlg.querySelector(".dlg-body");
-    box.replaceChildren(); MM.react(item, "selected");
+    box.replaceChildren(); if (body.dataset.readOnly !== "1") MM.react(item, "selected");
     box.appendChild(el("h2", null, item.title));
     const opened = Date.now();
     if (item.type === "picture") { const img = el("img", "big"); img.src = item.thumb; img.alt = item.title; box.appendChild(img); const at = attribution(item); if (at) box.appendChild(at); }
     else if (item.embed) {
       box.appendChild(MM.player(item));
       if (item.provider === "youtube") box.appendChild(el("p", "tile__meta", "If the video does not start, use “Watch on YouTube” below."));
-      if (item.type === "video" || item.type === "short") MM.activity.startWatch(item);
+      if (body.dataset.readOnly !== "1" && (item.type === "video" || item.type === "short")) MM.activity.startWatch(item);
     } else {
       const n = el("p", "notice"); n.append(ic("info"), el("span", null, "This is demo content, so there is nothing to play. Add API keys to see real videos and music.")); box.appendChild(n);
       if (item.thumb) { const img = el("img", "big"); img.src = item.thumb; img.alt = ""; box.appendChild(img); }
@@ -397,12 +411,12 @@
       const a = el("a", "btn small", item.provider === "spotify" ? "Open in Spotify" : item.provider === "youtube" ? "Watch on YouTube" : "View original");
       a.href = item.url; a.target = "_blank"; a.rel = "noopener noreferrer"; box.appendChild(a);
     }
-    box.appendChild(MM.tools(item, null, { hideOnDislike: false, withFav: true }));
+    if (body.dataset.readOnly !== "1") box.appendChild(MM.tools(item, null, { hideOnDislike: false, withFav: true }));
     dlg.showModal();
     dlg.onclose = () => {
       box.replaceChildren();
-      if (item.type === "video" || item.type === "short") MM.activity.endWatch();
-      if (item.embed && Date.now() - opened > 10000) MM.react(item, "watched");
+      if (body.dataset.readOnly !== "1" && (item.type === "video" || item.type === "short")) MM.activity.endWatch();
+      if (body.dataset.readOnly !== "1" && item.embed && Date.now() - opened > 10000) MM.react(item, "watched");
     };
   };
 

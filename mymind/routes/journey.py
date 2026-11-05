@@ -6,6 +6,7 @@ from sqlalchemy import func
 from database.db import Session
 from database.models import ActivityEvent, Interaction, DailyActivity, InterestProfile, Favorite, ContentItem, utcnow
 from services import recommendation_service as rec
+from services import plan_service
 from services.categories import label_for
 from routes.helpers import subscribed_required
 
@@ -81,6 +82,8 @@ def trends(child_id, weeks=6):
 @bp.route("/journey")
 @subscribed_required
 def view():
+    if not plan_service.can_use(g.user.id, "history_30_days"):
+        return redirect(url_for("auth.caretaker", range="7"))
     today = utcnow().date()
     mode = "week" if request.args.get("view") == "week" else "month"
     sel = parse_day(request.args.get("date")) or today
@@ -113,6 +116,8 @@ def view():
 @subscribed_required
 def day_api(day):
     d = parse_day(day) or abort(404)
+    if d < utcnow().date() - timedelta(days=plan_service.history_days(g.user.id) - 1):
+        abort(404)
     return jsonify(day_summary(g.child.id, d))
 
 

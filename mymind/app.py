@@ -33,8 +33,8 @@ def create_app(test_config=None):
         settings_service.ensure_defaults()
     verification_service.check_startup(app)
 
-    from routes import auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d
-    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d):
+    from routes import auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker
+    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker):
         app.register_blueprint(mod.bp)
     app.register_blueprint(parent_view.manage)
 
@@ -87,7 +87,7 @@ def create_app(test_config=None):
                       .replace("frame-src ", "frame-src https://static.sumsub.com https://*.sumsub.com ")
                       .replace("connect-src 'self' blob:", "connect-src 'self' blob: https://*.sumsub.com"))
         resp.headers["Content-Security-Policy"] = csp
-        if request.path.startswith("/p/"):                       # family links: never indexed, cached or leaked via Referer
+        if request.path.startswith(("/p/", "/world/share/")):  # secret family links must never be indexed, cached or leaked via Referer
             resp.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
             resp.headers["Referrer-Policy"] = "no-referrer"
             resp.headers["Cache-Control"] = "no-store"
@@ -105,11 +105,14 @@ def create_app(test_config=None):
         if g.get("user") and g.user.role == "caregiver":
             cg = settings_service.caregiver_settings(g.user.id)
         child = None
+        read_only_child = False
         if g.get("user") and g.user.role == "caregiver":
             from routes.helpers import child_of
+            from services import plan_service
             child = child_of(g.user)
+            read_only_child = bool(g.auth_role == "child" and plan_service.child_is_read_only(g.user.id, child))
         return dict(csrf_token=csrf_token, brand=BRAND, footer_text=FOOTER, user=g.get("user"), auth_role=g.get("auth_role"),
-                    cg=cg, child_profile=child,
+                    cg=cg, child_profile=child, read_only_child=read_only_child,
                     tagline=settings_service.get("brand_tagline") or "Your thoughts. Your world.")
 
     def icon(name, cls=""):
@@ -119,7 +122,7 @@ def create_app(test_config=None):
 
     @app.route("/robots.txt")
     def robots():
-        return Response("User-agent: *\nDisallow: /p/\n", mimetype="text/plain")
+        return Response("User-agent: *\nDisallow: /p/\nDisallow: /world/share/\n", mimetype="text/plain")
 
     @app.route("/demo-art/<category>/<int:n>.svg")
     def demo_art(category, n):

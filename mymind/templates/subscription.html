@@ -3,15 +3,16 @@
 <div class="screen-title"><h1>Choose Your Plan</h1><p>Unlock the full experience with a subscription.</p><span class="pill {{ state }}" style="margin-top:.5rem">Status: {{ state.replace('_',' ') }}</span></div>
 
 {% if state == 'active' and active %}
-<div class="card-box">{% if active.plan_code == 'trial' %}<h2>{{ icon('gift') }} Your free trial is active</h2><p>Free access until <b>{{ active.expires_at.strftime('%d %b %Y') }}</b>. After that the app closes until a plan is paid for. Subscribe early below — your paid time starts when the trial ends.</p>
-{% else %}<h2>{{ icon('circle-check') }} Your subscription is active</h2><p>Plan: <b>{{ active.plan_code|title }}</b> · expires <b>{{ active.expires_at.strftime('%d %b %Y') }}</b>.</p>{% endif %}
+<div class="card-box">{% if active.plan_code == 'free' %}<h2>{{ icon('circle-check') }} Your Free plan is active</h2><p>One child profile, basic charts, and 7 days of history. Your saved data stays available if you upgrade later.</p>
+{% elif active.plan_code == 'trial' %}<h2>{{ icon('gift') }} Your free trial is active</h2><p>Full access until <b>{{ active.expires_at.strftime('%d %b %Y') }}</b>. After that, access downgrades to Free and your data is kept.</p>
+{% else %}<h2>{{ icon('circle-check') }} Your subscription is active</h2><p>Plan: <b>{{ active.plan_code|title }}</b> · started <b>{{ active.starts_at.strftime('%d %b %Y') if active.starts_at else 'Not set' }}</b> · current period ends <b>{{ active.expires_at.strftime('%d %b %Y') if active.expires_at else 'Not set' }}</b>.</p>{% if active.cancel_at_period_end %}<p class="notice">Cancellation is scheduled for the end of this period.</p>{% else %}<form method="post" action="{{ url_for('subscriptions.cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit" data-confirm="Cancel the paid plan at the end of its current period?">Cancel at period end</button></form>{% endif %}{% endif %}
 <a class="btn primary block" href="{{ url_for('auth.index') }}">Continue to MyMind</a></div>
 {% elif state == 'pending_verification' %}
 <div class="card-box"><h2>{{ icon('clock') }} Waiting for administrator confirmation</h2>
 <p>Your payment verification request has been submitted. Your account will be activated after the administrator confirms your payment.</p>
 {% if pending %}<a class="btn block" href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">View payment instructions / contact administrator</a>{% endif %}</div>
 {% elif state == 'rejected' %}<div class="notice">{{ icon('triangle-alert') }}<span>Your last payment could not be confirmed. Check the payment details and choose a plan again, or contact the administrator.</span></div>
-{% elif state == 'expired' %}<div class="notice">{{ icon('lock') }}<span>Your free trial or subscription has ended, so the app is closed until a plan is paid for. Your records are kept.</span></div>
+{% elif state == 'expired' %}<div class="notice">{{ icon('lock') }}<span>Your paid period has ended. Your account is now on Free with one child profile and 7 days of history; your data is kept. Choose a paid plan to unlock the full dashboard and exports.</span></div>
 {% endif %}
 
 {% if state != 'pending_verification' %}
@@ -26,7 +27,7 @@
   </div>
   <button class="btn primary block" type="submit">Select Plan</button>
 </form>
-<p class="center small muted" style="margin-top:.8rem">Weekly, Monthly or Yearly plans. Secure payment required and admin approval.</p>
+<p class="center small muted" style="margin-top:.8rem">Paid plans use the existing manual payment-reference and administrator approval process. No online payment provider is currently configured.</p>
 {% endif %}
 {% if pending and state == 'pending_payment' %}<p class="center small"><a href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">Continue with your selected {{ pending.plan_code }} plan →</a></p>{% endif %}
 {% endblock %}

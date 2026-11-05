@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ child.display_name }}'s world{% endblock %}
+{% block body_class %}public world-preview-body{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/my-world.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/world3d.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/world-preview.css') }}">
+{% endblock %}
+{% block content %}
+<main class="wp-page">
+  <header class="wp-banner"><span class="wp-badge">Parent preview</span><h1>You're viewing {{ child.display_name }}'s world</h1><p>This private view shows their world and recent activity. Browsing here does not change their MyMind activity.</p></header>
+  <section class="w3d wp-map" id="world3d" data-mode="preview" data-api-root="{{ world_data.api_root }}" aria-labelledby="w3d-title">
+    <h2 id="w3d-title" class="sr-only">{{ child.display_name }}'s world map</h2>
+    <p class="w3d-theme" id="w3d-theme" aria-live="polite"></p>
+    <div class="w3d-stage" id="w3d-stage">
+      <div class="w3d-viewport" id="w3d-viewport"></div><div class="w3d-labels" id="w3d-labels"></div>
+      <div class="w3d-toolbar" id="w3d-toolbar" role="toolbar" aria-label="Map controls"></div>
+      <p class="w3d-loading" id="w3d-loading">Building the world map…</p>
+      <aside class="w3d-sheet" id="w3d-sheet" role="dialog" aria-modal="false" aria-labelledby="w3d-sheet-title" hidden></aside>
+      <aside class="w3d-gear" id="w3d-gear" role="dialog" aria-modal="false" aria-labelledby="w3d-gear-title" hidden></aside>
+    </div>
+    <ul class="w3d-list" id="w3d-list" aria-label="Places in the world"></ul>
+    <script type="application/json" id="world-data">{{ world_data|tojson }}</script>
+  </section>
+  <section class="wp-summary" aria-labelledby="wp-summary-title">
+    <div class="wp-summary-head"><div><p class="ct-kicker">Last 7 days</p><h2 id="wp-summary-title">A little activity snapshot</h2></div><p class="wp-total"><strong>{{ week.summary.week_minutes|round|int }}</strong> minutes</p></div>
+    {% if week.stops %}<div class="wp-stops">{% for stop in week.stops[:5] %}<div class="wp-stop"><span>{{ stop.label }}</span><div><i style="--share:{{ (stop.minutes / (week.summary.week_minutes or 1) * 100)|round|int }}%;--stop-color:{{ stop.color|default('#2bb3a6') }}"></i></div><b>{{ stop.minutes|round|int }}m</b></div>{% endfor %}</div>{% else %}<p class="muted">No activity yet this week.</p>{% endif %}
+    <div class="wp-content-row"><div><h3>Videos watched</h3><strong>{{ week.summary.videos_watched }}</strong></div><div><h3>Favorites added</h3><strong>{{ week.summary.favorites_added }}</strong></div><div><h3>Current streak</h3><strong>{{ week.summary.streak }} days</strong></div></div>
+  </section>
+  <section class="wp-summary"><p class="ct-kicker">Top interests</p><div class="wp-interests">{% for interest in week.interests %}<span>{{ interest.label }}</span>{% else %}<p class="muted">Interests will appear here as {{ child.display_name }} explores.</p>{% endfor %}</div></section>
+  {% if week.recommendations %}<section class="wp-summary" aria-labelledby="wp-ideas-title"><p class="ct-kicker">Positive ideas</p><h2 id="wp-ideas-title">Ideas to explore together</h2><div class="wp-recommendations">{% for card in week.recommendations %}<article><span>{{ icon(card.icon) }}</span><div><strong>{{ card.title }}</strong><p>{{ card.reason }}</p><small>{{ card.action }}</small></div></article>{% endfor %}</div></section>{% endif %}
+  <p class="wp-privacy">This link only shows {{ child.display_name }}'s nickname, world, activity totals, and content. It does not show account details or allow changes.</p>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/three-gltf.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/asset3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/world/scene.js') }}"></script>
+<script src="{{ url_for('static', filename='js/world/ui.js') }}"></script>
+{% endblock %}

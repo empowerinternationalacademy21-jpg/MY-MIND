@@ -21,15 +21,16 @@ def test_new_user_gets_free_trial_and_access(app, client):
         assert s.plan_code == "trial" and s.amount == 0 and s.status == "active" and (s.expires_at - s.starts_at).days == 30
 
 
-def test_app_closes_after_trial_until_payment(app, client, admin):
+def test_expired_trial_downgrades_to_free_until_paid_plan(app, client, admin):
     enable_trial(app)
     client.register(); client.post("/onboarding", ONB)
     with app.app_context():
         s = Session.query(Subscription).one(); s.expires_at = utcnow() - timedelta(minutes=1); Session.commit()
     r = client.get("/home")
-    assert r.status_code == 302 and "/subscription" in r.location
-    assert client.get("/api/feed").status_code in (302, 403)
-    assert b"closed until a plan is paid" in client.get("/subscription/").data
+    assert r.status_code == 200
+    assert client.get("/api/feed").status_code == 200
+    assert "/subscription" in client.get("/caretaker/report.csv").location
+    assert b"now on Free" in client.get("/subscription/").data
     subscribe_and_approve(app, client, admin, ref="AFTERTRIAL1")          # paying reopens it
     assert client.get("/home").status_code == 200
 

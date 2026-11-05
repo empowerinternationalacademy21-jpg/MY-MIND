@@ -4,7 +4,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from sqlalchemy.exc import IntegrityError
 from database.db import Session
-from database.models import User, AuditLog
+from database.models import User, AuditLog, ChildProfile
 
 _ph = PasswordHasher()   # Argon2id by default
 USERNAME_RE = re.compile(r"^[a-z0-9_.]{3,30}$")
@@ -65,11 +65,16 @@ def register_user(username, password, confirm):
 def _available_child_username(caretaker_username):
     stem = caretaker_username[:23]
     candidate, suffix = f"{stem}.child", 2
-    while (Session.query(User).filter((User.username == candidate) | (User.child_username == candidate)).first()):
+    while (Session.query(User).filter((User.username == candidate) | (User.child_username == candidate)).first()
+           or Session.query(ChildProfile).filter_by(child_username=candidate).first()):
         tail = f".{suffix}"
         candidate = f"{stem[:30 - len(tail)]}{tail}"
         suffix += 1
     return candidate
+
+
+def new_child_username(user):
+    return _available_child_username(user.username)
 
 
 _DUMMY = _ph.hash("dummy-password-for-timing")
@@ -88,23 +93,32 @@ def authenticate_identity(username, password):
     username = normalize_username(username)
     user = Session.query(User).filter_by(username=username).first()
     role = user.role if user else "caregiver"
+    child = None
     if user is None:
-        user = Session.query(User).filter_by(child_username=username, role="caregiver").first()
+        child = Session.query(ChildProfile).filter_by(child_username=username, archived_at=None).first()
+        if child:
+            user = Session.get(User, child.caregiver_user_id)
         role = "child"
     if user is None:
         verify_password(_DUMMY, password or "")
-        return None, None
+        return None, None, None
     if not verify_password(user.password_hash, password or ""):
-        return None, None
-    return user, role
+        return None, None, None
+    if role == "child" and not child:
+        child = (Session.query(ChildProfile).filter_by(caregiver_user_id=user.id, archived_at=None)
+                 .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).first())
+    return user, role, child.id if child else None
 
 
-def username_available(username, user_id=None):
+def username_available(username, user_id=None, exclude_child_id=None):
     username = normalize_username(username)
     query = Session.query(User).filter((User.username == username) | (User.child_username == username))
     if user_id is not None:
         query = query.filter(User.id != user_id)
-    return query.first() is None
+    children = Session.query(ChildProfile).filter_by(child_username=username)
+    if exclude_child_id is not None:
+        children = children.filter(ChildProfile.id != exclude_child_id)
+    return query.first() is None and children.first() is None
 
 
 def update_family_credentials(user, caretaker_username, child_username, current_password,
@@ -118,9 +132,13 @@ def update_family_credentials(user, caretaker_username, child_username, current_
         raise AuthError("Current password is incorrect.")
     if caretaker == child:
         raise AuthError("Caretaker and child usernames must be different.")
-    for candidate in (caretaker, child):
-        if not username_available(candidate, user.id):
-            raise AuthError("That username is already taken. Please choose another.")
+    primary = (Session.query(ChildProfile).filter_by(caregiver_user_id=user.id)
+               .filter(ChildProfile.archived_at.is_(None))
+               .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).first())
+    if not username_available(caretaker, user.id):
+        raise AuthError("That username is already taken. Please choose another.")
+    if not username_available(child, user.id, primary.id if primary and primary.child_username == child else None):
+        raise AuthError("That username is already taken. Please choose another.")
     if new_password or confirm_password:
         validate_password(new_password, caretaker)
         if child in new_password.lower():
@@ -130,6 +148,8 @@ def update_family_credentials(user, caretaker_username, child_username, current_
         user.password_hash = hash_password(new_password)
     user.username = caretaker
     user.child_username = child
+    if primary:
+        primary.child_username = child
     Session.commit()
 
 

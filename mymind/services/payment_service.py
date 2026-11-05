@@ -25,8 +25,9 @@ def active_subscription(user_id):
     expire_due(user_id)
     now = utcnow()
     return (Session.query(Subscription).filter(Subscription.user_id == user_id, Subscription.status == "active",
-                                              Subscription.expires_at > now)
-            .order_by(Subscription.expires_at.desc()).first())
+                                              ((Subscription.expires_at > now) |
+                                               ((Subscription.plan_code == "free") & Subscription.expires_at.is_(None))))
+            .order_by(Subscription.expires_at.desc(), Subscription.id.desc()).first())
 
 
 def access_state(user_id):
@@ -64,6 +65,18 @@ def start_trial(user):
 
 def select_plan(user, plan_code):
     plans = settings_service.plans()
+    if plan_code == "free":
+        active = active_subscription(user.id)
+        if active and active.plan_code != "free":
+            raise PaymentError("Your current plan is active. It will remain available until its period ends.")
+        sub = (Session.query(Subscription).filter_by(user_id=user.id, plan_code="free", status="active")
+               .order_by(Subscription.id.desc()).first())
+        if not sub:
+            sub = Subscription(user_id=user.id, plan_code="free", amount=0.0, currency="USD", duration_days=0,
+                               status="active", starts_at=utcnow(), expires_at=None)
+            Session.add(sub)
+            Session.commit()
+        return sub
     if plan_code not in plans:
         raise PaymentError("Please choose a valid plan.")
     # reuse an unpaid selection instead of stacking duplicates

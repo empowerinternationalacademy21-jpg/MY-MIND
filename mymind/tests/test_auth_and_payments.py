@@ -196,15 +196,16 @@ def test_duplicate_payment_reference_rejected(app, client, admin):
     assert r.status_code == 400
 
 
-def test_subscription_expiry_blocks_access(app, ready):
+def test_subscription_expiry_downgrades_to_free_without_deleting_data(app, ready):
     home = ready.get("/home")
     assert home.status_code == 200
     assert b"fd-workspace" in home.data and b"Explore spaces" in home.data
     with app.app_context():
         s = Session.query(Subscription).one(); s.expires_at = utcnow() - timedelta(days=1); Session.commit()
     r = ready.get("/home")
-    assert r.status_code == 302 and "/subscription" in r.location
-    assert ready.jpost("/api/react", {"content_id": 1, "type": "like"}).status_code in (302, 403)
+    assert r.status_code == 200
+    assert ready.get("/caretaker").status_code == 200
+    assert ready.get("/caretaker/report.csv").status_code == 302
     with app.app_context():
         assert Session.query(Subscription).one().status == "expired"
 

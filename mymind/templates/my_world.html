@@ -8,6 +8,10 @@
   <p class="world-eyebrow">Your own little universe</p>
   <h1>{{ child_profile.display_name }}'s World</h1>
 </section>
+{% if auth_role == 'child' %}<section class="card-box" aria-labelledby="world-share-title"><h2 id="world-share-title">Share my world</h2><p class="muted small">Anyone with this private link can see your world and activity. Share it only with someone you trust.</p>
+  {% if share_url %}<div class="field"><label for="world-share-url">Your private link</label><input id="world-share-url" type="text" readonly value="{{ share_url }}"><button class="btn small" type="button" data-copy-target="world-share-url">{{ icon('copy') }} Copy link</button></div>{% endif %}
+  <form method="post" action="{{ url_for('world_share.create_child_link') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field"><label for="world-share-expiry">Link expires</label><select id="world-share-expiry" name="expiry"><option value="24h">After 24 hours</option><option value="7d" selected>After 7 days</option><option value="30d">After 30 days</option><option value="never">Until your caretaker revokes it</option></select></div><button class="btn" type="submit">{{ icon('share-2') }} Create a private link</button></form>
+</section>{% endif %}
 
 <section class="w3d" id="world3d" aria-labelledby="w3d-title" data-endpoint="{{ url_for('world.api_world') }}">
   <h2 id="w3d-title" class="sr-only">Your world map</h2>

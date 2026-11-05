@@ -88,12 +88,13 @@ dialog::backdrop{background:rgba(17,24,39,.6)}
 .dlg{padding:1.1rem;display:grid;gap:.7rem} .dlg img.big{border-radius:var(--r-md);width:100%;max-height:55vh;object-fit:contain;background:var(--sky)}
 .dlg iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:var(--r-md);background:#000}.dlg iframe.spot{aspect-ratio:auto;height:152px}
 /* plans (three stepped columns like the flow board) */
-.plans3{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;align-items:end;margin:1rem 0}
+.plans3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;align-items:end;margin:1rem 0}
 .plan3{border:0;border-radius:var(--r-lg);padding:1rem .4rem;text-align:center;display:grid;gap:.15rem;cursor:pointer;font:inherit;color:var(--navy);position:relative;border:2px solid transparent}
 .plan3 b{font-size:1.9rem;font-weight:900;line-height:1} .plan3 .nm{font-weight:900} .plan3 small{color:#4b5a78;font-weight:700}
 .plan3.weekly{background:linear-gradient(180deg,#cfe7ff,#a9d3ff);min-height:200px}
 .plan3.monthly{background:linear-gradient(180deg,#cdf5d6,#9fe7b2);min-height:240px}
 .plan3.yearly{background:linear-gradient(180deg,#e4d9fb,#c7b3f4);min-height:200px}
+.plan3.free{background:linear-gradient(180deg,#e6f1ff,#cfe5ff);min-height:180px}
 .plan3:has(input:checked){border-color:var(--navy);box-shadow:var(--shadow)}
 .plan3 .pop{position:absolute;top:-.7rem;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:.68rem;font-weight:900;padding:.1rem .6rem;border-radius:8px;white-space:nowrap}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:.45rem .8rem;font-size:.95rem}.kv dt{font-weight:800}.kv dd{margin:0;color:var(--muted);font-weight:700;word-break:break-word}

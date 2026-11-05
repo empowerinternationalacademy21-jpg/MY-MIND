@@ -5,6 +5,7 @@
   var root = document.getElementById("world3d");
   if (!root || !window.MyMind) return;
   var MM = window.MyMind, NS = window.MMWorld || {}, el = MM.el, ic = MM.icon;
+  var preview = root.dataset.mode === "preview", apiRoot = root.dataset.apiRoot || "/api/world";
   var qs = new URLSearchParams(location.search);
   var $ = function (id) { return document.getElementById(id); };
   var viewport = $("w3d-viewport"), labelsLayer = $("w3d-labels"), toolbar = $("w3d-toolbar"), listEl = $("w3d-list"), sheet = $("w3d-sheet"),
@@ -98,6 +99,7 @@
     data.stops.forEach(function (s) {
       var li = el("li"), b = el("button", "w3d-chip"); b.type = "button"; b.style.setProperty("--c", s.color); b.dataset.key = s.key;
       b.append(ic(s.icon), el("span", null, s.label)); b.addEventListener("click", function () { openStop(s.key, b); });
+      if (s.time_label) b.appendChild(el("small", "w3d-time-badge", s.time_label));
       li.appendChild(b); listEl.appendChild(li);
     });
   }
@@ -107,7 +109,7 @@
       toolbar.append(btn("w3d-tool", null, "plus", function () { scene && scene.zoomBy(0.8); }, "Zoom in"), btn("w3d-tool", null, "minus", function () { scene && scene.zoomBy(1.25); }, "Zoom out"),
         btn("w3d-tool", null, "locate-fixed", function () { closeSheet(); scene && scene.reset(); }, "Show the whole map"));
     }
-    if (document.body.dataset.role !== "child") {
+    if (!preview && document.body.dataset.role !== "child") {
       var g = btn("w3d-tool w3d-tool--gear", null, "sliders-horizontal", function () { toggleGear(); }, "World settings (for caregivers)");
       g.id = "w3d-gear-btn"; g.setAttribute("aria-expanded", "false"); g.setAttribute("aria-controls", "w3d-gear"); toolbar.appendChild(g);
     }
@@ -120,7 +122,7 @@
       b.setAttribute("aria-label", "Open " + s.label);
       var bub = el("span", "w3d-bubble");
       if (s.badge) { var im = el("img"); im.src = s.badge; im.alt = ""; bub.appendChild(im); } else bub.appendChild(ic(s.icon));
-      b.append(bub, el("span", "w3d-name", s.label));
+      b.append(bub, el("span", "w3d-name", s.label)); if (s.time_label) b.appendChild(el("small", "w3d-time-badge", s.time_label));
       if (s.chars && s.chars.length) { var av = el("img", "w3d-char"); av.alt = ""; av.src = s.chars[slotIndex(s.key, s.chars.length, data.rotation_seconds)]; av.dataset.n = s.chars.length; b.appendChild(av); }
       b.addEventListener("click", function () { openStop(s.key, b); });
       labelsLayer.appendChild(b); labelEls[s.key] = b;
@@ -180,14 +182,14 @@
   function offset() { return { x: 0, z: 3.4 }; }                          // the sheet covers the lower part of the map, so the island sits in the upper part
   function openStop(key, from) {
     var s = STOPS()[key]; if (!s) return;
-    MM.activity.setStop(key);
+    if (!preview) MM.activity.setStop(key);
     closeGear(true);
     lastFocus = from || lastFocus || document.activeElement; openKey = key; tick();
     if (scene) scene.focus(key, offset());
     stage.classList.add("sheet-open"); sheet.hidden = false; sheet.className = "w3d-sheet open"; sheet.style.setProperty("--c", s.color);
     sheet.replaceChildren(sheetHead(s), el("p", "w3d-blurb", "Loading…"));
     sheet.querySelector("#w3d-sheet-title").focus({ preventScroll: true });
-    MM.api("/api/world/stop/" + key).then(function (d) { if (openKey === key) renderSheet(s, d); }).catch(function (e) { if (openKey === key) sheet.appendChild(el("p", "notice", e.message || "That place couldn't open right now.")); });
+    MM.api(apiRoot + "/stop/" + key).then(function (d) { if (openKey === key) renderSheet(s, d); }).catch(function (e) { if (openKey === key) sheet.appendChild(el("p", "notice", e.message || "That place couldn't open right now.")); });
   }
   function sheetHead(s) {
     var h = el("header", "w3d-sheet__head"), t = el("h3"); t.id = "w3d-sheet-title"; t.tabIndex = -1; t.textContent = s.label;
@@ -197,7 +199,7 @@
   function closeSheet(quiet) {
     if (!openKey && !quiet) return;
     openKey = null; sheetFriends = null; sheet.hidden = true; sheet.replaceChildren(); stage.classList.remove("sheet-open");
-    MM.activity.setStop("home");
+    if (!preview) MM.activity.setStop("home");
     if (window.MMAsset3D) window.MMAsset3D.closeAll();
     if (scene) scene.unfocus();
     if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
@@ -249,7 +251,7 @@
     if (d.favorites) {
       body.appendChild(el("h4", "w3d-sub", "My favourites"));
       var fg = el("div", "tiles"); body.appendChild(fg);
-      if (d.favorites.length) MM.renderItems(fg, d.favorites); else body.appendChild(el("p", "muted", "Tap the heart on anything you love and it will wait for you here."));
+      if (d.favorites.length) MM.renderItems(fg, d.favorites, { readOnly: preview }); else body.appendChild(el("p", "muted", preview ? "No favorites here yet." : "Tap the heart on anything you love and it will wait for you here."));
     }
     sheet.replaceChildren(head, body);
     sheet.querySelector("#w3d-sheet-title").focus({ preventScroll: true });
@@ -260,7 +262,7 @@
     var seeAll = { "/api/pictures": "/pictures", "/api/videos": "/videos", "/api/shots": "/shots", "/api/music": "/music" }[d.shelf.endpoint];
     var page = 1, busy = false, gen = 0, seen = {};
     more.hidden = true; wrap.append(grid, more);
-    if (seeAll) { var a = el("a", "w3d-all", "See all "); a.href = seeAll + (d.shelf.params.category ? "?category=" + encodeURIComponent(d.shelf.params.category) : ""); a.appendChild(ic("chevron-right", "sm")); wrap.appendChild(a); }
+    if (seeAll && !preview) { var a = el("a", "w3d-all", "See all "); a.href = seeAll + (d.shelf.params.category ? "?category=" + encodeURIComponent(d.shelf.params.category) : ""); a.appendChild(ic("chevron-right", "sm")); wrap.appendChild(a); }
     function load(append) {
       if (busy) return; busy = true; var my = append ? gen : ++gen;
       if (!append) { grid.replaceChildren(MM.skeletons(4)); page = 1; seen = {}; }
@@ -268,7 +270,7 @@
       MM.api(d.shelf.endpoint + "?" + params).then(function (r) {
         if (my !== gen) return;
         var fresh = r.items.filter(function (i) { if (seen[i.id]) return false; seen[i.id] = 1; return true; });
-        if (append) fresh.forEach(function (i) { grid.appendChild(MM.card(i)); }); else MM.renderItems(grid, fresh);
+        if (append) fresh.forEach(function (i) { grid.appendChild(MM.card(i, { readOnly: preview })); }); else MM.renderItems(grid, fresh, { readOnly: preview });
         more.hidden = !(r.more !== false && r.items.length); page++;
         if (r.notice && !append) MM.notice(wrap, r.notice);
       }).catch(function (e) { if (my === gen) grid.replaceChildren(el("div", "empty", e.message || "Couldn't load this right now.")); }).then(function () { busy = false; });

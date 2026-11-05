@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g
 from database.db import Session
 from database.models import ChildProfile, CaregiverQuestionnaire, ConsentRecord, utcnow
-from services import recommendation_service as rec, settings_service, safety
+from services import recommendation_service as rec, settings_service, safety, auth_service
 from services import categories as C, age_service
 from routes.helpers import paid_required, child_of
 
@@ -59,7 +59,12 @@ def onboarding():
         avatar = request.form.get("avatar") if request.form.get("avatar") in AVATARS else "smile"
         responses = parse_form()
         if not child:
-            child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar, age_years=age)
+            child_username = g.user.child_username
+            if Session.query(ChildProfile).filter_by(child_username=child_username).first():
+                child_username = auth_service.new_child_username(g.user)
+                g.user.child_username = child_username
+            child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar,
+                                 child_username=child_username, age_years=age)
             Session.add(child)
             Session.flush()
         else:

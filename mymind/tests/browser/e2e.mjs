@@ -97,6 +97,41 @@ try {
     must(!/Football world/.test(await page.$eval("#w3d-theme", (e) => e.textContent)), "reset theme did nothing");
   });
 
+  await check("read-only shared world renders on desktop and mobile without writes", async () => {
+    await page.goto(BASE + "/caretaker", { waitUntil: "networkidle0" });
+    await page.select("#ct-share-expiry", "7d");
+    await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click(".ct-share-create button[type=submit]")]);
+    const link = await page.$eval("#ct-share-url", (input) => input.value);
+    must(link.includes("/world/share/"), "share link missing");
+    const preview = await browser.newPage(), writes = [];
+    preview.on("request", (request) => { if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method())) writes.push(request.url()); });
+    for (const [name, viewport] of [["desktop", { width: 1440, height: 1000 }], ["mobile", { width: 390, height: 844, isMobile: true, hasTouch: true }]]) {
+      await preview.setViewport(viewport);
+      await preview.goto(link + "?gl=force", { waitUntil: "networkidle0" }); await sleep(3000);
+      const state = await preview.evaluate(() => {
+        const canvas = document.querySelector("canvas.w3d-canvas");
+        if (!canvas) return { canvas: false };
+        const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+        const pixel = new Uint8Array(4); gl.readPixels(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        return { canvas: true, pixel: [...pixel], readOnly: document.body.dataset.readOnly,
+          banner: document.querySelector(".wp-banner h1")?.textContent,
+          labels: document.querySelectorAll(".w3d-label").length,
+          width: canvas.getBoundingClientRect().width, viewport: window.innerWidth };
+      });
+      must(state.canvas && state.readOnly === "1" && state.labels >= 9, JSON.stringify(state));
+      must(state.banner === "You're viewing Sunny's world", state.banner || "preview banner missing");
+      must(state.width <= state.viewport && state.pixel.some((value) => value > 0), JSON.stringify(state));
+      await preview.screenshot({ path: `/tmp/mymind-share-${name}.png`, fullPage: true });
+      if (name === "desktop") {
+        await preview.click('.w3d-label[data-key="sports"]'); await sleep(1200);
+        must(await preview.evaluate(() => !document.getElementById("w3d-sheet").hidden), "shared stop did not open");
+        must(await preview.evaluate(() => document.querySelectorAll("#w3d-sheet .tools button").length === 0), "mutating controls visible in preview");
+      }
+    }
+    must(writes.length === 0, "preview attempted a write: " + writes.join(", "));
+    await preview.close();
+  });
+
   await check("losing the GPU context switches to the simple map with a message", async () => {
     await open3d();
     await page.evaluate(() => { const c = document.querySelector("canvas.w3d-canvas"); (c.getContext("webgl2") || c.getContext("webgl")).getExtension("WEBGL_lose_context").loseContext(); });

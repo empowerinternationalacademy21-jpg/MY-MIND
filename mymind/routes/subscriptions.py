@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from database.db import Session
 from database.models import Subscription, PaymentVerificationRequest
 from services import payment_service, settings_service
+from services.plan_config import PLAN_CATALOG
 from routes.helpers import caregiver_required, next_step
 
 bp = Blueprint("subscriptions", __name__, url_prefix="/subscription")
@@ -23,8 +24,8 @@ def status():
     pending = Session.query(Subscription).filter(Subscription.user_id == g.user.id,
                                                  Subscription.status.in_(["pending_payment", "pending_verification"])
                                                  ).order_by(Subscription.id.desc()).first()
-    return render_template("subscription.html", state=state, active=active, pending=pending,
-                           plans=settings_service.plans())
+    plans = {"free": PLAN_CATALOG["free"], **settings_service.plans()}
+    return render_template("subscription.html", state=state, active=active, pending=pending, plans=plans)
 
 
 @bp.route("/select", methods=["POST"])
@@ -36,6 +37,19 @@ def select():
         flash(str(exc), "error")
         return redirect(url_for("subscriptions.status"))
     return redirect(url_for("subscriptions.payment", sub_id=sub.id))
+
+
+@bp.route("/cancel", methods=["POST"])
+@caregiver_required
+def cancel():
+    active = payment_service.active_subscription(g.user.id)
+    if not active or active.plan_code == "free":
+        flash("There is no paid plan to cancel.", "error")
+    else:
+        active.cancel_at_period_end = True
+        Session.commit()
+        flash("Your paid plan will end on its current renewal date. Your data will remain available on Free.", "success")
+    return redirect(url_for("subscriptions.status"))
 
 
 @bp.route("/payment/<int:sub_id>")

@@ -31,9 +31,20 @@ Login → *Forgot password?* → username → 5 questions about what the caregiv
 All icons are inline [Lucide](https://lucide.dev) line icons (ISC licence, see `static/vendor/LUCIDE-LICENSE.txt`), rendered in black from one SVG sprite (`templates/_icons.html`); no emoji are used in the interface.
 
 ## Subscription workflow
-**Free trial:** every new account gets a free trial (default **30 days**, configurable in Admin → Settings; `0` disables it) that starts at registration and skips straight to the questionnaire. When it ends, the server closes the app (all pages and APIs) until a plan is paid for and approved. Paying early stacks after the trial. One trial per account.
+**Free trial:** every new account gets a free trial (default **30 days**, configurable in Admin → Settings; `0` disables it) that starts at registration and skips straight to the questionnaire. When it ends, the account downgrades to Free: data is kept, one child remains active, and paid-only features are gated. Paying early stacks after the trial. One trial per account.
 
-register → choose plan (Weekly $25/7d, Monthly $50/30d, Yearly $250/365d; editable by admin) → payment instructions → "request verification" (reference + date; status `pending_verification`) → admin approves/rejects → access. Access is checked **on the server on every request**. Approval is an atomic conditional `UPDATE … WHERE status='pending_verification'` in a transaction, so a request can only be approved once; payment references are unique; every decision is audit-logged. Renewals stack after the current expiry. Expired accounts keep their data and see renewal options.
+Choose Free or a paid plan (Weekly $25/7d, Monthly $50/30d, Yearly $250/365d; paid amounts editable by admin). Paid payments use instructions and a submitted reference + date (`pending_verification`) followed by administrator approval. **There is no online payment provider configured.** Approval is an atomic conditional `UPDATE … WHERE status='pending_verification'` in a transaction; payment references are unique; every decision is audit-logged. Renewals stack after the current expiry. Paid cancellation is recorded for the end of the current period.
+
+## Caretaker Dashboard and Plans
+`/caretaker` shows a selected child's activity, content, read-only world preview, and rule-based recommendations. Free includes one child profile, basic charts, seven days of history, and one active world-share link. Paid plans include ten child profiles (the limit is `PAID_CHILD_PROFILE_LIMIT` in `services/plan_config.py`), 365 days of dashboard history, full charts, CSV reports, and unlimited share links. Expiry downgrades to Free without deleting data; excess profiles become read-only. Profile nicknames and optional ages are caregiver-managed; each child profile has a separate family username.
+
+The report endpoint is `/caretaker/report.csv`. A share link is created from the dashboard or a child's My World page. It contains a 256-bit random token; only its SHA-256 hash is stored. The public `/world/share/<token>` preview is read-only and shows only a nickname, world, activity/content, and positive suggestions. Links support 24 hours, 7 days, 30 days or until revoked. They are rate-limited and sent with `no-store`, `no-referrer` and `noindex` headers.
+
+Recommendation thresholds and suggested actions are in `services/recommendation_rules.py`. Caregivers can set the daily reminder threshold on the dashboard; 0 disables it. Dismissed cards stay hidden for 14 days; “Remind me later” hides a card for 24 hours. Suggestions are observations, not medical or diagnostic advice.
+
+Database migration: run `flask --app app init-db` from `mymind/`; startup also runs pending migrations automatically. Migration 12 rebuilds the child-profile table to remove the one-profile constraint while retaining profile IDs and dependent history. Back up the production database before applying it.
+
+Payment-provider choice is still needed before online processing is added. Stripe supports cards; Flutterwave supports cards and mobile money. No provider keys are needed until one is selected. Provider webhooks should confirm payments server-to-server; the current manual reference flow remains the only payment path.
 
 ## Turso (production database)
 ```bash
@@ -85,6 +96,8 @@ A caregiver can let a parent or family member look at the child's world, read-on
 * **Control:** links can expire (7 / 30 / 90 days or until revoked) and be revoked at any time; revoking, expiry, a suspended account and a deleted account take effect on the **next request**, even mid-session. Up to 5 active links per child. Each link shows its open count and last-opened time.
 * **What is shown:** nickname, avatar, enjoyed and exploring interests and favourites, worded as observations. Never caregiver notes, questionnaire answers, settings, payments or account details.
 * **Privacy headers:** `/p/*` is sent `noindex`, `no-store` and `no-referrer`; `/robots.txt` disallows `/p/`. Link creation and revocation are audit-logged (never the token). Migration 4 adds `parent_links`.
+
+The newer dashboard share link is a separate **token-only** read-only preview at `/world/share/<token>`; it reuses the child's map components in preview mode and does not record views, watches, searches, likes, dislikes, or favorites. Its table is added by migration 10. The legacy password-protected `/p/<token>` family view remains available.
 
 ## World Library (art uploads)
 `/admin/world` (Admin dashboard → *World Library*): island art, stop interiors, backgrounds and characters or stars, filed by stop, sports zone and theme.

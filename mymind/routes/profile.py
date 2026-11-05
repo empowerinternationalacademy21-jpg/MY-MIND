@@ -67,7 +67,9 @@ def world():
                            landmarks=landmarks, world_favorites=favs[:12], theme_key=f"myworld-theme-{g.child.id}", active="world",
                            fav_pics=[f for f in favs if f.content_type == "picture"],
                            fav_vids=[f for f in favs if f.content_type in ("video", "short")],
-                           fav_songs=[f for f in favs if f.content_type == "song"], categories=CATEGORIES, world_data=world_service.payload(g.user, g.child), **world_extras())
+                           fav_songs=[f for f in favs if f.content_type == "song"], categories=CATEGORIES,
+                           share_url=session.pop("new_world_share_url", None),
+                           world_data=world_service.payload(g.user, g.child), **world_extras())
 
 
 @bp.route("/world/interest/<category>", methods=["POST"])

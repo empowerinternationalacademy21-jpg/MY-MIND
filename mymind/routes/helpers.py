@@ -5,7 +5,7 @@ from functools import wraps
 from flask import g, session, redirect, url_for, flash, request, abort, jsonify
 from database.db import Session
 from database.models import ChildProfile, CaregiverQuestionnaire
-from services import payment_service, verification_service
+from services import payment_service, verification_service, plan_service
 
 
 def csrf_token():
@@ -31,7 +31,18 @@ def deny(message, endpoint, status=403):
 
 
 def child_of(user):
-    return Session.query(ChildProfile).filter_by(caregiver_user_id=user.id).first()
+    is_child = _child_session()
+    child_id = session.get("child_id") if is_child else session.get("selected_child_id")
+    if child_id:
+        child = Session.query(ChildProfile).filter_by(id=child_id, caregiver_user_id=user.id, archived_at=None).first()
+        if child:
+            return child
+        if is_child:
+            return None
+    elif is_child:
+        return None
+    return (Session.query(ChildProfile).filter_by(caregiver_user_id=user.id, archived_at=None)
+            .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).first())
 
 
 def has_questionnaire(child):
@@ -46,8 +57,7 @@ def next_step(user, login_role=None):
         return "profile.world"
     if verification_service.needs_verification(user):
         return "verification.start"                  # 18+ check comes before plans, trial, questionnaire and the feed
-    state = payment_service.access_state(user.id)
-    if state != "active":
+    if not plan_service.has_basic_access(user.id):
         return "subscriptions.status"
     if not has_questionnaire(child_of(user)):
         return "onboarding.onboarding"
@@ -71,6 +81,7 @@ CHILD_ENDPOINTS = {
     "feed.home", "feed.explore", "pictures.page", "videos.page", "shots.page", "music.page",
     "api.pictures", "api.videos", "api.shots", "api.music", "api.feed", "api.favorites", "api.recent",
     "api.related", "api.react", "api.favorite", "api.activity_events",
+    "world_share.create_child_link",
     "profile.world", "world.asset_file", "world.api_assets", "world.asset3d_file",
     "world.api_world", "world.api_world_stop",
 }
@@ -125,7 +136,10 @@ def subscribed_required(f):
             g.child = child_of(g.user)
             if not g.child or not has_questionnaire(g.child):
                 abort(403)
-            if payment_service.access_state(g.user.id) != "active":
+            if not plan_service.has_basic_access(g.user.id):
+                abort(403)
+            g.child_read_only = plan_service.child_is_read_only(g.user.id, g.child)
+            if g.child_read_only and request.endpoint in {"api.feed", "api.react", "api.favorite", "api.activity_events"}:
                 abort(403)
             return f(*a, **kw)
         if verification_service.needs_verification(g.user) and request.endpoint not in VERIFY_EXEMPT:
@@ -133,10 +147,10 @@ def subscribed_required(f):
         if (g.user.caretaker_pin_enabled and not session.get("caretaker_pin_verified")
                 and request.endpoint != "auth.caretaker_pin"):
             return deny("Enter your caretaker PIN to continue.", "auth.caretaker_pin")
-        state = payment_service.access_state(g.user.id)
-        if state != "active":
+        if not plan_service.has_basic_access(g.user.id):
             return deny("An active subscription is required.", "subscriptions.status")
         g.child = child_of(g.user)
+        g.child_read_only = bool(g.child and plan_service.child_is_read_only(g.user.id, g.child))
         if not has_questionnaire(g.child):
             return deny("Please finish the quick questionnaire first.", "onboarding.onboarding")
         return f(*a, **kw)
@@ -148,7 +162,7 @@ def paid_required(f):
     @wraps(f)
     @caregiver_required
     def wrapper(*a, **kw):
-        if payment_service.access_state(g.user.id) != "active":
+        if not plan_service.has_basic_access(g.user.id):
             return deny("An active subscription is required.", "subscriptions.status")
         return f(*a, **kw)
     return wrapper
