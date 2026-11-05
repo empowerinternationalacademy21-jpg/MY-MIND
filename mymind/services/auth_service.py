@@ -4,7 +4,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from sqlalchemy.exc import IntegrityError
 from database.db import Session
-from database.models import User, AuditLog, ChildProfile
+from database.models import User, AuditLog, ChildProfile, ChildAccount
 
 _ph = PasswordHasher()   # Argon2id by default
 USERNAME_RE = re.compile(r"^[a-z0-9_.]{3,30}$")
@@ -74,7 +74,11 @@ def _available_child_username(caretaker_username):
 
 
 def new_child_username(user):
-    return _available_child_username(user.username)
+    import uuid
+    while True:
+        candidate = "kid." + uuid.uuid4().hex[:12]
+        if username_available(candidate):
+            return candidate
 
 
 _DUMMY = _ph.hash("dummy-password-for-timing")
@@ -89,16 +93,29 @@ def authenticate(username, password):
 
 
 def authenticate_identity(username, password):
-    """Resolve either family username to its owner and authenticated session role."""
+    """Authenticate a caregiver or independent child identity and resolve its child scope."""
     username = normalize_username(username)
     user = Session.query(User).filter_by(username=username).first()
     role = user.role if user else "caregiver"
     child = None
     if user is None:
-        child = Session.query(ChildProfile).filter_by(child_username=username, archived_at=None).first()
-        if child:
-            user = Session.get(User, child.caregiver_user_id)
-        role = "child"
+        account = Session.query(ChildAccount).filter_by(username=username, status="active").first()
+        if account:
+            child = Session.get(ChildProfile, account.child_profile_id)
+            from services import child_scope
+            caregiver_id = child_scope.primary_caregiver_id(child.id) if child else None
+            user = Session.get(User, caregiver_id) if caregiver_id else None
+            if not child or child.archived_at or not user or user.account_status != "active":
+                user = None
+            elif not verify_password(account.password_hash, password or ""):
+                return None, None, None
+            else:
+                return user, "child", child.id
+        if user is None:
+            child = Session.query(ChildProfile).filter_by(child_username=username, archived_at=None).first()
+            if child:
+                user = Session.get(User, child.caregiver_user_id)
+            role = "child"
     if user is None:
         verify_password(_DUMMY, password or "")
         return None, None, None
@@ -118,7 +135,10 @@ def username_available(username, user_id=None, exclude_child_id=None):
     children = Session.query(ChildProfile).filter_by(child_username=username)
     if exclude_child_id is not None:
         children = children.filter(ChildProfile.id != exclude_child_id)
-    return query.first() is None and children.first() is None
+    child_accounts = Session.query(ChildAccount).filter_by(username=username)
+    if exclude_child_id is not None:
+        child_accounts = child_accounts.filter(ChildAccount.child_profile_id != exclude_child_id)
+    return query.first() is None and children.first() is None and child_accounts.first() is None
 
 
 def update_family_credentials(user, caretaker_username, child_username, current_password,
@@ -150,6 +170,11 @@ def update_family_credentials(user, caretaker_username, child_username, current_
     user.child_username = child
     if primary:
         primary.child_username = child
+        child_account = Session.query(ChildAccount).filter_by(child_profile_id=primary.id).first()
+        if child_account:
+            child_account.username = child
+            if new_password and child_account.legacy_shared_password:
+                child_account.password_hash = hash_password(new_password)
     Session.commit()
 
 

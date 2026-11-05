@@ -1,7 +1,8 @@
 import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g
 from database.db import Session
-from database.models import ChildProfile, CaregiverQuestionnaire, ConsentRecord, utcnow
+from database.models import (ChildProfile, ChildAccount, CaregiverChildAccess,
+                             CaregiverQuestionnaire, ConsentRecord, utcnow)
 from services import recommendation_service as rec, settings_service, safety, auth_service
 from services import categories as C, age_service
 from routes.helpers import paid_required, child_of
@@ -60,13 +61,22 @@ def onboarding():
         responses = parse_form()
         if not child:
             child_username = g.user.child_username
-            if Session.query(ChildProfile).filter_by(child_username=child_username).first():
+            if Session.query(ChildAccount).filter_by(username=child_username).first():
                 child_username = auth_service.new_child_username(g.user)
-                g.user.child_username = child_username
+            child_password = request.form.get("child_password", "")
+            try:
+                auth_service.validate_password(child_password, child_username)
+            except auth_service.AuthError as exc:
+                flash(str(exc), "error")
+                return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS, **_age_ctx()), 400
             child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar,
                                  child_username=child_username, age_years=age)
             Session.add(child)
             Session.flush()
+            Session.add(ChildAccount(child_profile_id=child.id, username=child_username,
+                                     password_hash=auth_service.hash_password(child_password)))
+            Session.add(CaregiverChildAccess(caregiver_id=g.user.id, child_id=child.id,
+                                             status="active", access_role="guardian"))
         else:
             child.display_name, child.avatar = name, avatar
             if age is not None:
