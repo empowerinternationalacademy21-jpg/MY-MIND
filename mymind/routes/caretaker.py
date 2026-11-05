@@ -5,8 +5,8 @@ from datetime import datetime
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 
 from database.db import Session
-from database.models import (CaregiverQuestionnaire, ChildProfile, ConsentRecord,
-                             utcnow)
+from database.models import (CaregiverChildAccess, CaregiverQuestionnaire, ChildAccount,
+                             ChildProfile, ConsentRecord, utcnow)
 from routes.helpers import caregiver_required, child_of
 from routes.onboarding import AVATARS, POLICY_VERSION
 from services import age_service, auth_service, plan_service
@@ -19,14 +19,7 @@ def _owned_child(child_id):
 
 
 def _new_child_username(user):
-    stem = (user.username[:20] or "family")
-    suffix = 1
-    while True:
-        candidate = f"{stem}.kid{suffix}"
-        if (len(candidate) <= 30 and auth_service.username_available(candidate)
-                and not Session.query(ChildProfile).filter_by(child_username=candidate).first()):
-            return candidate
-        suffix += 1
+    return auth_service.new_child_username(user)
 
 
 def _profile_context(children):
@@ -68,15 +61,26 @@ def add_child():
     if not name or avatar not in AVATARS or request.form.get("consent") != "yes":
         flash("Enter a nickname, choose an avatar, and confirm parental consent.", "error")
         return redirect(url_for("caretaker.children"))
+    username = _new_child_username(g.user)
+    password = request.form.get("child_password", "")
+    try:
+        auth_service.validate_password(password, username)
+    except auth_service.AuthError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("caretaker.children"))
     try:
         age = age_service.parse_age(request.form.get("age")) if request.form.get("age") else None
     except age_service.AgeError as exc:
         flash(str(exc), "error")
         return redirect(url_for("caretaker.children"))
     child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar,
-                         child_username=_new_child_username(g.user), age_years=age)
+                         child_username=username, age_years=age)
     Session.add(child)
     Session.flush()
+    Session.add(ChildAccount(child_profile_id=child.id, username=username,
+                             password_hash=auth_service.hash_password(password)))
+    Session.add(CaregiverChildAccess(caregiver_id=g.user.id, child_id=child.id,
+                                     status="active", access_role="guardian"))
     Session.add(CaregiverQuestionnaire(child_profile_id=child.id, responses_json=json.dumps({})))
     Session.add(ConsentRecord(user_id=g.user.id, consent_type="child_profile_processing", policy_version=POLICY_VERSION))
     Session.commit()
