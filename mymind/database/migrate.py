@@ -201,8 +201,8 @@ def m0013_independent_child_portfolios(engine):
             c.execute(text(f"""UPDATE {table} SET caregiver_id=(
                 SELECT caregiver_user_id FROM child_profiles WHERE child_profiles.id={table}.{child_column})
                 WHERE caregiver_id IS NULL"""))
-            c.execute(text(f"UPDATE caregiver_recommendation_states SET created_at=CURRENT_TIMESTAMP WHERE created_at IS NULL")
-                      if table == "caregiver_recommendation_states" else text("SELECT 1"))
+            if table == "caregiver_recommendation_states":
+                c.execute(text("UPDATE caregiver_recommendation_states SET created_at=CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             c.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{table}_scope_time ON {table} ({child_column}, caregiver_id, {created_column})"))
 
         for table, child_column in (("child_summaries", "child_id"), ("child_insight_snapshots", "child_id"),
