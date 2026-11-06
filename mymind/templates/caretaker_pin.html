@@ -1,25 +1,26 @@
-{% extends "base.html" %}{% block title %}Caretaker PIN{% endblock %}
-{% block content %}
-<section class="auth-panel" aria-labelledby="pin-title">
-  <div class="auth-heading">
-    <span class="auth-heading__icon">{{ icon('lock') }}</span>
-    <p class="auth-eyebrow">Extra account protection</p>
-    <h1 id="pin-title">Enter your caretaker PIN</h1>
-    <p>This PIN is required to open caretaker settings and dashboard.</p>
-  </div>
+{% extends "ct_layout.html" %}
+{% block title %}Caretaker PIN{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
+{% block ct_stage %} ctx--solo{% endblock %}
+{% block ct_rail %}{% endblock %}
+{% block ct_body %}
+<section class="fm-gate" aria-labelledby="pin-title">
+  <span class="ct-avatar">{{ icon('lock') }}</span>
+  <p class="ct-kicker" style="margin:0">Extra account protection</p>
+  <h1 id="pin-title">Enter your caretaker PIN</h1>
+  <p>This PIN is required to open caretaker settings and dashboard.</p>
   {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
   {% if locked %}<p class="flash error" role="alert">Too many attempts. Please wait a few minutes.</p>
   {% else %}
   <form method="post" class="auth-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="field"><label for="pin">Caretaker PIN</label>
-      <input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6"
-        autocomplete="one-time-code" required autofocus>
+      <input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" autocomplete="one-time-code" required autofocus>
     </div>
     <button class="btn primary block" type="submit">Continue</button>
   </form>
   {% endif %}
-  <form method="post" action="{{ url_for('auth.logout') }}" style="margin-top:1rem">
+  <form method="post" action="{{ url_for('auth.logout') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button class="btn block" type="submit">Log out</button>
   </form>
