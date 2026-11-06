@@ -16,7 +16,14 @@ bp = Blueprint("caretaker", __name__)
 
 
 def _owned_child(child_uid):
-    return child_scope.resolve_child_uid(g.user.id, child_uid)
+    child = child_scope.resolve_child_uid(g.user.id, child_uid)
+    if child:
+        return child
+    try:
+        child_id = int(child_uid)
+    except (TypeError, ValueError):
+        return None
+    return child_scope.resolve_child_id(g.user.id, child_id)
 
 
 def _new_child_username(user):
