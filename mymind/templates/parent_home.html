@@ -1,20 +1,33 @@
-{% extends "base.html" %}{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}{% block title %}{{ child.display_name }}'s world{% endblock %}
-{% macro chips(items) %}<div class="chips">{% for i in items %}<span class="chip">{{ icon(i.icon) }} {{ i.label }}</span>{% endfor %}</div>{% endmacro %}
-{% block content %}
-<div class="screen-title"><span class="bub" style="display:inline-grid;width:64px;height:64px;border-radius:50%;background:var(--sky2);place-items:center">{{ icon(avatar,'lg') }}</span>
-<h1 style="margin-top:.6rem">{{ child.display_name }}'s world</h1>
-<p>A read-only family view. These are the things {{ child.display_name }} has chosen in MyMind. They are observations of choices, not conclusions about what a child thinks or feels.</p></div>
+{% extends "ct_layout.html" %}
+{% block title %}{{ child.display_name }}'s world{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
+{% block ct_variant %} ct-warm{% endblock %}
+{% block ct_stage %} ctx--family{% endblock %}
+{% block ct_rail %}{% endblock %}
+{% macro chips(items) %}<div class="fm-chips">{% for i in items %}<span class="fm-chip">{{ icon(i.icon) }} {{ i.label }}</span>{% endfor %}</div>{% endmacro %}
+{% block ct_body %}
+<div class="fm-hero">
+  <section class="fm-banner">
+    <span class="ct-avatar">{{ icon(avatar,'lg') }}</span>
+    <span class="fm-live">Family view</span>
+    <h1>{{ child.display_name }}'s world</h1>
+    <p>A read-only family view. These are the things {{ child.display_name }} has chosen in MyMind. They are observations of choices, not conclusions about what a child thinks or feels.</p>
+  </section>
+  <section class="fm-panel"><h2>Things they enjoy</h2>
+    {% if w.enjoy %}{{ chips(w.enjoy) }}{% else %}<p class="muted">Nothing has been chosen often enough yet to say. Check back soon.</p>{% endif %}
+    {% if w.exploring %}<h2 style="margin-top:1rem">Starting to explore</h2>{{ chips(w.exploring) }}{% endif %}
+  </section>
+</div>
 
-<section class="card-box"><h2>Things they enjoy</h2>
-{% if w.enjoy %}{{ chips(w.enjoy) }}{% else %}<p class="muted">Nothing has been chosen often enough yet to say. Check back soon.</p>{% endif %}</section>
-{% if w.exploring %}<section class="card-box"><h2>Starting to explore</h2>{{ chips(w.exploring) }}</section>{% endif %}
+{% if w.pictures %}<section class="fm-section"><h2>Favourite pictures</h2>
+<div class="fm-cards">{% for p in w.pictures %}{% if p.thumbnail_url %}<figure class="fm-card" style="margin:0"><img src="{{ p.thumbnail_url }}" alt="{{ p.title }}" loading="lazy" referrerpolicy="no-referrer"><b>{{ p.title }}</b></figure>{% endif %}{% endfor %}</div></section>{% endif %}
 
-{% if w.pictures %}<section class="card-box"><h2>Favourite pictures</h2>
-<div class="fam-grid">{% for p in w.pictures %}{% if p.thumbnail_url %}<img src="{{ p.thumbnail_url }}" alt="{{ p.title }}" loading="lazy" referrerpolicy="no-referrer">{% endif %}{% endfor %}</div></section>{% endif %}
-{% if w.videos %}<section class="card-box"><h2>Favourite videos</h2><ul class="fam-list">{% for v in w.videos %}<li>{{ v.title }}</li>{% endfor %}</ul></section>{% endif %}
-{% if w.songs %}<section class="card-box"><h2>Favourite songs</h2><ul class="fam-list">{% for s in w.songs %}<li>{{ s.title }}</li>{% endfor %}</ul></section>{% endif %}
+{% if w.videos or w.songs %}<div class="fm-hero fm-section" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+{% if w.videos %}<section class="fm-panel"><h2>Favourite videos</h2><ul class="fm-list">{% for v in w.videos %}<li><span>{{ icon('clapperboard','sm') }}</span><span>{{ v.title }}</span>{{ icon('chevron-right') }}</li>{% endfor %}</ul></section>{% endif %}
+{% if w.songs %}<section class="fm-panel"><h2>Favourite songs</h2><ul class="fm-list">{% for s in w.songs %}<li><span>{{ icon('music','sm') }}</span><span>{{ s.title }}</span>{{ icon('chevron-right') }}</li>{% endfor %}</ul></section>{% endif %}
+</div>{% endif %}
 
-<form method="post" action="{{ url_for('parent_view.leave', token=token) }}" style="margin-top:1rem"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<button class="btn block" type="submit">Close this view</button></form>
+<form method="post" action="{{ url_for('parent_view.leave', token=token) }}" class="fm-pillnav"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button class="btn deep" type="submit">Close this view</button></form>
 <p class="small muted center" style="margin-top:.8rem">Shared privately by the caregiver. Please don't forward the link.</p>
 {% endblock %}
