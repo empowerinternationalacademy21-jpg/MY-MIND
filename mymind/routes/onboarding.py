@@ -63,18 +63,24 @@ def onboarding():
             child_username = g.user.child_username
             if Session.query(ChildAccount).filter_by(username=child_username).first():
                 child_username = auth_service.new_child_username(g.user)
-            child_password = request.form.get("child_password", "")
-            try:
-                auth_service.validate_password(child_password, child_username)
-            except auth_service.AuthError as exc:
-                flash(str(exc), "error")
-                return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS, **_age_ctx()), 400
+            child_password = (request.form.get("child_password") or "").strip()
+            if child_password:
+                try:
+                    auth_service.validate_password(child_password, child_username)
+                except auth_service.AuthError as exc:
+                    flash(str(exc), "error")
+                    return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS, **_age_ctx()), 400
+                child_pwd_hash = auth_service.hash_password(child_password)
+                legacy_shared = False
+            else:
+                child_pwd_hash = g.user.password_hash
+                legacy_shared = True
             child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar,
                                  child_username=child_username, age_years=age)
             Session.add(child)
             Session.flush()
             Session.add(ChildAccount(child_profile_id=child.id, username=child_username,
-                                     password_hash=auth_service.hash_password(child_password)))
+                                     password_hash=child_pwd_hash, legacy_shared_password=legacy_shared))
             Session.add(CaregiverChildAccess(caregiver_id=g.user.id, child_id=child.id,
                                              status="active", access_role="guardian"))
         else:

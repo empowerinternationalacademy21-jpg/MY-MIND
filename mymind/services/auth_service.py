@@ -93,11 +93,16 @@ def authenticate(username, password):
 
 
 def authenticate_identity(username, password):
-    """Authenticate a caregiver or independent child identity and resolve its child scope."""
+    """Authenticate a caregiver or child identity and resolve the target child scope.
+
+    This supports both the legacy shared caregiver/child credentials and the new
+    independent child-account model, while preserving a single auth contract.
+    """
     username = normalize_username(username)
     user = Session.query(User).filter_by(username=username).first()
     role = user.role if user else "caregiver"
     child = None
+
     if user is None:
         account = Session.query(ChildAccount).filter_by(username=username, status="active").first()
         if account:
@@ -111,20 +116,43 @@ def authenticate_identity(username, password):
                 return None, None, None
             else:
                 return user, "child", child.id
-        if user is None:
-            child = Session.query(ChildProfile).filter_by(child_username=username, archived_at=None).first()
-            if child:
-                user = Session.get(User, child.caregiver_user_id)
+
+        legacy_child = Session.query(ChildProfile).filter_by(child_username=username, archived_at=None).first()
+        if legacy_child:
+            user = Session.get(User, legacy_child.caregiver_user_id)
+            child = legacy_child
             role = "child"
+
     if user is None:
         verify_password(_DUMMY, password or "")
         return None, None, None
+
+    if role == "child":
+        if not child:
+            child = (Session.query(ChildProfile)
+                     .filter_by(caregiver_user_id=user.id, archived_at=None)
+                     .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).first())
+        if child is None:
+            return None, None, None
+        legacy_hash = None
+        if user.child_username == username:
+            legacy_hash = user.password_hash
+        elif child.child_username == username:
+            legacy_hash = user.password_hash
+        else:
+            legacy_hash = None
+        if legacy_hash is None:
+            account = Session.query(ChildAccount).filter_by(child_profile_id=child.id, username=username, status="active").first()
+            if not account or not verify_password(account.password_hash, password or ""):
+                return None, None, None
+            return user, "child", child.id
+        if not verify_password(legacy_hash, password or ""):
+            return None, None, None
+        return user, "child", child.id
+
     if not verify_password(user.password_hash, password or ""):
         return None, None, None
-    if role == "child" and not child:
-        child = (Session.query(ChildProfile).filter_by(caregiver_user_id=user.id, archived_at=None)
-                 .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).first())
-    return user, role, child.id if child else None
+    return user, role, None
 
 
 def username_available(username, user_id=None, exclude_child_id=None):
