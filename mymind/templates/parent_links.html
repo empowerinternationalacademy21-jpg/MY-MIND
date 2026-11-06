@@ -1,16 +1,19 @@
-{% extends "base.html" %}{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}{% block title %}Parent links{% endblock %}
-{% block topbar_title %}Parent links{% endblock %}
-{% block content %}
-<h1>Parent links</h1>
-<p class="muted">Let a parent or family member look at {{ child.display_name }}'s world, read-only, without an account. They need the private link <b>and</b> a view password you choose for it. Anyone with both can see the child's choices, so share them only with people you trust, and revoke a link whenever you like.</p>
+{% extends "ct_layout.html" %}
+{% set ct_active = 'links' %}
+{% block title %}Parent links{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page">
+<header class="ct-heading"><div><p class="ct-kicker">Family sharing</p><h1>Parent links</h1>
+<p class="muted">Let a parent or family member look at {{ child.display_name }}'s world, read-only, without an account. They need the private link <b>and</b> a view password you choose for it. Anyone with both can see the child's choices, so share them only with people you trust, and revoke a link whenever you like.</p></div></header>
 
-{% if new_url %}<section class="card-box" aria-live="polite"><h2>Your new link</h2>
-<p class="small muted">Copy it now. For your child's privacy it is not stored and can't be shown again.</p>
-<div class="field"><input id="newlink" type="text" readonly value="{{ new_url }}" onfocus="this.select()" aria-label="New parent link"></div>
-<button class="btn" type="button" data-copy="#newlink">Copy link</button></section>{% endif %}
+{% if new_url %}<section class="ct-new-link" aria-live="polite"><label for="newlink">Your new link</label>
+<input id="newlink" type="text" readonly value="{{ new_url }}" onfocus="this.select()" aria-label="New parent link">
+<button class="btn small" type="button" data-copy="#newlink">Copy link</button>
+<p class="small muted" style="grid-column:1/-1;margin:0">Copy it now. For your child's privacy it is not stored and can't be shown again.</p></section>{% endif %}
 
-<section class="card-box"><h2>Create a link</h2>
-<form method="post" autocomplete="off">
+<section class="ct-panel"><div class="ct-panel-heading"><div><h2>Create a link</h2></div></div>
+<form method="post" autocomplete="off" class="ct-links-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="field"><label for="pl-label">Who is it for? (optional)</label><input id="pl-label" name="label" type="text" maxlength="40" placeholder="e.g. Grandma"></div>
   <div class="field"><label for="pl-pw">View password (at least 8 characters)</label><div class="inwrap">{{ icon('lock') }}<input id="pl-pw" name="password" type="password" minlength="8" maxlength="128" required autocomplete="new-password"></div></div>
@@ -19,12 +22,13 @@
   <button class="btn primary block" type="submit">Create link</button>
 </form></section>
 
-<h2>Your links</h2>
-<div class="rows">{% for l in links %}{% set st = status_of(l) %}
-<div class="row"><span class="grow"><b>{{ l.label or 'Unnamed link' }}</b> <span class="pill {{ 'approved' if st == 'active' else 'rejected' }}">{{ st }}</span>
-<span class="sub">Created {{ l.created_at.strftime('%d %b %Y') }}{% if l.expires_at %} · expires {{ l.expires_at.strftime('%d %b %Y') }}{% else %} · until revoked{% endif %} · opened {{ l.view_count }} time{{ '' if l.view_count == 1 else 's' }}{% if l.last_viewed_at %} · last {{ l.last_viewed_at.strftime('%d %b %H:%M') }}{% endif %}</span></span>
+<section class="ct-panel"><div class="ct-panel-heading"><div><h2>Your links</h2></div></div>
+<div class="ct-link-list" style="margin-top:0;border-top:0">{% for l in links %}{% set st = status_of(l) %}
+<div class="ct-link-row"><div><strong>{{ l.label or 'Unnamed link' }} <span class="pill {{ 'approved' if st == 'active' else 'rejected' }}">{{ st }}</span></strong>
+<small>Created {{ l.created_at.strftime('%d %b %Y') }}{% if l.expires_at %} · expires {{ l.expires_at.strftime('%d %b %Y') }}{% else %} · until revoked{% endif %} · opened {{ l.view_count }} time{{ '' if l.view_count == 1 else 's' }}{% if l.last_viewed_at %} · last {{ l.last_viewed_at.strftime('%d %b %H:%M') }}{% endif %}</small></div>
 {% if st == 'active' %}<form method="post" action="{{ url_for('parent_links.revoke', link_id=l.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn red small" type="submit" data-confirm="Revoke this link? It will stop working immediately.">Revoke</button></form>{% endif %}</div>
-{% else %}<div class="row"><span class="grow muted">No links yet.</span></div>{% endfor %}</div>
+{% else %}<p class="ct-empty">No links yet.</p>{% endfor %}</div></section>
 <p><a href="{{ url_for('profile.settings') }}">{{ icon('chevron-left','sm') }} Back to settings</a></p>
+</div>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/parent_links.js') }}"></script>{% endblock %}
