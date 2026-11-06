@@ -1,82 +1,187 @@
-{% extends "base.html" %}{% block title %}Caretaker dashboard{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
-{% block content %}
-<main class="ct-dashboard" aria-labelledby="caretaker-title">
-  <header class="ct-heading">
-    <div><p class="ct-kicker">Family overview</p><h1 id="caretaker-title">{{ child.display_name if child else 'Your child' }}'s activity</h1>
-      <p class="muted">A private view of activity and content explored in MyMind.</p></div>
-    <div class="ct-heading-actions">
-      {% if children %}<form method="post" action="{{ url_for('caretaker.select_child', child_uid=child.public_uid if child else children[0].public_uid) }}" class="ct-child-switch"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-child-select">Child</label><select id="ct-child-select" aria-label="Switch child" onchange="this.form.action='/caretaker/children/select/'+this.value;this.form.requestSubmit()">{% for profile in children %}<option value="{{ profile.public_uid }}" {{ 'selected' if child and profile.id == child.id }}>{{ profile.display_name }}{{ ' · read-only' if profile_is_read_only(profile) }}</option>{% endfor %}</select></form>{% endif %}
-      <a class="btn small" href="{{ url_for('caretaker.children') }}">{{ icon('users') }} Manage children</a>
-      {% if child and data %}{% if can_export %}<a class="btn primary" href="{{ url_for('auth.caretaker_report', start=start.isoformat(), end=end.isoformat()) }}">{{ icon('download') }} Download report</a>{% else %}<a class="btn" href="{{ url_for('subscriptions.status') }}">{{ icon('lock') }} Export on paid plan</a>{% endif %}{% endif %}
-    </div>
-  </header>
+{% extends "ct_layout.html" %}
+{% set ct_active = 'dashboard' %}
+{% block title %}Caretaker dashboard{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
+
+{# ---- helpers: smooth curves are drawn as cubic Béziers between points ---- #}
+{% set ct_months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+{% set ct_stop_colors = ['#ff7a1a','#ffc36b','#3fd9c8','#f6f2ec','#ff7482','#a78bfa','#7dd3fc'] %}
+{% set ct_line_colors = ['#f6f2ec','#ff7a1a','#3fd9c8','#ffc36b','#ff7482'] %}
+{% macro day_path(days, peak) -%}
+{%- set ns = namespace(d='', px=0, py=0) -%}
+{%- set n = days|length -%}
+{%- for day in days -%}
+  {%- set x = (loop.index0 * 100 / (n - 1)) if n > 1 else 50 -%}
+  {%- set y = 90 - (day.minutes / peak * 72) -%}
+  {%- if loop.first -%}{%- set ns.d = 'M%.2f,%.2f'|format(x, y) -%}
+  {%- else -%}{%- set xm = (ns.px + x) / 2 -%}{%- set ns.d = ns.d ~ ' C%.2f,%.2f %.2f,%.2f %.2f,%.2f'|format(xm, ns.py, xm, y, x, y) -%}{%- endif -%}
+  {%- set ns.px = x -%}{%- set ns.py = y -%}
+{%- endfor -%}
+{%- if n == 1 -%}{%- set ns.d = 'M0,%.2f L100,%.2f'|format(ns.py, ns.py) -%}{%- endif -%}
+{{ ns.d }}
+{%- endmacro %}
+{% macro smooth(points) -%}
+{%- set ns = namespace(d='', px=0, py=0, n=0) -%}
+{%- for p in points.split(' ') if p -%}
+  {%- set x = p.split(',')[0]|float -%}{%- set y = p.split(',')[1]|float -%}
+  {%- if loop.first -%}{%- set ns.d = 'M%.2f,%.2f'|format(x, y) -%}
+  {%- else -%}{%- set xm = (ns.px + x) / 2 -%}{%- set ns.d = ns.d ~ ' C%.2f,%.2f %.2f,%.2f %.2f,%.2f'|format(xm, ns.py, xm, y, x, y) -%}{%- endif -%}
+  {%- set ns.px = x -%}{%- set ns.py = y -%}{%- set ns.n = ns.n + 1 -%}
+{%- endfor -%}
+{%- if ns.n == 1 -%}{%- set ns.d = ns.d ~ ' L100,%.2f'|format(ns.py) -%}{%- endif -%}
+{{ ns.d }}
+{%- endmacro %}
+
+{% block ct_body %}
+<div class="ct-page-root" aria-labelledby="caretaker-title">
+  {% if setup == 'verification' or setup == 'subscription' or setup == 'onboarding' or not child %}
+  <header class="ct-heading"><div><p class="ct-kicker">Family overview</p><h1 id="caretaker-title">{{ child.display_name ~ "'s activity" if child else 'Your dashboard' }}</h1><p class="muted">A private view of activity and content explored in MyMind.</p></div></header>
+  <div class="ct-page">
   {% if setup == 'verification' %}
   <section class="card-box"><p>Complete the caretaker age check to continue setting up your account.</p><a class="btn primary" href="{{ url_for('verification.start') }}">Continue age check</a></section>
   {% elif setup == 'subscription' %}
   <section class="card-box"><p>Choose and activate a plan to open your child's world.</p><a class="btn primary" href="{{ url_for('subscriptions.status') }}">View plans</a></section>
   {% elif setup == 'onboarding' %}
   <section class="card-box"><p>Finish the caregiver questionnaire to prepare your child's world.</p><a class="btn primary" href="{{ url_for('onboarding.onboarding') }}">Finish setup</a></section>
-  {% elif not child %}
+  {% else %}
   <section class="empty">No child profile is available yet.</section>
-  {% elif data %}
-  <section class="ct-controls" aria-label="Dashboard filters">
-    <div class="ct-ranges" role="group" aria-label="Date range">
-      {% for key, label in [('today','Today'),('7','Last 7 days'),('30','Last 30 days')] %}
-      {% if key != '30' or can_view_long_history %}<a class="ct-range {{ 'is-active' if period == key }}" href="{{ url_for('auth.caretaker', range=key) }}" {% if period == key %}aria-current="true"{% endif %}>{{ label }}</a>{% else %}<a class="ct-range ct-range--locked" href="{{ url_for('subscriptions.status') }}" title="Upgrade to unlock 30-day history">{{ label }} {{ icon('lock','sm') }}</a>{% endif %}
-      {% endfor %}
-    </div>
-    <form class="ct-custom-range" method="get" action="{{ url_for('auth.caretaker') }}">
-      <input type="hidden" name="range" value="custom"><label for="ct-start">From</label><input id="ct-start" type="date" name="start" value="{{ start.isoformat() }}" min="{{ history_start.isoformat() }}" max="{{ today.isoformat() }}" required>
-      <label for="ct-end">To</label><input id="ct-end" type="date" name="end" value="{{ end.isoformat() }}" min="{{ history_start.isoformat() }}" max="{{ today.isoformat() }}" required><button class="btn small" type="submit">Apply</button>
-    </form>
-  </section>
-  <section class="ct-stats" aria-label="Activity summary">
-    {% for label, value, unit, symbol in [('Time today',data.summary.today_minutes,'min','clock-3'),('Time this week',data.summary.week_minutes,'min','calendar-days'),('Videos watched',data.summary.videos_watched,'','clapperboard'),('Favorites added',data.summary.favorites_added,'','heart'),('Current streak',data.summary.streak,'days','flame'),('Most active stop',data.summary.top_stop,'','map-pin')] %}
-    <article class="ct-stat"><span class="ct-stat-icon">{{ icon(symbol) }}</span><span class="ct-stat-label">{{ label }}</span><strong>{{ value }}{% if unit == 'min' %}<small> min</small>{% elif unit %}<small> {{ unit }}</small>{% endif %}</strong></article>
-    {% endfor %}
-  </section>
-  <section class="ct-chart-grid" aria-label="Activity charts">
-    <article class="ct-panel ct-bars"><div class="ct-panel-heading"><div><h2>Minutes per day</h2><p class="muted small">{{ start.strftime('%b %-d') }} to {{ end.strftime('%b %-d') }}</p></div></div>
-      {% if data.days|sum(attribute='minutes') > 0 %}<div class="ct-bar-chart" role="img" aria-label="Daily minutes of activity">
-        {% set max_day = data.days|map(attribute='minutes')|max or 1 %}{% for day in data.days %}<a class="ct-bar-col" href="{{ url_for('auth.caretaker', range=period, start=start.isoformat(), end=end.isoformat(), day=day.date) }}" title="{{ day.date }}: {{ day.minutes }} minutes"><span class="ct-bar-value">{{ day.minutes|round|int }}</span><i style="--bar:{{ (day.minutes / max_day * 100)|round|int }}%"></i><small>{{ day.date[8:10] }}</small></a>{% endfor %}
-      </div>{% else %}<p class="ct-empty">No activity in this date range.</p>{% endif %}
-    </article>
-    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Time by stop</h2><p class="muted small">Selected date range</p></div></div>
-      {% if data.stops %}<div class="ct-donut-layout"><div class="ct-donut" style="--donut:{{ data.donut }}" role="img" aria-label="Time share by stop"><span>{{ data.summary.range_minutes|round|int }}<small> min</small></span></div><ul class="ct-legend">{% for stop in data.stops %}<li><i style="--legend-color:{{ stop.color }}"></i><span>{{ stop.label }}</span><b>{{ stop.minutes|round|int }}m</b></li>{% endfor %}</ul></div>{% else %}<p class="ct-empty">No activity in this date range.</p>{% endif %}
-    </article>
-    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Weekly trend</h2><p class="muted small">Total time and most active stops</p></div></div>
-      {% if can_view_long_history %}{% if data.trend %}<div class="ct-line-wrap"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Weekly activity trend"><path d="M0 100H100" class="ct-axis"/>{% for line in data.trend_series %}<polyline points="{{ line.points }}" style="--line-color:{{ line.color }}" class="ct-line"/>{% endfor %}</svg><div class="ct-week-labels">{% for item in data.trend %}<span>{{ item.week[5:] }}</span>{% endfor %}</div></div><div class="ct-line-legend">{% for line in data.trend_series %}<span><i style="--legend-color:{{ line.color }}"></i>{{ line.label }}</span>{% endfor %}</div>{% else %}<p class="ct-empty">Weekly trends will appear as activity is recorded.</p>{% endif %}{% else %}<p class="ct-empty">Unlock full dashboard trends with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
-    </article>
-    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>When {{ child.display_name }} is active</h2><p class="muted small">Activity minutes by hour of day</p></div></div>
-      {% if can_view_long_history %}{% if data.peak_hour is not none %}<p class="ct-peak">Busiest around <strong>{{ '%02d:00'|format(data.peak_hour) }}</strong></p><div class="ct-hour-chart" role="img" aria-label="Activity minutes by hour">{% set max_hour = data.hours|map(attribute='minutes')|max or 1 %}{% for hour in data.hours %}<i title="{{ '%02d:00'|format(hour.hour) }}: {{ hour.minutes }} minutes" style="--hour:{{ (hour.minutes / max_hour * 100)|round|int }}%"></i>{% endfor %}</div><div class="ct-hour-labels"><span>12 am</span><span>6 am</span><span>12 pm</span><span>6 pm</span><span>12 am</span></div>{% else %}<p class="ct-empty">No activity yet in this date range.</p>{% endif %}{% else %}<p class="ct-empty">Unlock activity timing with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
-    </article>
-  </section>
-  <section class="ct-panel ct-timeline" aria-labelledby="ct-timeline-title">
-    <div class="ct-panel-heading"><div><h2 id="ct-timeline-title">Daily activity</h2><p class="muted small">{{ selected_day.strftime('%A, %B %-d') }}</p></div><form method="get" action="{{ url_for('auth.caretaker') }}"><input type="hidden" name="range" value="{{ period }}"><input type="hidden" name="start" value="{{ start.isoformat() }}"><input type="hidden" name="end" value="{{ end.isoformat() }}"><label class="sr-only" for="ct-day">Choose a day</label><input id="ct-day" type="date" name="day" value="{{ selected_day.isoformat() }}" min="{{ start.isoformat() }}" max="{{ end.isoformat() }}" onchange="this.form.submit()"></form></div>
-    {% if data.timeline %}<ol class="ct-event-list">{% for event in data.timeline %}<li><time>{{ event.time }}</time><span class="ct-event-dot"></span><div class="ct-event-content">{% if event.content and event.content.thumbnail_url %}<img src="{{ event.content.thumbnail_url }}" alt="" loading="lazy">{% endif %}<div><strong>{{ event.content.title if event.content else event.event_type|title }}</strong><span>{{ event.stop_label }}{% if event.duration_seconds %} · {{ (event.duration_seconds / 60)|round|int }} min{% endif %}{% if event.reaction in ('like','dislike','favorite') %} · {{ event.reaction|title }}{% endif %}</span></div><span class="ct-event-kind">{{ event.event_type|title }}</span></div></li>{% endfor %}</ol>{% else %}<p class="ct-empty">No activity yet today.</p>{% endif %}
-  </section>
-  <section class="ct-content-sections" aria-label="Content activity">
-    {% for key, title, items in [('recent','Recently explored',data.content.recent),('favorites','Favorites',data.content.favorites),('watched','Videos watched',data.content.watched)] %}
-    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>{{ title }}</h2><p class="muted small">{{ items|length }} items in this range</p></div></div>{% if items %}<div class="ct-content-grid">{% for item in (items if key == 'watched' else items[:8]) %}<div class="ct-content-item">{% if item.thumbnail_url %}<img src="{{ item.thumbnail_url }}" alt="" loading="lazy">{% else %}<span class="ct-content-placeholder">{{ icon('sparkles') }}</span>{% endif %}<strong>{{ item.title }}</strong><small>{{ item.content_type|title }}{% if item.category %} · {{ item.category|title }}{% endif %}</small></div>{% endfor %}</div>{% else %}<p class="ct-empty">Nothing to show yet.</p>{% endif %}</article>
-    {% endfor %}
-  </section>
-  <section class="ct-panel ct-recommendations" aria-labelledby="ct-recommendations-title">
-    <div class="ct-panel-heading"><div><h2 id="ct-recommendations-title">Insights and ideas</h2><p class="muted small">Positive, activity-based suggestions. Not assessments or diagnoses.</p></div></div>
-    <form class="ct-limit-form" method="post" action="{{ url_for('auth.screen_time_warning') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-limit">Daily screen-time reminder</label><input id="ct-limit" name="minutes" type="number" min="0" max="600" step="15" value="{{ recommendation_limit }}"><span>minutes <small>(0 turns it off)</small></span><button class="btn small" type="submit">Save</button></form>
-    {% if data.recommendations %}<div class="ct-recommendation-grid">{% for card in data.recommendations %}<article class="ct-recommendation"><div class="ct-rec-icon">{{ icon(card.icon) }}</div><div class="ct-rec-copy"><div class="ct-rec-title"><h3>{{ card.title }}</h3><span class="ct-priority ct-priority--{{ card.priority }}">{{ card.priority }}</span></div><p>{{ card.reason }}</p><p class="ct-rec-action"><strong>Try:</strong> {{ card.action }}</p><div class="ct-rec-actions"><form method="post" action="{{ url_for('auth.recommendation_action', recommendation_key=card.key, action='remind') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Remind me later</button></form><form method="post" action="{{ url_for('auth.recommendation_action', recommendation_key=card.key, action='dismiss') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Dismiss recommendation" title="Dismiss">{{ icon('x') }}</button></form></div></div></article>{% endfor %}</div>{% else %}<p class="ct-empty">No new suggestions right now. Keep exploring together.</p>{% endif %}
-  </section>
-  <section class="ct-panel ct-world-panel" aria-labelledby="ct-world-title">
-    <div class="ct-panel-heading"><div><h2 id="ct-world-title">My child's world</h2><p class="muted small">Explore the same map in read-only preview.</p></div></div>
-    <iframe class="ct-world-frame" title="Read-only preview of {{ child.display_name }}'s world" src="{{ url_for('world_share.caretaker_preview', child_uid=child.public_uid) }}" loading="lazy"></iframe>
-  </section>
-  <section class="ct-panel ct-share-panel" aria-labelledby="ct-share-title">
-    <div class="ct-panel-heading"><div><h2 id="ct-share-title">Share my child's world</h2><p class="muted small">Anyone with the private link can view this child's nickname, world, activity summary, and content.</p></div></div>
-    {% if share_url %}<div class="ct-new-link" role="status"><label for="ct-share-url">New private link</label><input id="ct-share-url" type="text" readonly value="{{ share_url }}"><button class="btn small" type="button" data-copy-target="ct-share-url">{{ icon('copy') }} Copy link</button></div>{% endif %}
-    <form class="ct-share-create" method="post" action="{{ url_for('world_share.create_link') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-share-expiry">Link expires</label><select id="ct-share-expiry" name="expiry"><option value="24h">After 24 hours</option><option value="7d" selected>After 7 days</option><option value="30d">After 30 days</option><option value="never">Until I revoke it</option></select><button class="btn primary" type="submit">{{ icon('share-2') }} Create share link</button></form>
-    {% if share_links %}<div class="ct-link-list">{% for link in share_links %}<div class="ct-link-row"><div><strong>{{ share_status(link)|title }} link</strong><small>Created {{ link.created_at.strftime('%b %-d, %Y') }}{% if link.last_opened_at %} · Last opened {{ link.last_opened_at.strftime('%b %-d, %Y %H:%M') }}{% else %} · Not opened yet{% endif %}{% if link.expires_at %} · Expires {{ link.expires_at.strftime('%b %-d, %Y %H:%M') }}{% endif %}</small></div>{% if share_status(link) == 'active' %}<form method="post" action="{{ url_for('world_share.revoke_link', link_id=link.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Revoke share link" title="Revoke link">{{ icon('link-2-off') }}</button></form>{% endif %}</div>{% endfor %}</div>{% endif %}
-  </section>
-  <p class="ct-privacy">Privacy: this dashboard shows activity, content viewed, favorites, and approximate time spent. It does not show searches or private caregiver notes.</p>
   {% endif %}
-</main>
+  </div>
+  {% elif data %}
+  <div class="ct-dashboard">
+
+    {# =================== main column =================== #}
+    <div class="ct-main">
+      <header class="ct-heading">
+        <div><p class="ct-kicker">Family overview</p><h1 id="caretaker-title">{{ child.display_name }}'s activity</h1><p class="muted">A private view of activity and content explored in MyMind.</p></div>
+      </header>
+
+      <section class="ct-stats" aria-label="Activity summary">
+        {% for label, value, unit, symbol in [('Time today',data.summary.today_minutes,'min','clock'),('Time this week',data.summary.week_minutes,'min','calendar'),('Videos watched',data.summary.videos_watched,'','clapperboard'),('Favorites added',data.summary.favorites_added,'','heart'),('Current streak',data.summary.streak,'days','rocket'),('Most active stop',data.summary.top_stop,'','locate-fixed')] %}
+        <article class="ct-stat"><span class="ct-stat-icon">{{ icon(symbol) }}</span><span class="ct-stat-label">{{ label }}</span><strong>{{ value }}{% if unit == 'min' %}<small> min</small>{% elif unit %}<small> {{ unit }}</small>{% endif %}</strong></article>
+        {% endfor %}
+      </section>
+
+      <section class="ct-panel ct-statistic" aria-label="Activity charts">
+        <div class="ct-panel-heading">
+          <div><h2>Statistic</h2></div>
+          <div class="ct-ranges" role="group" aria-label="Date range">
+            {% for key, label in [('today','Today'),('7','Last 7 days'),('30','Last 30 days')] %}
+            {% if key != '30' or can_view_long_history %}<a class="ct-range {{ 'is-active' if period == key }}" href="{{ url_for('auth.caretaker', range=key) }}" {% if period == key %}aria-current="true"{% endif %}>{{ label }}</a>{% else %}<a class="ct-range ct-range--locked" href="{{ url_for('subscriptions.status') }}" title="Upgrade to unlock 30-day history">{{ label }} {{ icon('lock','sm') }}</a>{% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        <details class="ct-custom" {{ 'open' if period == 'custom' }}>
+          <summary>{{ icon('calendar','sm') }} Custom dates</summary>
+          <form class="ct-custom-range" method="get" action="{{ url_for('auth.caretaker') }}">
+            <input type="hidden" name="range" value="custom"><label for="ct-start">From</label><input id="ct-start" type="date" name="start" value="{{ start.isoformat() }}" min="{{ history_start.isoformat() }}" max="{{ today.isoformat() }}" required>
+            <label for="ct-end">To</label><input id="ct-end" type="date" name="end" value="{{ end.isoformat() }}" min="{{ history_start.isoformat() }}" max="{{ today.isoformat() }}" required><button class="btn small" type="submit">Apply</button>
+          </form>
+        </details>
+
+        <div class="ct-hero-head"><div><h3>Minutes per day</h3><p class="muted small">{{ start.strftime('%b %-d') }} to {{ end.strftime('%b %-d') }}</p></div>
+          <ul class="ct-hero-legend" aria-hidden="true"><li><i style="--legend-color:#ff7a1a"></i>Minutes of activity</li><li><i style="--legend-color:#f6f2ec"></i>Peak day</li></ul></div>
+        {% if data.days|sum(attribute='minutes') > 0 %}
+        {% set n_days = data.days|length %}
+        {% set peak = data.days|map(attribute='minutes')|max or 1 %}
+        {% set label_step = ((n_days / 6)|round(0, 'ceil')|int) or 1 %}
+        {% set pk = namespace(done=false) %}
+        <div class="ct-curve {{ 'is-dense' if n_days > 31 }}" role="img" aria-label="Daily minutes of activity">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="ct-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a1a" stop-opacity=".5"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></linearGradient></defs>
+            <line class="ct-grid-line" x1="0" y1="25" x2="100" y2="25"/><line class="ct-grid-line" x1="0" y1="50" x2="100" y2="50"/><line class="ct-grid-line" x1="0" y1="75" x2="100" y2="75"/>
+            {% set path = day_path(data.days, peak) %}
+            <path class="ct-curve-area" d="{{ path }} L100,100 L0,100 Z"/><path class="ct-curve-line" d="{{ path }}"/>
+          </svg>
+          {% for day in data.days %}
+          {% set x = (loop.index0 * 100 / (n_days - 1)) if n_days > 1 else 50 %}
+          {% set y = 90 - (day.minutes / peak * 72) %}
+          {% set is_peak = (day.minutes == peak and not pk.done) %}{% if is_peak %}{% set pk.done = true %}{% endif %}
+          <a class="ct-dot{{ ' is-peak' if is_peak }}" style="--x:{{ '%.2f'|format(x) }}%;--y:{{ '%.2f'|format(y) }}%" href="{{ url_for('auth.caretaker', range=period, start=start.isoformat(), end=end.isoformat(), day=day.date) }}" title="{{ day.date }}: {{ day.minutes }} minutes"><span>{{ day.date[8:10]|int }} {{ ct_months[day.date[5:7]|int - 1] }}<b>{{ day.minutes|round|int }} min</b></span></a>
+          {% endfor %}
+        </div>
+        <div class="ct-curve-labels">{% for day in data.days[::label_step] %}<a style="--x:{{ '%.2f'|format((loop.index0 * label_step * 100 / (n_days - 1)) if n_days > 1 else 50) }}%" href="{{ url_for('auth.caretaker', range=period, start=start.isoformat(), end=end.isoformat(), day=day.date) }}">{{ day.date[8:10]|int }} {{ ct_months[day.date[5:7]|int - 1] }}</a>{% endfor %}</div>
+        {% else %}<p class="ct-empty">No activity in this date range.</p>{% endif %}
+      </section>
+
+      <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Top contributors</h2><p class="muted small">Weekly trend: total time and most active stops</p></div>
+        {% if can_view_long_history and data.trend %}<div class="ct-line-legend">{% for line in data.trend_series %}<span><i style="--legend-color:{{ ct_line_colors[loop.index0 % ct_line_colors|length] }}"></i>{{ line.label }}</span>{% endfor %}</div>{% endif %}</div>
+        {% if can_view_long_history %}{% if data.trend %}<div class="ct-line-wrap"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Weekly activity trend"><path d="M0 100H100" class="ct-axis"/>{% for line in data.trend_series %}<path d="{{ smooth(line.points) }}" style="--line-color:{{ ct_line_colors[loop.index0 % ct_line_colors|length] }}" class="ct-line"/>{% endfor %}</svg><div class="ct-week-labels">{% for item in data.trend %}<span>{{ item.week[5:] }}</span>{% endfor %}</div></div>{% else %}<p class="ct-empty">Weekly trends will appear as activity is recorded.</p>{% endif %}{% else %}<p class="ct-empty">Unlock full dashboard trends with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
+      </article>
+
+      <section class="ct-duo" aria-label="Time breakdown">
+        <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Time by stop</h2><p class="muted small">Selected date range</p></div></div>
+          {% if data.stops %}
+          {% set tot = data.stops|sum(attribute='minutes') %}
+          {% set dn = namespace(off=0, parts=[]) %}
+          {% if tot > 0 %}{% for stop in data.stops %}{% set seg_end = dn.off + (stop.minutes / tot * 100) %}{% set _ = dn.parts.append(ct_stop_colors[loop.index0 % ct_stop_colors|length] ~ ' %.2f%% %.2f%%'|format(dn.off, seg_end)) %}{% set dn.off = seg_end %}{% endfor %}{% endif %}
+          <div class="ct-donut-layout"><div class="ct-donut-wrap"><div class="ct-donut" style="--donut:{{ ('conic-gradient(' ~ dn.parts|join(', ') ~ ')') if tot > 0 else data.donut }}" role="img" aria-label="Time share by stop"></div><div class="ct-donut-centre">{{ data.summary.range_minutes|round|int }}<small>min</small></div></div>
+            <ul class="ct-legend">{% for stop in data.stops %}<li><i style="--legend-color:{{ ct_stop_colors[loop.index0 % ct_stop_colors|length] }}"></i><span>{{ stop.label }}</span><b>{{ stop.minutes|round|int }}m</b></li>{% endfor %}</ul></div>
+          {% else %}<p class="ct-empty">No activity in this date range.</p>{% endif %}
+        </article>
+        <article class="ct-panel"><div class="ct-panel-heading"><div><h2>When {{ child.display_name }} is active</h2><p class="muted small">Activity minutes by hour of day</p></div></div>
+          {% if can_view_long_history %}{% if data.peak_hour is not none %}<p class="ct-peak">Busiest around <strong>{{ '%02d:00'|format(data.peak_hour) }}</strong></p><div class="ct-hour-chart" role="img" aria-label="Activity minutes by hour">{% set max_hour = data.hours|map(attribute='minutes')|max or 1 %}{% for hour in data.hours %}<i title="{{ '%02d:00'|format(hour.hour) }}: {{ hour.minutes }} minutes" style="--hour:{{ (hour.minutes / max_hour * 100)|round|int }}%"></i>{% endfor %}</div><div class="ct-hour-labels"><span>12 am</span><span>6 am</span><span>12 pm</span><span>6 pm</span><span>12 am</span></div>{% else %}<p class="ct-empty">No activity yet in this date range.</p>{% endif %}{% else %}<p class="ct-empty">Unlock activity timing with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
+        </article>
+      </section>
+
+      <section class="ct-panel ct-timeline" id="ct-timeline" aria-labelledby="ct-timeline-title">
+        <div class="ct-panel-heading"><div><h2 id="ct-timeline-title">Daily activity</h2><p class="muted small">{{ selected_day.strftime('%A, %B %-d') }}</p></div><form method="get" action="{{ url_for('auth.caretaker') }}"><input type="hidden" name="range" value="{{ period }}"><input type="hidden" name="start" value="{{ start.isoformat() }}"><input type="hidden" name="end" value="{{ end.isoformat() }}"><label class="sr-only" for="ct-day">Choose a day</label><input id="ct-day" type="date" name="day" value="{{ selected_day.isoformat() }}" min="{{ start.isoformat() }}" max="{{ end.isoformat() }}" onchange="this.form.submit()"></form></div>
+        {% if data.timeline %}<ol class="ct-event-list">{% for event in data.timeline %}<li><time>{{ event.time }}</time><span class="ct-event-dot"></span><div class="ct-event-content">{% if event.content and event.content.thumbnail_url %}<img src="{{ event.content.thumbnail_url }}" alt="" loading="lazy">{% endif %}<div><strong>{{ event.content.title if event.content else event.event_type|title }}</strong><span>{{ event.stop_label }}{% if event.duration_seconds %} · {{ (event.duration_seconds / 60)|round|int }} min{% endif %}{% if event.reaction in ('like','dislike','favorite') %} · {{ event.reaction|title }}{% endif %}</span></div><span class="ct-event-kind">{{ event.event_type|title }}</span></div></li>{% endfor %}</ol>{% else %}<p class="ct-empty">No activity yet today.</p>{% endif %}
+      </section>
+
+      <section class="ct-content-sections" aria-label="Content activity">
+        {% for key, title, items in [('recent','Recently explored',data.content.recent),('favorites','Favorites',data.content.favorites),('watched','Videos watched',data.content.watched)] %}
+        <article class="ct-panel"><div class="ct-panel-heading"><div><h2>{{ title }}</h2><p class="muted small">{{ items|length }} items in this range</p></div></div>{% if items %}<div class="ct-content-grid">{% for item in (items if key == 'watched' else items[:8]) %}<div class="ct-content-item">{% if item.thumbnail_url %}<img src="{{ item.thumbnail_url }}" alt="" loading="lazy">{% else %}<span class="ct-content-placeholder">{{ icon('sparkles') }}</span>{% endif %}<strong>{{ item.title }}</strong><small>{{ item.content_type|title }}{% if item.category %} · {{ item.category|title }}{% endif %}</small></div>{% endfor %}</div>{% else %}<p class="ct-empty">Nothing to show yet.</p>{% endif %}</article>
+        {% endfor %}
+      </section>
+
+      <section class="ct-panel ct-recommendations" aria-labelledby="ct-recommendations-title">
+        <div class="ct-panel-heading"><div><h2 id="ct-recommendations-title">Insights and ideas</h2><p class="muted small">Positive, activity-based suggestions. Not assessments or diagnoses.</p></div></div>
+        <form class="ct-limit-form" method="post" action="{{ url_for('auth.screen_time_warning') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-limit">Daily screen-time reminder</label><input id="ct-limit" name="minutes" type="number" min="0" max="600" step="15" value="{{ recommendation_limit }}"><span>minutes <small>(0 turns it off)</small></span><button class="btn small" type="submit">Save</button></form>
+        {% if data.recommendations %}<div class="ct-recommendation-grid">{% for card in data.recommendations %}<article class="ct-recommendation"><div class="ct-rec-icon">{{ icon(card.icon) }}</div><div class="ct-rec-copy"><div class="ct-rec-title"><h3>{{ card.title }}</h3><span class="ct-priority ct-priority--{{ card.priority }}">{{ card.priority }}</span></div><p>{{ card.reason }}</p><p class="ct-rec-action"><strong>Try:</strong> {{ card.action }}</p><div class="ct-rec-actions"><form method="post" action="{{ url_for('auth.recommendation_action', recommendation_key=card.key, action='remind') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">Remind me later</button></form><form method="post" action="{{ url_for('auth.recommendation_action', recommendation_key=card.key, action='dismiss') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Dismiss recommendation" title="Dismiss">{{ icon('x') }}</button></form></div></div></article>{% endfor %}</div>{% else %}<p class="ct-empty">No new suggestions right now. Keep exploring together.</p>{% endif %}
+      </section>
+
+      <section class="ct-panel ct-world-panel" aria-labelledby="ct-world-title">
+        <div class="ct-panel-heading"><div><h2 id="ct-world-title">My child's world</h2><p class="muted small">Explore the same map in read-only preview.</p></div></div>
+        <iframe class="ct-world-frame" title="Read-only preview of {{ child.display_name }}'s world" src="{{ url_for('world_share.caretaker_preview', child_uid=child.public_uid) }}" loading="lazy"></iframe>
+      </section>
+
+      <section class="ct-panel ct-share-panel" aria-labelledby="ct-share-title">
+        <div class="ct-panel-heading"><div><h2 id="ct-share-title">Share my child's world</h2><p class="muted small">Anyone with the private link can view this child's nickname, world, activity summary, and content.</p></div></div>
+        {% if share_url %}<div class="ct-new-link" role="status"><label for="ct-share-url">New private link</label><input id="ct-share-url" type="text" readonly value="{{ share_url }}"><button class="btn small" type="button" data-copy-target="ct-share-url">{{ icon('file-text') }} Copy link</button></div>{% endif %}
+        <form class="ct-share-create" method="post" action="{{ url_for('world_share.create_link') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-share-expiry">Link expires</label><select id="ct-share-expiry" name="expiry"><option value="24h">After 24 hours</option><option value="7d" selected>After 7 days</option><option value="30d">After 30 days</option><option value="never">Until I revoke it</option></select><button class="btn primary" type="submit">{{ icon('users') }} Create share link</button></form>
+        {% if share_links %}<div class="ct-link-list">{% for link in share_links %}<div class="ct-link-row"><div><strong>{{ share_status(link)|title }} link</strong><small>Created {{ link.created_at.strftime('%b %-d, %Y') }}{% if link.last_opened_at %} · Last opened {{ link.last_opened_at.strftime('%b %-d, %Y %H:%M') }}{% else %} · Not opened yet{% endif %}{% if link.expires_at %} · Expires {{ link.expires_at.strftime('%b %-d, %Y %H:%M') }}{% endif %}</small></div>{% if share_status(link) == 'active' %}<form method="post" action="{{ url_for('world_share.revoke_link', link_id=link.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Revoke share link" title="Revoke link">{{ icon('ban') }}</button></form>{% endif %}</div>{% endfor %}</div>{% endif %}
+      </section>
+      <p class="ct-privacy">Privacy: this dashboard shows activity, content viewed, favorites, and approximate time spent. It does not show searches or private caregiver notes.</p>
+    </div>
+
+    {# =================== side column: profile, card, last activity =================== #}
+    <aside class="ct-side" aria-label="Selected child">
+      <section class="ct-profile">
+        <span class="ct-profile-badge">{{ icon('shield-check','sm') }} Private family view</span>
+        <span class="ct-avatar">{{ icon(child.avatar or 'smile') }}</span>
+        <p class="ct-profile-tag">{{ current_plan|title }} plan{% if selected_read_only %} · read-only{% endif %}</p>
+        <h2>{{ child.display_name }}</h2>
+        {% if children %}<form method="post" action="{{ url_for('caretaker.select_child', child_uid=child.public_uid) }}" class="ct-child-switch"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-child-select">Child</label><select id="ct-child-select" aria-label="Switch child" onchange="this.form.action='/caretaker/children/select/'+this.value;this.form.requestSubmit()">{% for profile in children %}<option value="{{ profile.public_uid }}" {{ 'selected' if profile.id == child.id }}>{{ profile.display_name }}{{ ' · read-only' if profile_is_read_only(profile) }}</option>{% endfor %}</select></form>{% endif %}
+        <nav class="ct-quick" aria-label="Quick actions">
+          <a href="{{ url_for('caretaker.children') }}"><span>{{ icon('users') }}</span>Children</a>
+          <a href="{{ url_for('parent_links.page') }}"><span>{{ icon('key-round') }}</span>Links</a>
+          {% if can_export %}<a href="{{ url_for('auth.caretaker_report', start=start.isoformat(), end=end.isoformat()) }}"><span>{{ icon('download') }}</span>Report</a>{% else %}<a href="{{ url_for('subscriptions.status') }}" title="Export on paid plan"><span>{{ icon('lock') }}</span>Export</a>{% endif %}
+          <a href="{{ url_for('profile.settings') }}"><span>{{ icon('settings') }}</span>Settings</a>
+        </nav>
+        <div class="ct-card" aria-label="Time this week">
+          <div class="ct-card-art"><span class="ct-card-logo">MyMind</span><div><small>Time this week</small><strong>{{ data.summary.week_minutes|round|int }}<em>min</em></strong></div></div>
+          <div class="ct-card-side"><span class="ct-card-chip" aria-hidden="true"></span><div><small>Current streak</small><b>{{ data.summary.streak }} day{{ '' if data.summary.streak == 1 else 's' }}</b></div></div>
+        </div>
+      </section>
+      <section class="ct-recent" aria-labelledby="ct-recent-title">
+        <h2 id="ct-recent-title">Last activity</h2>
+        {% if data.timeline %}<ul class="ct-last">{% for event in (data.timeline[-3:])|reverse %}<li>{% if event.content and event.content.thumbnail_url %}<img class="ct-thumb" src="{{ event.content.thumbnail_url }}" alt="" loading="lazy" style="border-radius:50%">{% else %}<span class="ct-thumb">{{ icon('sparkles') }}</span>{% endif %}<div><strong>{{ event.content.title if event.content else event.event_type|title }}</strong><small>{{ event.time }} · {{ event.stop_label }}</small></div><span class="ct-event-kind">{{ event.event_type|title }}</span></li>{% endfor %}</ul>
+        {% else %}<p class="ct-empty">No activity yet on {{ selected_day.strftime('%b %-d') }}.</p>{% endif %}
+        <a class="ct-see-all" href="#ct-timeline">See all activity {{ icon('arrow-right') }}</a>
+      </section>
+    </aside>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}
