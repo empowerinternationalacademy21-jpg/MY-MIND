@@ -62,12 +62,18 @@ def add_child():
         flash("Enter a nickname, choose an avatar, and confirm parental consent.", "error")
         return redirect(url_for("caretaker.children"))
     username = _new_child_username(g.user)
-    password = request.form.get("child_password", "")
-    try:
-        auth_service.validate_password(password, username)
-    except auth_service.AuthError as exc:
-        flash(str(exc), "error")
-        return redirect(url_for("caretaker.children"))
+    password = (request.form.get("child_password") or "").strip()
+    if password:
+        try:
+            auth_service.validate_password(password, username)
+        except auth_service.AuthError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("caretaker.children"))
+        password_hash = auth_service.hash_password(password)
+        legacy_shared = False
+    else:
+        password_hash = g.user.password_hash
+        legacy_shared = True
     try:
         age = age_service.parse_age(request.form.get("age")) if request.form.get("age") else None
     except age_service.AgeError as exc:
@@ -78,7 +84,7 @@ def add_child():
     Session.add(child)
     Session.flush()
     Session.add(ChildAccount(child_profile_id=child.id, username=username,
-                             password_hash=auth_service.hash_password(password)))
+                             password_hash=password_hash, legacy_shared_password=legacy_shared))
     Session.add(CaregiverChildAccess(caregiver_id=g.user.id, child_id=child.id,
                                      status="active", access_role="guardian"))
     Session.add(CaregiverQuestionnaire(child_profile_id=child.id, responses_json=json.dumps({})))
