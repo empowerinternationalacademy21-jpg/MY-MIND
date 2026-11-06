@@ -9,7 +9,7 @@ from routes.helpers import caregiver_required, child_of, login_required
 from services import activity_service, cache, caretaker_dashboard_service as dashboard
 from services import content_service, world_service, world_share_service as shares
 from services import caretaker_recommendation_engine as recommendations
-from services import age_service, plan_service, recommendation_service as rec, safety, settings_service
+from services import age_service, plan_service, recommendation_service as rec, safety, settings_service, child_scope
 
 bp = Blueprint("world_share", __name__)
 
@@ -147,33 +147,44 @@ def content(token):
     return result if result is not None else (jsonify(error="Unknown place."), 404)
 
 
-@bp.route("/caretaker/children/<int:child_id>/world-preview")
+def _resolve_caretaker_child(child_uid):
+    child = child_scope.resolve_child_uid(g.user.id, child_uid)
+    if child:
+        return child
+    try:
+        child_id = int(child_uid)
+    except (TypeError, ValueError):
+        return None
+    return Session.query(ChildProfile).filter_by(id=child_id, caregiver_user_id=g.user.id).first()
+
+
+@bp.route("/caretaker/children/<child_uid>/world-preview")
 @caregiver_required
-def caretaker_preview(child_id):
-    child = Session.query(ChildProfile).filter_by(id=child_id, caregiver_user_id=g.user.id).first()
+def caretaker_preview(child_uid):
+    child = _resolve_caretaker_child(child_uid)
     if not child:
         abort(404)
-    root = url_for("world_share.caretaker_preview", child_id=child.id).rsplit("/world-preview", 1)[0] + "/world-preview"
+    root = url_for("world_share.caretaker_preview", child_uid=child.public_uid).rsplit("/world-preview", 1)[0] + "/world-preview"
     world_data = _safe_world(g.user, child, root)
     return render_template("world_preview.html", child=child, world_data=world_data,
                            week=_weekly_summary(child, g.user), world_mode="preview", mode="embedded")
 
 
-@bp.route("/caretaker/children/<int:child_id>/world-preview/stop/<key>")
+@bp.route("/caretaker/children/<child_uid>/world-preview/stop/<key>")
 @caregiver_required
-def caretaker_preview_stop(child_id, key):
-    child = Session.query(ChildProfile).filter_by(id=child_id, caregiver_user_id=g.user.id).first()
+def caretaker_preview_stop(child_uid, key):
+    child = _resolve_caretaker_child(child_uid)
     if not child:
         abort(404)
-    root = f"/caretaker/children/{child.id}/world-preview"
+    root = f"/caretaker/children/{child.public_uid}/world-preview"
     detail = _stop_detail(g.user, child, key, root)
     return jsonify(detail) if detail is not None else (jsonify(error="Unknown place."), 404)
 
 
-@bp.route("/caretaker/children/<int:child_id>/world-preview/content")
+@bp.route("/caretaker/children/<child_uid>/world-preview/content")
 @caregiver_required
-def caretaker_preview_content(child_id):
-    child = Session.query(ChildProfile).filter_by(id=child_id, caregiver_user_id=g.user.id).first()
+def caretaker_preview_content(child_uid):
+    child = _resolve_caretaker_child(child_uid)
     if not child:
         abort(404)
     result = _content_response(g.user, child, request.args.get("stop", ""), request.args.get("page", 1, type=int))
