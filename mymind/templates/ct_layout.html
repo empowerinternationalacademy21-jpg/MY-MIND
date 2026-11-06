@@ -1,0 +1,26 @@
+{# Shared glass layout for the caretaker pages (and, with ct_warm, the family view).
+   Child templates fill: ct_head, ct_variant, ct_stage, ct_rail, ct_body. They set `ct_active`
+   (never `active`, which would switch base.html into the child-app chrome). #}
+{% extends "base.html" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ct-glass.css') }}">{% block ct_head %}{% endblock %}{% endblock %}
+{% block body_class %} ct-theme{% block ct_variant %}{% endblock %}{% endblock %}
+{% block page %}
+<div class="ctx{% block ct_stage %}{% endblock %}">
+  {% block ct_rail %}
+  <nav class="ctx-rail" aria-label="Caretaker">
+    {% for key, ep, ic, label in [('dashboard','auth.caretaker','layout-dashboard','Dashboard'),('children','caretaker.children','users','Child profiles'),('links','parent_links.page','key-round','Parent links'),('plan','subscriptions.status','credit-card','Plans')] %}
+    <a href="{{ url_for(ep) }}" aria-label="{{ label }}" title="{{ label }}" {% if ct_active == key %}aria-current="page"{% endif %}>{{ icon(ic) }}</a>
+    {% endfor %}
+    <span class="ctx-sep" aria-hidden="true"></span>
+    <a href="{{ url_for('profile.settings') }}" aria-label="Settings" title="Settings" {% if ct_active == 'settings' %}aria-current="page"{% endif %}>{{ icon('settings') }}</a>
+    <a href="{{ url_for('feed.home') }}" aria-label="MyMind home" title="MyMind home">{{ icon('house') }}</a>
+    <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" aria-label="Log out" title="Log out">{{ icon('log-out') }}</button></form>
+  </nav>
+  {% endblock %}
+  <div class="ctx-window" id="main" role="main">
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}<div class="flashes" role="alert">{% for cat, m in msgs %}<div class="flash {{ cat }}">{{ icon('circle-check' if cat == 'success' else 'triangle-alert') }}<span>{{ m }}</span></div>{% endfor %}</div>{% endif %}{% endwith %}
+    {% block ct_body %}{% endblock %}
+    <footer class="ctx-foot"><strong>{{ footer_text }}</strong> · <a href="{{ url_for('privacy') }}">Privacy notice</a></footer>
+  </div>
+</div>
+{% endblock %}
