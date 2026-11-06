@@ -6,7 +6,7 @@
     <div><p class="ct-kicker">Family overview</p><h1 id="caretaker-title">{{ child.display_name if child else 'Your child' }}'s activity</h1>
       <p class="muted">A private view of activity and content explored in MyMind.</p></div>
     <div class="ct-heading-actions">
-      {% if children %}<form method="post" action="{{ url_for('caretaker.select_child', child_id=child.id if child else children[0].id) }}" class="ct-child-switch"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-child-select">Child</label><select id="ct-child-select" aria-label="Switch child" onchange="this.form.action='/caretaker/children/select/'+this.value;this.form.requestSubmit()">{% for profile in children %}<option value="{{ profile.id }}" {{ 'selected' if child and profile.id == child.id }}>{{ profile.display_name }}{{ ' · read-only' if profile_is_read_only(profile) }}</option>{% endfor %}</select></form>{% endif %}
+      {% if children %}<form method="post" action="{{ url_for('caretaker.select_child', child_uid=child.public_uid if child else children[0].public_uid) }}" class="ct-child-switch"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-child-select">Child</label><select id="ct-child-select" aria-label="Switch child" onchange="this.form.action='/caretaker/children/select/'+this.value;this.form.requestSubmit()">{% for profile in children %}<option value="{{ profile.public_uid }}" {{ 'selected' if child and profile.id == child.id }}>{{ profile.display_name }}{{ ' · read-only' if profile_is_read_only(profile) }}</option>{% endfor %}</select></form>{% endif %}
       <a class="btn small" href="{{ url_for('caretaker.children') }}">{{ icon('users') }} Manage children</a>
       {% if child and data %}{% if can_export %}<a class="btn primary" href="{{ url_for('auth.caretaker_report', start=start.isoformat(), end=end.isoformat()) }}">{{ icon('download') }} Download report</a>{% else %}<a class="btn" href="{{ url_for('subscriptions.status') }}">{{ icon('lock') }} Export on paid plan</a>{% endif %}{% endif %}
     </div>
@@ -68,7 +68,7 @@
   </section>
   <section class="ct-panel ct-world-panel" aria-labelledby="ct-world-title">
     <div class="ct-panel-heading"><div><h2 id="ct-world-title">My child's world</h2><p class="muted small">Explore the same map in read-only preview.</p></div></div>
-    <iframe class="ct-world-frame" title="Read-only preview of {{ child.display_name }}'s world" src="{{ url_for('world_share.caretaker_preview', child_id=child.id) }}" loading="lazy"></iframe>
+    <iframe class="ct-world-frame" title="Read-only preview of {{ child.display_name }}'s world" src="{{ url_for('world_share.caretaker_preview', child_uid=child.public_uid) }}" loading="lazy"></iframe>
   </section>
   <section class="ct-panel ct-share-panel" aria-labelledby="ct-share-title">
     <div class="ct-panel-heading"><div><h2 id="ct-share-title">Share my child's world</h2><p class="muted small">Anyone with the private link can view this child's nickname, world, activity summary, and content.</p></div></div>

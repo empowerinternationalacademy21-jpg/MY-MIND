@@ -10,12 +10,13 @@ from database.models import (CaregiverChildAccess, CaregiverQuestionnaire, Child
 from routes.helpers import caregiver_required, child_of
 from routes.onboarding import AVATARS, POLICY_VERSION
 from services import age_service, auth_service, plan_service
+from services import child_scope
 
 bp = Blueprint("caretaker", __name__)
 
 
-def _owned_child(child_id):
-    return Session.query(ChildProfile).filter_by(id=child_id, caregiver_user_id=g.user.id).first()
+def _owned_child(child_uid):
+    return child_scope.resolve_child_uid(g.user.id, child_uid)
 
 
 def _new_child_username(user):
@@ -32,15 +33,14 @@ def _profile_context(children):
 @bp.route("/caretaker/children")
 @caregiver_required
 def children():
-    rows = (Session.query(ChildProfile).filter_by(caregiver_user_id=g.user.id)
-            .order_by(ChildProfile.archived_at.isnot(None), ChildProfile.created_at.asc()).all())
+    rows = child_scope.children_for_caregiver(g.user.id, include_archived=True).all()
     return render_template("caretaker_children.html", avatars=AVATARS, **_profile_context(rows))
 
 
-@bp.route("/caretaker/children/select/<int:child_id>", methods=["POST"])
+@bp.route("/caretaker/children/select/<child_uid>", methods=["POST"])
 @caregiver_required
-def select_child(child_id):
-    child = _owned_child(child_id)
+def select_child(child_uid):
+    child = _owned_child(child_uid)
     if not child or child.archived_at:
         abort(404)
     session["selected_child_id"] = child.id
@@ -89,10 +89,10 @@ def add_child():
     return redirect(url_for("auth.caretaker"))
 
 
-@bp.route("/caretaker/children/<int:child_id>/edit", methods=["POST"])
+@bp.route("/caretaker/children/<child_uid>/edit", methods=["POST"])
 @caregiver_required
-def edit_child(child_id):
-    child = _owned_child(child_id)
+def edit_child(child_uid):
+    child = _owned_child(child_uid)
     if not child or child.archived_at:
         abort(404)
     if plan_service.child_is_read_only(g.user.id, child):
@@ -114,10 +114,10 @@ def edit_child(child_id):
     return redirect(url_for("caretaker.children"))
 
 
-@bp.route("/caretaker/children/<int:child_id>/archive", methods=["POST"])
+@bp.route("/caretaker/children/<child_uid>/archive", methods=["POST"])
 @caregiver_required
-def archive_child(child_id):
-    child = _owned_child(child_id)
+def archive_child(child_uid):
+    child = _owned_child(child_uid)
     if not child or child.archived_at:
         abort(404)
     if plan_service.child_is_read_only(g.user.id, child):

@@ -9,6 +9,7 @@ from services import caretaker_dashboard_service as dashboard
 from services import world_share_service as world_shares
 from services import caretaker_recommendation_engine as recommendations
 from services import plan_service
+from services import child_scope
 from routes.helpers import next_step, login_required, caregiver_required, child_of, has_questionnaire
 
 bp = Blueprint("auth", __name__)
@@ -135,8 +136,7 @@ def caretaker():
         data["trend_series"] = dashboard.trend_series(data["trend"])
         data["recommendations"] = recommendations.get_recommendations(child.id, g.user.id, recommendation_limit)
     share_links = world_shares.links_for(child) if child else []
-    children = (Session.query(ChildProfile).filter_by(caregiver_user_id=g.user.id, archived_at=None)
-                .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).all())
+    children = child_scope.children_for_caregiver(g.user.id).all()
     return render_template("caretaker.html", child=child, setup=setup, data=data, period=period,
                            start=start, end=end, selected_day=selected_day, today=today, share_links=share_links,
                            share_status=world_shares.status_of, share_url=session.pop("new_world_share_url", None),

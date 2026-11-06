@@ -6,6 +6,7 @@ from flask import g, session, redirect, url_for, flash, request, abort, jsonify
 from database.db import Session
 from database.models import ChildProfile, CaregiverQuestionnaire
 from services import payment_service, verification_service, plan_service
+from services import child_scope
 
 
 def csrf_token():
@@ -34,15 +35,14 @@ def child_of(user):
     is_child = _child_session()
     child_id = session.get("child_id") if is_child else session.get("selected_child_id")
     if child_id:
-        child = Session.query(ChildProfile).filter_by(id=child_id, caregiver_user_id=user.id, archived_at=None).first()
+        child = child_scope.resolve_child_id(user.id, child_id)
         if child:
             return child
         if is_child:
             return None
     elif is_child:
         return None
-    return (Session.query(ChildProfile).filter_by(caregiver_user_id=user.id, archived_at=None)
-            .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).first())
+    return child_scope.children_for_caregiver(user.id).first()
 
 
 def has_questionnaire(child):
