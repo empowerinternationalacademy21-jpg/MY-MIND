@@ -516,3 +516,54 @@ def test_only_admins_can_upload(app, ready):
     with app.app_context():
         from database.models import Asset3D
         assert Session.query(Asset3D).count() == 0
+
+# ---------------- admin uploads a whole folder of .glb models ----------------
+def _upload_folder(admin, items, archetype="", **extra):
+    import io
+    data = {"archetype": archetype, "models": [(io.BytesIO(raw), name) for name, raw in items], **extra}
+    data["csrf_token"] = admin.token()
+    return admin.c.post("/admin/3d/upload-folder", data=data, content_type="multipart/form-data", follow_redirects=True)
+
+
+def test_filename_matching():
+    from services.ai3d.safe_prompts import match_archetype as m
+    assert m("lm_home.glb") == "lm_home" and m("home.glb") == "lm_home" and m("My World/Island base.GLB") == "lm_island"
+    assert m("island.glb") == "lm_island" and m("shorts.glb") == "lm_shots" and m("music.glb") == "lm_music"      # kit places win over items
+    assert m("cupcake.glb") == "cupcake" and m("Ice-cream cone.glb") == "ice_cream_cone"
+    assert m("random_thing.glb") is None and m(".glb") is None and m("") is None and m("tree.glb") == "oak_tree"
+
+
+def test_folder_upload_matches_names_and_skips_the_rest(app, admin):
+    from glb_factory import make_island_glb, make_house_glb
+    r = _upload_folder(admin, [("world/island_base.glb", make_island_glb()), ("world/home.glb", make_house_glb()),
+                               ("world/mystery.glb", make_house_glb()), ("world/readme.txt", b"hi"), ("world/bad.glb", b"not a model")], publish="on")
+    text = r.get_data(as_text=True)
+    assert "2 models uploaded" in text and "Skipped mystery.glb" in text and "Skipped bad.glb" in text and "Skipped readme.txt" in text
+    with app.app_context():
+        from database.models import Asset3D
+        got = sorted((a.archetype, a.status, a.provider) for a in Session.query(Asset3D).all())
+        assert got == [("lm_home", "published", "manual"), ("lm_island", "published", "manual")]
+
+
+def test_folder_upload_one_type_for_all_and_review_by_default(app, admin):
+    from glb_factory import make_island_glb
+    _upload_folder(admin, [("Tropical Beach.glb", make_island_glb()), ("snowy_hill.glb", make_island_glb())], archetype="lm_island")
+    with app.app_context():
+        from database.models import Asset3D
+        rows = Session.query(Asset3D).order_by(Asset3D.id).all()
+        assert [(a.name, a.status, a.archetype) for a in rows] == [("Tropical Beach", "review", "lm_island"), ("snowy hill", "review", "lm_island")]
+
+
+def test_folder_upload_rules_and_admin_only(app, admin, ready):
+    from glb_factory import make_island_glb
+    assert "no .glb files" in _upload_folder(admin, [("a.txt", b"x")]).get_data(as_text=True)
+    assert "choose" in _upload_folder(admin, [("a.glb", make_island_glb())], archetype="nope").get_data(as_text=True).lower()
+    app.config["AI3D_FOLDER_MAX_FILES"] = 1
+    assert "at most 1" in _upload_folder(admin, [("home.glb", make_island_glb()), ("art.glb", make_island_glb())]).get_data(as_text=True)
+    with app.app_context():
+        from database.models import Asset3D
+        assert Session.query(Asset3D).count() == 0
+    r = _upload_folder(ready, [("home.glb", make_island_glb())])
+    assert r.status_code in (200, 403) and "uploaded" not in r.get_data(as_text=True)
+    page = admin.get("/admin/3d/").get_data(as_text=True)
+    assert "Option 1" in page and "Option 2" in page and "webkitdirectory" in page
