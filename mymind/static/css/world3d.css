@@ -61,3 +61,16 @@
 .w3d-gear__form .choice{display:flex;align-items:center;gap:.5rem;min-height:40px}.w3d-why{background:#f2f8ff;border-radius:12px;padding:.5rem .7rem;margin:.2rem 0 .6rem}
 @media (max-width:420px){.w3d-stage{height:clamp(440px,74vh,700px)}.w3d-name{font-size:11px;padding:0 7px}.w3d-bubble{width:42px;height:42px}}
 @media (prefers-reduced-motion:reduce){.w3d-sheet,.w3d-gear{animation:none}.w3d-bubble,.w3d-char,.w3d-friend{transition:none}}
+
+
+/* Interests found from the child's real activity: emphasis on the places they love (same shared island, different emphasis per child) */
+.w3d-loves { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .4rem 0 .6rem; font-size: .9rem; }
+.w3d-love { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .7rem; border-radius: 999px; background: color-mix(in srgb, var(--c, #1f78f0) 16%, #fff); border: 1px solid color-mix(in srgb, var(--c, #1f78f0) 45%, transparent); font-weight: 700; }
+.w3d-label.has-interest .w3d-bubble, .w3d-chip.has-interest { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 35%, transparent), 0 0 18px 2px color-mix(in srgb, var(--c) 55%, transparent); }
+.w3d-label.interest-2 .w3d-bubble, .w3d-chip.interest-2 { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 45%, transparent), 0 0 24px 4px color-mix(in srgb, var(--c) 60%, transparent); }
+.w3d-label.interest-3 .w3d-bubble, .w3d-chip.interest-3 { box-shadow: 0 0 0 5px color-mix(in srgb, var(--c) 55%, transparent), 0 0 30px 6px color-mix(in srgb, var(--c) 70%, transparent); }
+.w3d-stars { position: absolute; top: -8px; right: -10px; display: flex; color: #f5a623; }
+.w3d-stars .ic { width: 12px; height: 12px; fill: currentColor; }
+.w3d-bubble { position: relative; }
+@media (prefers-reduced-motion: no-preference) { .flat-halo { animation: w3d-halo 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; } }
+@keyframes w3d-halo { 50% { opacity: .25; transform: scale(1.06); } }
