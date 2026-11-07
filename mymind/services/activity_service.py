@@ -6,7 +6,14 @@ from database.db import Session
 from database.models import ActivityEvent, ContentItem, utcnow
 
 
-EVENT_TYPES = frozenset({"view", "watch", "like", "dislike", "favorite", "search", "next", "open"})
+# view = time on a page/stop (never counted as content engagement); watch/listen/look = one session with one piece of content
+# (video or short / song / picture); browse = the child explored a category; the rest are single taps.
+EVENT_TYPES = frozenset({"view", "watch", "like", "dislike", "favorite", "search", "next", "open", "listen", "look", "browse"})
+# session event type -> the content types it may point at (the server refuses mismatches)
+SESSION_TYPES = {"watch": ("video", "short"), "listen": ("song",), "look": ("picture",)}
+ENGAGEMENT_TYPES = frozenset(SESSION_TYPES)
+MAX_SESSION_SECONDS = 6 * 3600          # a single session is never credited with more than this
+DEFAULT_RETENTION_DAYS = 365
 STOPS = frozenset({
     # Requested stop names and the additional stops currently present in My World.
     "home", "soccer", "music", "food", "basketball", "colors", "pictures", "videos", "shorts", "nature",
@@ -121,3 +128,15 @@ def first_last_active_per_day(child_id, start=None, end=None):
 def active_times_per_day(child_id, start=None, end=None):
     """Alias retained for dashboard callers that prefer the shorter aggregate name."""
     return first_last_active_per_day(child_id, start, end)
+
+
+
+def purge_expired(retention_days=DEFAULT_RETENTION_DAYS, now=None):
+    """Delete activity older than the retention window (children's data is not kept forever). Returns the number removed."""
+    if not retention_days or retention_days < 30:                   # never purge more aggressively than 30 days by accident
+        return 0
+    cutoff = (now or utcnow()) - timedelta(days=int(retention_days))
+    removed = (Session.query(ActivityEvent).filter(ActivityEvent.created_at < cutoff)
+               .delete(synchronize_session=False))
+    Session.commit()
+    return removed
