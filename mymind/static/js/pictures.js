@@ -84,6 +84,7 @@
         if (kind === 'favorite') window.MyMind.activity.log('favorite', null, Number(item.id));
         else if (kind === 'like' || kind === 'dislike') window.MyMind.activity.log(kind, null, Number(item.id));
         else if (kind === 'skip') window.MyMind.activity.log('next', null, Number(item.id));
+        else if (kind === 'open' || kind === 'explore') window.MyMind.activity.log('open', null, Number(item.id));
       }
       return r;
     });
