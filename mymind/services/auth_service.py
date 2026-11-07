@@ -4,7 +4,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from sqlalchemy.exc import IntegrityError
 from database.db import Session
-from database.models import User, AuditLog, ChildProfile, ChildAccount
+from database.models import User, AuditLog, ChildProfile, ChildAccount, CaregiverChildAccess
 
 _ph = PasswordHasher()   # Argon2id by default
 USERNAME_RE = re.compile(r"^[a-z0-9_.]{3,30}$")
@@ -150,9 +150,68 @@ def authenticate_identity(username, password):
             return None, None, None
         return user, "child", child.id
 
-    if not verify_password(user.password_hash, password or ""):
-        return None, None, None
-    return user, role, None
+    if verify_password(user.password_hash, password or ""):
+        return user, role, None
+    if role == "caregiver":
+        # Same family username, different password: a child's own password opens that child's world.
+        child_id = match_family_child(user, password)
+        if child_id:
+            return user, "child", child_id
+    return None, None, None
+
+
+def _family_child_accounts(user_id):
+    """Active child logins under one caretaker that have their OWN password (not the legacy shared one)."""
+    return (Session.query(ChildAccount)
+            .join(ChildProfile, ChildProfile.id == ChildAccount.child_profile_id)
+            .join(CaregiverChildAccess, CaregiverChildAccess.child_id == ChildProfile.id)
+            .filter(CaregiverChildAccess.caregiver_id == user_id,
+                    CaregiverChildAccess.status == "active",
+                    ChildProfile.archived_at.is_(None),
+                    ChildAccount.status == "active",
+                    ChildAccount.legacy_shared_password.is_(False))
+            .order_by(ChildAccount.id.asc()).all())
+
+
+def match_family_child(user, password):
+    """Return the child profile id whose own password matches, or None."""
+    for account in _family_child_accounts(user.id):
+        if verify_password(account.password_hash, password or ""):
+            return account.child_profile_id
+    return None
+
+
+def password_in_use_in_family(user, password, exclude_child_id=None):
+    """True when the password already opens the caretaker or another child under this caretaker."""
+    if verify_password(user.password_hash, password or ""):
+        return True
+    for account in _family_child_accounts(user.id):
+        if exclude_child_id is not None and account.child_profile_id == exclude_child_id:
+            continue
+        if verify_password(account.password_hash, password or ""):
+            return True
+    return False
+
+
+def validate_child_password(user, password, exclude_child_id=None):
+    """A child password must be strong AND unique within the family, or login could not tell them apart."""
+    validate_password(password, user.username)
+    if password_in_use_in_family(user, password, exclude_child_id):
+        raise AuthError("Please choose a different password. Each child and the caretaker need their own.")
+
+
+def set_child_password(user, child, new_password):
+    validate_child_password(user, new_password, exclude_child_id=child.id)
+    account = Session.query(ChildAccount).filter_by(child_profile_id=child.id).first()
+    if account is None:
+        username = child.child_username or new_child_username(user)
+        account = ChildAccount(child_profile_id=child.id, username=username,
+                               password_hash=hash_password(new_password), legacy_shared_password=False)
+        Session.add(account)
+    else:
+        account.password_hash = hash_password(new_password)
+        account.legacy_shared_password = False
+    Session.commit()
 
 
 def username_available(username, user_id=None, exclude_child_id=None):
