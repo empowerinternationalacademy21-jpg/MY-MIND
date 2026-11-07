@@ -180,10 +180,25 @@ def favorite():
     return jsonify(ok=True, favorite=True)
 
 
+def _num(value, low, high, integer=False):
+    """Validated optional number (bools are refused). Returns (ok, value)."""
+    if value is None:
+        return True, None
+    if isinstance(value, bool) or not isinstance(value, (int, float) if not integer else int):
+        return False, None
+    if value != value or not low <= value <= high:                  # NaN and out-of-range both fail
+        return False, None
+    return True, (int(value) if integer else float(value))
+
+
 @bp.route("/activity-events", methods=["POST"])
 @subscribed_required
 def activity_events():
-    """Accept buffered events independently of child-facing actions; retry IDs make heartbeats idempotent."""
+    """Accept buffered events independently of child-facing actions; retry IDs make heartbeats idempotent.
+
+    Session events (watch / listen / look) are re-sent as they grow: the stored row keeps the largest duration, completion and
+    counters it has seen, so a retried or out-of-order heartbeat can never shrink or duplicate a session.
+    """
     if g.auth_role != "child":
         return jsonify(error="Not allowed."), 403
     data = request.get_json(silent=True) or {}
@@ -212,18 +227,35 @@ def activity_events():
                 or (content_id is not None and (isinstance(content_id, bool) or not isinstance(content_id, int)))
                 or event_id in event_ids):
             return jsonify(error="Invalid activity event."), 400
+        # optional engagement detail: every field is range-checked, anything odd rejects the event
+        fields, bad = {}, False
+        for key, low, high, integer in (("completion_pct", 0, 100, False), ("content_seconds", 1, 86400, True),
+                                        ("pauses", 0, 10000, True), ("resumes", 0, 10000, True), ("replays", 0, 10000, True)):
+            ok, value = _num(event.get(key), low, high, integer)
+            bad = bad or not ok
+            fields[key] = value
+        completed, measured = event.get("completed", False), event.get("measured", False)
+        category = event.get("category")
+        if (bad or not isinstance(completed, bool) or not isinstance(measured, bool)
+                or (category is not None and (not isinstance(category, str) or category not in CATEGORIES))):
+            return jsonify(error="Invalid activity event."), 400
+        if event_type == "browse" and not category:
+            return jsonify(error="Invalid activity event."), 400
+        if event_type in activity_service.SESSION_TYPES and content_id is None:
+            return jsonify(error="Invalid activity event."), 400
         event_ids.add(event_id)
         if content_id is not None:
             content_ids.add(content_id)
-        parsed.append((event_id, stop, event_type, seconds, content_id))
+        fields.update(completed=completed, measured=measured, category=category)
+        parsed.append((event_id, stop, event_type, seconds, content_id, fields))
 
     content = {item.id: item for item in Session.query(ContentItem).filter(ContentItem.id.in_(content_ids)).all()} if content_ids else {}
     if len(content) != len(content_ids):
         return jsonify(error="Unknown content item."), 400
-    if any(event_type == "watch" and content_id is not None
-           and content[content_id].content_type not in ("video", "short")
-           for _, _, event_type, _, content_id in parsed):
-        return jsonify(error="Invalid watched content."), 400
+    for _, _, event_type, _, content_id, _ in parsed:               # a watch must be video/short, a listen a song, a look a picture
+        allowed = activity_service.SESSION_TYPES.get(event_type)
+        if allowed and content[content_id].content_type not in allowed:
+            return jsonify(error="Invalid watched content."), 400
 
     ids = [row[0] for row in parsed]
     existing = {row.client_event_id: row for row in
@@ -231,20 +263,35 @@ def activity_events():
     if any(row.child_id != g.child.id for row in existing.values()):
         return jsonify(error="Invalid activity event."), 400
 
-    for event_id, stop, event_type, seconds, content_id in parsed:
+    for event_id, stop, event_type, seconds, content_id, fields in parsed:
         row = existing.get(event_id)
         item = content.get(content_id)
         if row:
             if row.event_type != event_type or row.stop != stop:
                 return jsonify(error="Invalid activity event."), 400
-            if event_type in ("watch", "view"):
+            if event_type in ("watch", "view", "listen", "look"):
                 row.duration_seconds = max(row.duration_seconds, seconds)
                 row.last_active_at = utcnow()
+            if event_type in activity_service.ENGAGEMENT_TYPES:
+                if fields["completion_pct"] is not None:
+                    row.completion_pct = max(row.completion_pct or 0.0, fields["completion_pct"])
+                if fields["content_seconds"] is not None:
+                    row.content_seconds = fields["content_seconds"]
+                row.pause_count = max(row.pause_count or 0, fields["pauses"] or 0)
+                row.resume_count = max(row.resume_count or 0, fields["resumes"] or 0)
+                row.replay_count = max(row.replay_count or 0, fields["replays"] or 0)
+                row.completed = bool(row.completed or fields["completed"])
+                row.measured = bool(row.measured or fields["measured"])
             continue
         Session.add(ActivityEvent(
             child_id=g.child.id, stop=stop, content_id=content_id,
             content_title=item.title if item else None, event_type=event_type,
             duration_seconds=seconds, client_event_id=event_id,
+            content_type=item.content_type if item else None,
+            category=item.category if item else fields["category"],
+            completion_pct=fields["completion_pct"], content_seconds=fields["content_seconds"],
+            pause_count=fields["pauses"] or 0, resume_count=fields["resumes"] or 0, replay_count=fields["replays"] or 0,
+            completed=fields["completed"], measured=fields["measured"],
         ))
 
     try:
