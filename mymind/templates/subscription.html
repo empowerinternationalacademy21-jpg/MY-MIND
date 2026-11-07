@@ -1,33 +1,54 @@
-{% extends "base.html" %}{% block title %}Choose Your Plan{% endblock %}
-{% block content %}
-<div class="screen-title"><h1>Choose Your Plan</h1><p>Unlock the full experience with a subscription.</p><span class="pill {{ state }}" style="margin-top:.5rem">Status: {{ state.replace('_',' ') }}</span></div>
+{% extends "ct_layout.html" %}
+{% set ct_active = 'plan' %}
+{% block title %}Choose Your Plan{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page cp-page">
+<header class="ct-heading"><div><p class="ct-kicker">Plans</p><h1>Choose your plan</h1><p class="muted">Unlock the full experience with a subscription.</p></div>
+<span class="pill {{ state }}">Status: {{ state.replace('_',' ') }}</span></header>
 
 {% if state == 'active' and active %}
-<div class="card-box">{% if active.plan_code == 'free' %}<h2>{{ icon('circle-check') }} Your Free plan is active</h2><p>One child profile, basic charts, and 7 days of history. Your saved data stays available if you upgrade later.</p>
-{% elif active.plan_code == 'trial' %}<h2>{{ icon('gift') }} Your free trial is active</h2><p>Full access until <b>{{ active.expires_at.strftime('%d %b %Y') }}</b>. After that, access downgrades to Free and your data is kept.</p>
-{% else %}<h2>{{ icon('circle-check') }} Your subscription is active</h2><p>Plan: <b>{{ active.plan_code|title }}</b> · started <b>{{ active.starts_at.strftime('%d %b %Y') if active.starts_at else 'Not set' }}</b> · current period ends <b>{{ active.expires_at.strftime('%d %b %Y') if active.expires_at else 'Not set' }}</b>.</p>{% if active.cancel_at_period_end %}<p class="notice">Cancellation is scheduled for the end of this period.</p>{% else %}<form method="post" action="{{ url_for('subscriptions.cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit" data-confirm="Cancel the paid plan at the end of its current period?">Cancel at period end</button></form>{% endif %}{% endif %}
-<a class="btn primary block" href="{{ url_for('auth.index') }}">Continue to MyMind</a></div>
+<section class="ct-panel cp-status">
+  <span class="ct-stat-icon cp-status-icon">{{ icon('gift' if active.plan_code == 'trial' else 'circle-check') }}</span>
+  <div class="cp-status-copy">
+  {% if active.plan_code == 'free' %}<h2>Your Free plan is active</h2><p class="muted">One child profile, basic charts, and 7 days of history. Your saved data stays available if you upgrade later.</p>
+  {% elif active.plan_code == 'trial' %}<h2>Your free trial is active</h2><p class="muted">Full access until <b>{{ active.expires_at.strftime('%d %b %Y') }}</b>. After that, access downgrades to Free and your data is kept.</p>
+  {% else %}<h2>Your subscription is active</h2><p class="muted">Plan: <b>{{ active.plan_code|title }}</b> · started <b>{{ active.starts_at.strftime('%d %b %Y') if active.starts_at else 'Not set' }}</b> · current period ends <b>{{ active.expires_at.strftime('%d %b %Y') if active.expires_at else 'Not set' }}</b>.</p>
+  {% if active.cancel_at_period_end %}<p class="notice">Cancellation is scheduled for the end of this period.</p>{% else %}<form method="post" action="{{ url_for('subscriptions.cancel') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit" data-confirm="Cancel the paid plan at the end of its current period?">Cancel at period end</button></form>{% endif %}{% endif %}
+  </div>
+  <a class="btn primary" href="{{ url_for('auth.index') }}">Continue to MyMind {{ icon('arrow-right') }}</a>
+</section>
 {% elif state == 'pending_verification' %}
-<div class="card-box"><h2>{{ icon('clock') }} Waiting for administrator confirmation</h2>
-<p>Your payment verification request has been submitted. Your account will be activated after the administrator confirms your payment.</p>
-{% if pending %}<a class="btn block" href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">View payment instructions / contact administrator</a>{% endif %}</div>
+<section class="ct-panel cp-status">
+  <span class="ct-stat-icon cp-status-icon">{{ icon('clock') }}</span>
+  <div class="cp-status-copy"><h2>Waiting for administrator confirmation</h2><p class="muted">Your payment verification request has been submitted. Your account will be activated after the administrator confirms your payment.</p></div>
+  {% if pending %}<a class="btn" href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">View payment instructions</a>{% endif %}
+</section>
 {% elif state == 'rejected' %}<div class="notice">{{ icon('triangle-alert') }}<span>Your last payment could not be confirmed. Check the payment details and choose a plan again, or contact the administrator.</span></div>
 {% elif state == 'expired' %}<div class="notice">{{ icon('lock') }}<span>Your paid period has ended. Your account is now on Free with one child profile and 7 days of history; your data is kept. Choose a paid plan to unlock the full dashboard and exports.</span></div>
 {% endif %}
 
 {% if state != 'pending_verification' %}
-<form method="post" action="{{ url_for('subscriptions.select') }}">
+<form method="post" action="{{ url_for('subscriptions.select') }}" class="cp-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div class="plans3" role="radiogroup" aria-label="Plans">
+  <div class="cp-grid" role="radiogroup" aria-label="Plans">
   {% for code, p in plans.items() %}
-    <label class="plan3 {{ code }}">{% if code == 'monthly' %}<span class="pop">Most Popular</span>{% endif %}
+    <label class="cp {{ code }}{{ ' is-popular' if code == 'monthly' }}">
       <input class="sr-only" type="radio" name="plan" value="{{ code }}" {{ 'checked' if code == 'monthly' }}>
-      <span class="nm">{{ p.name }}</span><b>${{ '%g'|format(p.price) }}</b><small>{{ p.days }} days</small><small>USD</small></label>
+      <span class="cp-body">
+        {% if code == 'monthly' %}<span class="cp-flag">Most popular</span>{% endif %}
+        <span class="cp-name">{{ p.name }}</span>
+        <b class="cp-price">${{ '%g'|format(p.price) }}</b>
+        <span class="cp-meta">{{ p.days }} days · USD</span>
+        <span class="cp-check" aria-hidden="true">{{ icon('check') }}</span>
+      </span>
+    </label>
   {% endfor %}
   </div>
-  <button class="btn primary block" type="submit">Select Plan</button>
+  <button class="btn primary block" type="submit">Select plan</button>
 </form>
-<p class="center small muted" style="margin-top:.8rem">Paid plans use the existing manual payment-reference and administrator approval process. No online payment provider is currently configured.</p>
+<p class="ct-privacy">Paid plans use the existing manual payment-reference and administrator approval process. No online payment provider is currently configured.</p>
 {% endif %}
-{% if pending and state == 'pending_payment' %}<p class="center small"><a href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">Continue with your selected {{ pending.plan_code }} plan →</a></p>{% endif %}
+{% if pending and state == 'pending_payment' %}<p class="center small"><a href="{{ url_for('subscriptions.payment', sub_id=pending.id) }}">Continue with your selected {{ pending.plan_code }} plan {{ icon('arrow-right','sm') }}</a></p>{% endif %}
+</div>
 {% endblock %}
