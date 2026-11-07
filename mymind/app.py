@@ -33,8 +33,8 @@ def create_app(test_config=None):
         settings_service.ensure_defaults()
     verification_service.check_startup(app)
 
-    from routes import auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker
-    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker):
+    from routes import auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker, activity_dashboard
+    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker, activity_dashboard):
         app.register_blueprint(mod.bp)
     app.register_blueprint(parent_view.manage)
 
@@ -182,6 +182,14 @@ def create_app(test_config=None):
     @app.cli.command("init-db")
     def init_db_cmd():
         run_migrations(); settings_service.ensure_defaults(); click.echo("Database initialised.")
+
+    @app.cli.command("purge-activity")
+    @click.option("--days", default=None, type=int, help="Keep this many days of child activity (default: ACTIVITY_RETENTION_DAYS).")
+    def purge_activity_cmd(days):
+        """Delete child activity older than the retention window. Safe to run from cron."""
+        from services import activity_service
+        keep = days or app.config.get("ACTIVITY_RETENTION_DAYS", activity_service.DEFAULT_RETENTION_DAYS)
+        click.echo(f"Removed {activity_service.purge_expired(keep)} activity record(s) older than {keep} days.")
 
     @app.cli.command("create-admin")
     @click.option("--username", envvar="ADMIN_USERNAME", prompt=True)
