@@ -2,6 +2,8 @@
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
+from sqlalchemy import func
+
 from database.db import Session
 from database.models import ActivityEvent, ContentItem, Favorite, Interaction, utcnow
 from services import activity_service
@@ -39,7 +41,8 @@ def _timeline(child_id, selected_day):
     result = []
     for row in rows:
         item = Session.get(ContentItem, row.content_id) if row.content_id else None
-        result.append({"time": row.created_at.strftime("%H:%M"), "stop": row.stop,
+        result.append({"time": row.created_at.strftime("%H:%M"), "iso": row.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                       "stop": row.stop,
                        "stop_label": STOP_DEFS.get(row.stop, {}).get("label", row.stop.title()),
                        "event_type": row.event_type, "duration_seconds": row.duration_seconds or 0,
                        "content": _content(item), "reaction": interactions.get(row.content_id)})
@@ -95,9 +98,18 @@ def snapshot(child_id, start, end, selected_day=None):
         daily_map[row["period"]] += row["minutes"]
     for row in weekly:
         weekly_map[row["period"]][row["stop"]] += row["minutes"]
+    # Taps count even when a short visit rounds to 0 minutes, so charts start moving from the first action.
+    action_map = defaultdict(int)
+    for created_at, in (_event_query(child_id, start, end)
+                        .filter(ActivityEvent.event_type.notin_(("view", "search")))
+                        .with_entities(ActivityEvent.created_at)):
+        action_map[created_at.date().isoformat()] += 1
     days = [{"date": (start + timedelta(days=n)).isoformat(),
-             "minutes": round(daily_map[(start + timedelta(days=n)).isoformat()], 1)}
+             "minutes": round(daily_map[(start + timedelta(days=n)).isoformat()], 1),
+             "actions": action_map[(start + timedelta(days=n)).isoformat()]}
             for n in range((end - start).days + 1)]
+    last_active = (Session.query(func.max(ActivityEvent.last_active_at))
+                   .filter(ActivityEvent.child_id == child_id).scalar())
 
     day_rows = _event_query(child_id, start, end).filter(ActivityEvent.event_type == "view").all()
     hours = [0.0] * 24
@@ -120,7 +132,9 @@ def snapshot(child_id, start, end, selected_day=None):
                     "videos_watched": activity_service.videos_watched_count(child_id, start, end),
                     "favorites_added": activity_service.favorites_added_count(child_id, start, end),
                     "streak": activity_service.daily_streak(child_id),
-                    "top_stop": top["label"] if top else "No activity yet"},
+                    "top_stop": top["label"] if top else "No activity yet",
+                    "range_actions": sum(day["actions"] for day in days),
+                    "last_active_iso": last_active.strftime("%Y-%m-%dT%H:%M:%SZ") if last_active else None},
         "days": days, "stops": stop_totals, "trend": trend,
         "hours": [{"hour": hour, "minutes": round(minutes, 1)} for hour, minutes in enumerate(hours)],
         "peak_hour": max_hour, "timeline": _timeline(child_id, selected_day),
