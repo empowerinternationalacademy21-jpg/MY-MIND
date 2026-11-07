@@ -7,7 +7,9 @@
   const chips = document.querySelectorAll(".sh-chip[data-cat]");
   const HERO = 5;                                  // first 5 shorts go in the "Top shorts today" carousel
   const AUTOPLAY = true;                           // the short on screen plays by itself; set to false to require a tap
-  let cat = "", page = 1, loading = false, done = false, gen = 0;
+  const form = $("sh-search"), qInput = $("sh-q"), clearBtn = $("sh-clear"), topHead = $("top-h"), moreHead = $("more-h");
+  const MIN_CHARS = 2;
+  let cat = "", q = "", page = 1, loading = false, done = false, gen = 0;
   let nearEnd = null;                              // page-level observer: loads more while browsing the cards
   const seen = new Set(), items = [], cards = new Map();
 
@@ -84,7 +86,7 @@
       top.replaceChildren(placeholder(), placeholder(), placeholder());
       grid.replaceChildren(placeholder(), placeholder());
     }
-    const params = new URLSearchParams({ page }); if (cat) params.set("category", cat);
+    const params = new URLSearchParams({ page }); if (cat) params.set("category", cat); if (q) params.set("q", q);
     try {
       const d = await MM.api("/api/shots?" + params);
       if (my !== gen) return;
@@ -98,7 +100,7 @@
       });
       if (!d.items.length || d.more === false) done = true;
       else if (!fresh.length && tries < 3) { page++; loading = false; return load(true, tries + 1); }
-      if (!items.length) showEmpty("No short videos found for this topic.");
+      if (!items.length) showEmpty(q ? "No shorts found for \u201c" + q + "\u201d. Try another word." : "No short videos found for this topic.");
     } catch (e) {
       if (my !== gen) return;
       if (append) { page = Math.max(1, page - 1); MM.toast(e.message); } else showEmpty(e.message);
@@ -286,10 +288,43 @@
     const first = dlg.querySelector(".sv-ic"); if (first) first.focus();
   }
 
+  /* ---------- search ---------- */
+  function setHeadings() {                         // section titles follow the mode: search results or the normal feed
+    if (topHead) topHead.textContent = q ? "Results for \u201c" + q + "\u201d" : "Top shorts today";
+    if (moreHead) moreHead.textContent = q ? "More results" : "More shorts";
+    if (clearBtn) clearBtn.hidden = !(qInput && qInput.value);
+  }
+  function selectChip(value) {
+    chips.forEach((x) => x.setAttribute("aria-pressed", x.dataset.cat === value ? "true" : "false"));
+  }
+  function runSearch() {
+    const v = (qInput.value || "").trim().slice(0, 60);
+    if (v && v.length < MIN_CHARS) { MM.toast("Type at least " + MIN_CHARS + " letters to search."); return; }
+    if (v === q) return;                           // nothing changed: do not spend another search
+    q = v; cat = ""; selectChip("");
+    if (q && MM.activity) MM.activity.log("search");
+    setHeadings(); load(false);
+  }
+  function clearSearch() {
+    qInput.value = "";
+    if (q) { q = ""; setHeadings(); load(false); } else setHeadings();
+    qInput.focus();
+  }
+  if (form && qInput) {
+    form.addEventListener("submit", (e) => { e.preventDefault(); runSearch(); });   // searches on Enter / button only (saves API quota)
+    qInput.addEventListener("input", () => { if (clearBtn) clearBtn.hidden = !qInput.value; });
+    qInput.addEventListener("keydown", (e) => { if (e.key === "Escape" && qInput.value) { e.preventDefault(); clearSearch(); } });
+    if (clearBtn) clearBtn.addEventListener("click", clearSearch);
+    const initial = (new URLSearchParams(location.search).get("q") || "").trim().slice(0, 60);   // e.g. from the global search
+    if (initial.length >= MIN_CHARS) { qInput.value = initial; q = initial; }
+    setHeadings();
+  }
+
   /* ---------- wiring ---------- */
   chips.forEach((c) => c.addEventListener("click", () => {
-    chips.forEach((x) => x.setAttribute("aria-pressed", "false"));
-    c.setAttribute("aria-pressed", "true"); cat = c.dataset.cat; load(false);
+    selectChip(c.dataset.cat); cat = c.dataset.cat;
+    if (q) { q = ""; if (qInput) qInput.value = ""; setHeadings(); }   // picking a topic leaves search mode
+    load(false);
   }));
   document.addEventListener("visibilitychange", () => {            // pause when the tab/app is hidden, resume when back
     if (!dlg || !dlg.open) return;
