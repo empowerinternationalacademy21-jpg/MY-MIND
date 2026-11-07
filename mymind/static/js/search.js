@@ -7,7 +7,7 @@
     var SCOPES = {
         pictures: { label: 'Pictures', api: '/api/pictures', page: '/pictures', q: true },
         videos: { label: 'Videos', api: '/api/videos', page: '/videos', q: true },
-        shots: { label: 'Shorts', api: '/api/shots', page: '/shots', q: false },  // shots API has no text search: filtered here
+        shots: { label: 'Shorts', api: '/api/shots', page: '/shots', q: true },
         music: { label: 'Music', api: '/api/music', page: '/music', q: true }
     };
     var ORDER = ['pictures', 'videos', 'shots', 'music'];
