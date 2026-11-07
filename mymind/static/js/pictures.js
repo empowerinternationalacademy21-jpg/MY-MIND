@@ -172,6 +172,9 @@
       dlg = document.createElement('dialog');
       dlg.className = 'pg-viewer';
       dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+      dlg.addEventListener('close', function () {          // viewing time ends when the picture is closed
+        if (window.MyMind && window.MyMind.activity) window.MyMind.activity.endContent();
+      });
       document.body.appendChild(dlg);
     }
     dlg.textContent = '';
@@ -197,6 +200,9 @@
     if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
     close.focus();
     send(item, 'open').catch(function () { });   // "open" is a light signal; failures are ignored
+    if (window.MyMind && window.MyMind.activity && Number(item.id) > 0) {   // one viewing session per opened picture (re-opening later = a new one)
+      window.MyMind.activity.startContent({ id: Number(item.id), type: 'picture' });
+    }
   }
 
   /* ---------- loading ---------- */
