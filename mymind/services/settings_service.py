@@ -1,4 +1,4 @@
- """Admin-configurable settings (payment details, plans, moderation) and caregiver settings."""
+"""Admin-configurable settings (payment details, plans, moderation) and caregiver settings."""
 import json
 import re
 from database.db import Session
