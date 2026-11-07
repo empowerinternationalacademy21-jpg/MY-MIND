@@ -1,4 +1,4 @@
-"""Admin-configurable settings (payment details, plans, moderation) and caregiver settings."""
+ """Admin-configurable settings (payment details, plans, moderation) and caregiver settings."""
 import json
 import re
 from database.db import Session
@@ -14,6 +14,8 @@ DEFAULTS = {
                             "then contact the administrator on WhatsApp to confirm.",
     "plans_json": json.dumps(DEFAULT_PLANS), "brand_tagline": "Your thoughts. Your world.",
     "trial_days": "30", "blocked_keywords": "", "moderation_level": "strict", "shots_enabled": "1",
+    # My World island: which published island base is the default, and whether it is forced on EVERY user ("1")
+    "default_island_id": "", "island_lock": "0",
 }
 
 
