@@ -4,20 +4,37 @@
 <h1>World Library</h1>
 <p class="muted">Art for children's My World: island art, stop interiors, backgrounds, and characters or stars. Anything not uploaded falls back to MyMind's built-in art. Uploads are checked, re-encoded to WebP and stripped of metadata. <a href="{{ url_for('admin_ai3d.jobs') }}">AI 3D items</a> are managed separately.</p>
 
-<section class="card-box"><h2>Add art</h2>
+{% macro shared_fields(p) %}
+  <div class="field"><label for="{{ p }}-kind">Kind</label><select id="{{ p }}-kind" name="kind">{% for k in kinds %}<option value="{{ k }}">{{ k|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="{{ p }}-stop">Stop (not needed for backgrounds)</label><select id="{{ p }}-stop" name="stop"><option value="">None</option>{% for s in stops %}<option value="{{ s }}">{{ s|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="{{ p }}-zone">Sports zone (Sports stop only)</label><select id="{{ p }}-zone" name="zone"><option value="">Any</option>{% for z in zones %}<option value="{{ z }}">{{ z|capitalize }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="{{ p }}-theme">World theme</label><select id="{{ p }}-theme" name="theme"><option value="">Any theme</option>{% for t in themes %}<option value="{{ t }}">{{ t|capitalize }}</option>{% endfor %}</select></div>
+{% endmacro %}
+{% macro rights_fields(p, many) %}
+  <label class="choice"><input type="checkbox" name="rights_confirmed" required> I have the right to use {{ 'these images' if many else 'this image' }} (I made {{ 'them' if many else 'it' }}, or {{ 'they are' if many else 'it is' }} licensed for this use).</label>
+  <label class="choice"><input type="checkbox" name="is_real_person"> {{ 'They show' if many else 'It shows' }} a real person (athlete, musician…). {{ 'They' if many else 'It' }} will be labelled "not affiliated or endorsed" and hidden unless the caregiver turns {{ 'them' if many else 'it' }} on.</label>
+  <div class="field"><label for="{{ p }}-src">Source or licence note (required for real people)</label><input id="{{ p }}-src" name="source_note" type="text" maxlength="300"></div>
+{% endmacro %}
+
+<section class="card-box"><h2>Option 1: add one image</h2>
 <form method="post" action="{{ url_for('admin_world.upload') }}" enctype="multipart/form-data" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="field"><label for="w-img">Image (PNG, JPEG or WebP)</label><input id="w-img" name="image" type="file" accept="image/png,image/jpeg,image/webp" required></div>
-  <div class="field"><label for="w-kind">Kind</label><select id="w-kind" name="kind">{% for k in kinds %}<option value="{{ k }}">{{ k|capitalize }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="w-stop">Stop (not needed for backgrounds)</label><select id="w-stop" name="stop"><option value="">None</option>{% for s in stops %}<option value="{{ s }}">{{ s|capitalize }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="w-zone">Sports zone (Sports stop only)</label><select id="w-zone" name="zone"><option value="">Any</option>{% for z in zones %}<option value="{{ z }}">{{ z|capitalize }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="w-theme">World theme</label><select id="w-theme" name="theme"><option value="">Any theme</option>{% for t in themes %}<option value="{{ t }}">{{ t|capitalize }}</option>{% endfor %}</select></div>
+  {{ shared_fields("w") }}
   <div class="field"><label for="w-name">Name</label><input id="w-name" name="name" type="text" maxlength="80"></div>
   <div class="field"><label for="w-cap">Caption (shown to children)</label><input id="w-cap" name="caption" type="text" maxlength="240"></div>
-  <label class="choice"><input type="checkbox" name="rights_confirmed" required> I have the right to use this image (I made it, or it is licensed for this use).</label>
-  <label class="choice"><input type="checkbox" name="is_real_person"> It shows a real person (athlete, musician…). It will be labelled "not affiliated or endorsed" and hidden unless the caregiver turns it on.</label>
-  <div class="field"><label for="w-src">Source or licence note (required for real people)</label><input id="w-src" name="source_note" type="text" maxlength="300"></div>
+  {{ rights_fields("w", False) }}
   <button class="btn primary block" type="submit">Add to library</button>
+</form></section>
+
+<section class="card-box"><h2>Option 2: add a whole folder</h2>
+<p class="muted">Choose a folder from your computer. Every PNG, JPEG or WebP image inside it (subfolders too) is added with the settings below, and each one is named after its file. Other files are skipped. Up to {{ folder_max_files }} images at a time; an image that cannot be read is skipped and the rest are still added.</p>
+<form method="post" action="{{ url_for('admin_world.upload_folder') }}" enctype="multipart/form-data" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="f-imgs">Folder</label><input id="f-imgs" name="images" type="file" webkitdirectory directory multiple required></div>
+  {{ shared_fields("f") }}
+  {{ rights_fields("f", True) }}
+  <button class="btn primary block" type="submit">Add whole folder</button>
 </form></section>
 
 <h2>Library ({{ assets|length }})</h2>
