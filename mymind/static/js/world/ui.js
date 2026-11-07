@@ -343,6 +343,13 @@
 
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (!gear.hidden) closeGear(); else if (openKey) closeSheet(); } });
   document.addEventListener("visibilitychange", function () { if (scene) scene.setAnimation(animationOn() && !document.hidden); });
+  // The administrator can change the island for everyone. When this screen comes back into view (another device or an old tab),
+  // check the server and reload the map if the island changed.
+  function islandId(d) { return d && d.island_base ? String(d.island_base.id) : "classic"; }
+  document.addEventListener("visibilitychange", function () {
+    if (preview || document.hidden || !gear || !gear.hidden) return;
+    MM.api(apiRoot).then(function (d) { if (d && islandId(d) !== islandId(data)) applyData(d, "My World has a new island."); }).catch(function () { /* offline: keep the current map */ });
+  });
 
   mode = decideMode();
   mount();
