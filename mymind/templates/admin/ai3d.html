@@ -5,6 +5,19 @@
 <p class="muted">Create <b>original</b> items and friendly characters from a fixed list of choices. Nothing reaches children until you review and publish it. Real people, teams, leagues, brands and "looks like…" requests are refused; licensed real-star art goes through the <a href="{{ url_for('admin_world.library') }}">World Library</a>.</p>
 <p class="small muted">Status: Meshy {{ 'ready' if provider_ready.meshy else 'not set up' }} · Tripo {{ 'ready' if provider_ready.tripo else 'not set up' }} · concept images {{ 'ready' if concept_ready else 'not set up (needed for characters)' }} · optimiser {{ 'installed' if optimizer else 'not installed (models kept as delivered)' }}. Jobs are advanced by <code>flask --app app ai3d-worker</code> or the Refresh button.</p>
 
+<section class="card-box"><h2>My World island for everyone</h2>
+<p class="small muted">Choose the 3D island that every child's My World stands on. The choice is saved on the server, so it appears on <b>every user's world and every device</b> the next time My World opens (open worlds update when the app is brought back to the screen). Tick the box to replace personal choices; leave it unticked to only set the default for people who have not picked an island.</p>
+{% if island_bases %}<form method="post" action="{{ url_for('admin_ai3d.set_island') }}" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="isl-all">Island</label><select id="isl-all" name="island">
+    <option value="auto" {{ 'selected' if not island_choice }}>Newest published island</option>
+    <option value="classic" {{ 'selected' if island_choice == 'classic' }}>Classic (built-in look)</option>
+    {% for a in island_bases %}<option value="{{ a.id }}" {{ 'selected' if island_choice == a.id|string }}>{{ a.name or ('Island ' ~ a.id) }}</option>{% endfor %}
+  </select></div>
+  <label class="choice"><input type="checkbox" name="lock" {{ 'checked' if island_locked }}><span>Use it for all users and hide the island choice in their settings</span></label>
+  <button class="btn primary block" type="submit">Save island for everyone</button>
+</form>{% else %}<p class="small">No island base is published yet. Upload or publish one below, then choose it here.</p>{% endif %}</section>
+
 <section class="card-box"><h2>Island kit</h2>
 <p class="small muted">Generate the models that make the <b>map itself</b> look professional: one island base plus one landmark for each place ({{ kit|length }} models). Until a model is published, the map keeps its built-in look, so you can do this piece by piece. Each piece goes to review first; publish the ones you like.</p>
 <form method="post" action="{{ url_for('admin_ai3d.kit') }}" autocomplete="off">
