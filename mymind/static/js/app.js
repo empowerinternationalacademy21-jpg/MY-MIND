@@ -27,14 +27,21 @@
   };
 
   /* ---------- buffered child activity ----------
-     Activity writes never gate content actions. Failed batches stay in session storage and retry quietly. */
+     Activity writes never gate content actions. Failed batches stay in session storage and retry quietly.
+     Content sessions (watch / listen / look) report what the child really did:
+       * YouTube and Spotify players tell us when they play, pause, end or restart (postMessage), so only PLAYING time counts,
+         pauses/resumes/replays are counted and completion = played time / content length. Opening is not watching.
+       * If a player cannot report (or it is a picture) the time the viewer was open and visible is recorded, flagged measured=false.
+     One session = one event id, re-sent as it grows; re-renders and page changes cannot create duplicates. */
   MM.activity = (function () {
     const enabled = body.dataset.app === "1";
     const key = "mymind.activity.pending";
-    const validTypes = new Set(["view", "watch", "like", "dislike", "favorite", "search", "next", "open"]);
+    const validTypes = new Set(["view", "watch", "like", "dislike", "favorite", "search", "next", "open", "listen", "look", "browse"]);
+    const KIND = { video: "watch", short: "watch", song: "listen", picture: "look" };
     let pending = [];
     let timer = null, retryTimer = null, retryCount = 0, flushing = false, lastSearchAt = 0, isolate = false;
-    let currentStop = "", viewSession = null, watchSession = null;
+    let currentStop = "", viewSession = null, content = null, boundFrame = null;
+    const recent = new Map();
     try {
       const saved = JSON.parse(sessionStorage.getItem(key) || "[]");
       if (Array.isArray(saved)) pending = saved.filter((e) => e && typeof e.event_id === "string" && validTypes.has(e.event_type));
@@ -100,40 +107,141 @@
         if (pending.length && !retryTimer) schedule(0);
       }
     }
-    function makeSession(type, stop, item) {
-      const contentId = item && Number(item.id);
-      const session = {
-        event_id: eventId(), event_type: type, stop,
-        content_id: Number.isSafeInteger(contentId) && contentId > 0 ? contentId : null,
-        duration_seconds: 0, elapsed: 0, runningSince: document.hidden ? null : Date.now(), lastSent: -1
-      };
-      return session;
+
+    /* ---- page / stop view time (not content engagement) ---- */
+    function makeView(stop) {
+      return { event_id: eventId(), stop, elapsed: 0, runningSince: document.hidden ? null : Date.now(), lastSent: -1 };
     }
-    function updateSession(session, force) {
+    function updateView(session, force) {
       if (!session) return;
       const elapsed = session.elapsed + (session.runningSince == null ? 0 : Date.now() - session.runningSince);
       const seconds = Math.floor(elapsed / 1000);
       if (!force && seconds === session.lastSent) return;
       session.lastSent = seconds;
-      enqueue({
-        event_id: session.event_id, event_type: session.event_type, stop: session.stop,
-        content_id: session.content_id, duration_seconds: seconds
-      });
+      enqueue({ event_id: session.event_id, event_type: "view", stop: session.stop, content_id: null, duration_seconds: seconds });
     }
-    function pauseSession(session) {
+    function pauseView(session) {
       if (!session || session.runningSince == null) return;
       session.elapsed += Date.now() - session.runningSince;
       session.runningSince = null;
-      updateSession(session, true);
+      updateView(session, true);
     }
-    function resumeSession(session) {
+    function resumeView(session) {
       if (session && session.runningSince == null && !document.hidden) session.runningSince = Date.now();
     }
-    function finishView() { if (viewSession) { pauseSession(viewSession); viewSession = null; } }
-    function finishWatch() { if (watchSession) { pauseSession(watchSession); watchSession = null; } }
+    function finishView() { if (viewSession) { pauseView(viewSession); viewSession = null; } }
+
+    /* ---- content sessions ---- */
+    function makeContent(kind, stop, item) {
+      return {
+        kind, event_id: eventId(), stop, content_id: Number(item.id),
+        open: { elapsed: 0, since: document.hidden ? null : Date.now() },
+        playerSeen: false, state: "idle", playElapsed: 0, playSince: null,
+        pauses: 0, resumes: 0, replays: 0, completed: false, contentSeconds: null, lastPos: 0, lastSent: ""
+      };
+    }
+    function playedSeconds(c) {
+      if (c.playerSeen) return (c.playElapsed + (c.playSince == null ? 0 : Date.now() - c.playSince)) / 1000;
+      return (c.open.elapsed + (c.open.since == null ? 0 : Date.now() - c.open.since)) / 1000;
+    }
+    function completionPct(c) {
+      if (!c.playerSeen || !c.contentSeconds) return null;
+      return Math.min(100, Math.round(playedSeconds(c) / c.contentSeconds * 1000) / 10);
+    }
+    function emitContent(c, force) {
+      if (!c) return;
+      const ev = {
+        event_id: c.event_id, event_type: c.kind, stop: c.stop, content_id: c.content_id,
+        duration_seconds: Math.min(604800, Math.floor(playedSeconds(c))), measured: c.playerSeen, completed: c.completed,
+        pauses: Math.min(10000, c.pauses), resumes: Math.min(10000, c.resumes), replays: Math.min(10000, c.replays)
+      };
+      const pct = completionPct(c);
+      if (pct != null) ev.completion_pct = pct;
+      if (c.contentSeconds) ev.content_seconds = Math.min(86400, Math.max(1, Math.round(c.contentSeconds)));
+      const sig = JSON.stringify(ev);
+      if (!force && sig === c.lastSent) return;
+      c.lastSent = sig;
+      enqueue(ev);
+    }
+    function stopPlayClock(c) {
+      if (c.playSince != null) { c.playElapsed += Date.now() - c.playSince; c.playSince = null; }
+    }
+    function finishContent() {
+      const c = content;
+      if (!c) return;
+      if (!c.playerSeen && c.open.since != null) { c.open.elapsed += Date.now() - c.open.since; c.open.since = null; }
+      stopPlayClock(c);
+      emitContent(c, true);
+      content = null;
+    }
+    function markEnded(c) {
+      const pct = completionPct(c);
+      if (pct != null && pct >= 80) c.completed = true;
+    }
+    /* player says: playing / paused / ended (+ length and position in seconds when it knows them) */
+    function onPlayer(state, info) {
+      const c = content;
+      if (!c || !state) return;
+      if (info && info.duration > 0) c.contentSeconds = info.duration;
+      if (info && typeof info.position === "number") {
+        /* a looping short never fires "ended": a jump from the end back to the start is a replay */
+        if (state === "playing" && c.contentSeconds && c.lastPos > c.contentSeconds * 0.9 && info.position < 2 && c.playerSeen) {
+          markEnded(c); c.replays++;
+        }
+        c.lastPos = info.position;
+      }
+      if (state === c.state) { emitContent(c, false); return; }
+      const now = Date.now();
+      if (state === "playing") {
+        if (!c.playerSeen) { c.playerSeen = true; c.playElapsed = 0; c.open.since = null; }
+        else if (c.state === "ended") c.replays++;
+        else if (c.state === "paused") c.resumes++;
+        if (c.playSince == null) c.playSince = now;
+        c.state = "playing";
+      } else if (c.playerSeen) {
+        stopPlayClock(c);
+        if (state === "paused" && c.state === "playing") c.pauses++;
+        if (state === "ended") markEnded(c);
+        c.state = state;
+      }
+      emitContent(c, true);
+    }
+
+    /* ---- official YouTube / Spotify embeds report their state through postMessage ---- */
+    const PLAYER_SRC = /^https:\/\/(www\.youtube-nocookie\.com|www\.youtube\.com)\/embed\/|^https:\/\/open\.spotify\.com\/embed\//;
+    function handshake(frame) {
+      if (!/youtube/.test(frame.src || "")) return;
+      const say = () => { try { frame.contentWindow.postMessage(JSON.stringify({ event: "listening", id: 1, channel: "widget" }), "*"); } catch (e) { } };
+      say(); setTimeout(say, 600); setTimeout(say, 2000);
+    }
+    function bindFrame(frame) {
+      if (!(frame instanceof HTMLIFrameElement) || !PLAYER_SRC.test(frame.src || "")) return;
+      boundFrame = frame;
+      frame.addEventListener("load", () => handshake(frame));
+      handshake(frame);
+    }
+    const YT_STATE = { 1: "playing", 2: "paused", 0: "ended" };
+    function onMessage(event) {
+      if (!content || !boundFrame || !boundFrame.isConnected || event.source !== boundFrame.contentWindow) return;
+      let d = event.data;
+      if (typeof d === "string") { try { d = JSON.parse(d); } catch (e) { return; } }
+      if (!d || typeof d !== "object") return;
+      if (/youtube/.test(event.origin)) {
+        if (d.event === "onStateChange" && YT_STATE[d.info]) onPlayer(YT_STATE[d.info], null);
+        else if (d.event === "infoDelivery" && d.info && typeof d.info === "object") {
+          const info = { duration: Number(d.info.duration) || 0, position: typeof d.info.currentTime === "number" ? d.info.currentTime : undefined };
+          onPlayer(YT_STATE[d.info.playerState] || content.state, info);
+        }
+      } else if (event.origin === "https://open.spotify.com" && d.type === "playback_update" && d.payload) {
+        const p = d.payload, duration = (Number(p.duration) || 0) / 1000, position = (Number(p.position) || 0) / 1000;
+        if (p.isBuffering) return;
+        const ended = p.isPaused && duration > 0 && position >= duration - 1.5;
+        onPlayer(ended ? "ended" : p.isPaused ? "paused" : "playing", { duration, position });
+      }
+    }
 
     const api = {
-      log(type, stop, item) {
+      log(type, stop, item, extra) {
         if (!enabled || !validTypes.has(type)) return;
         if (type === "search") {
           if (Date.now() - lastSearchAt < 2000) return;
@@ -142,27 +250,37 @@
         const resolvedStop = stop || currentStop;
         if (!resolvedStop) return;
         const contentId = item && Number(typeof item === "object" ? item.id : item);
-        enqueue({
-          event_id: eventId(), event_type: type, stop: resolvedStop,
-          content_id: Number.isSafeInteger(contentId) && contentId > 0 ? contentId : null,
-          duration_seconds: 0
-        });
+        const cid = Number.isSafeInteger(contentId) && contentId > 0 ? contentId : null;
+        const dedupe = type + ":" + (cid || (extra && extra.category) || "") + ":" + resolvedStop;
+        if (type !== "search" && Date.now() - (recent.get(dedupe) || 0) < 2500) return;     /* re-renders and double taps */
+        recent.set(dedupe, Date.now());
+        if (recent.size > 200) recent.clear();
+        const event = { event_id: eventId(), event_type: type, stop: resolvedStop, content_id: cid, duration_seconds: 0 };
+        if (extra && extra.category) event.category = extra.category;
+        enqueue(event);
       },
+      browse(category) { if (category) api.log("browse", null, null, { category }); },
       setStop(stop) {
         if (!enabled || !stop || stop === currentStop) return;
         finishView();
         currentStop = stop;
-        viewSession = makeSession("view", stop);
-        updateSession(viewSession, true);
+        viewSession = makeView(stop);
+        updateView(viewSession, true);
       },
-      startWatch(item, stop) {
+      /* start one content session: video/short -> watch, song -> listen, picture -> look */
+      startContent(item, stop) {
         if (!enabled || !item || !item.id || !(stop || currentStop)) return;
-        finishWatch();
-        watchSession = makeSession("watch", stop || currentStop, item);
-        updateSession(watchSession, true);
+        const id = Number(item.id);
+        if (!Number.isSafeInteger(id) || id <= 0) return;
+        if (content && content.content_id === id) return;                                   /* same content still open: never a second session */
+        finishContent();
+        content = makeContent(KIND[item.type] || "watch", stop || currentStop, item);
+        emitContent(content, true);
       },
-      endWatch: finishWatch
+      endContent: finishContent
     };
+    api.startWatch = api.startContent;           /* older page scripts */
+    api.endWatch = finishContent;
 
     if (enabled) {
       const initialStop = body.dataset.activityStop;
@@ -175,13 +293,31 @@
         const input = form.querySelector('input[type="search"], input[name="q"], #q');
         if (input && input.value.trim()) api.log("search", null);
       }, true);
-      setInterval(() => { updateSession(viewSession, false); updateSession(watchSession, false); }, 15000);
+      /* exploring a category = tapping any topic chip */
+      document.addEventListener("click", (event) => {
+        const chip = event.target.closest && event.target.closest("[data-cat]");
+        if (chip && chip.dataset.cat) api.browse(chip.dataset.cat);
+      }, true);
+      new MutationObserver((records) => {
+        records.forEach((r) => r.addedNodes.forEach((n) => {
+          if (n.nodeType !== 1) return;
+          if (n.tagName === "IFRAME") bindFrame(n);
+          else if (n.querySelectorAll) n.querySelectorAll("iframe").forEach(bindFrame);
+        }));
+      }).observe(document.documentElement, { childList: true, subtree: true });
+      window.addEventListener("message", onMessage);
+      setInterval(() => { updateView(viewSession, false); emitContent(content, false); }, 15000);
       document.addEventListener("visibilitychange", () => {
-        if (document.hidden) { pauseSession(viewSession); pauseSession(watchSession); }
-        else { resumeSession(viewSession); resumeSession(watchSession); }
+        if (document.hidden) {
+          pauseView(viewSession);
+          if (content && !content.playerSeen && content.open.since != null) { content.open.elapsed += Date.now() - content.open.since; content.open.since = null; emitContent(content, true); }
+        } else {
+          resumeView(viewSession);
+          if (content && !content.playerSeen && content.open.since == null) content.open.since = Date.now();
+        }
       });
       window.addEventListener("pagehide", () => {
-        finishWatch(); finishView();
+        finishContent(); finishView();
         flush(true);
       });
       if (pending.length) schedule(0);
@@ -219,7 +355,7 @@
      something (the card, the play button), so autoplay=1 here is the result of an explicit tap, never automatic. */
   MM.embedSrc = function (item) {
     if (!item.embed) return "";
-    if (item.provider === "youtube") return item.embed + (item.embed.includes("?") ? "&" : "?") + "autoplay=1&playsinline=1";
+    if (item.provider === "youtube") return item.embed + (item.embed.includes("?") ? "&" : "?") + "autoplay=1&playsinline=1&enablejsapi=1&origin=" + encodeURIComponent(location.origin);
     return item.embed;
   };
   MM.player = function (item) {
@@ -410,11 +546,11 @@
     box.replaceChildren(); if (body.dataset.readOnly !== "1") MM.react(item, "selected");
     box.appendChild(el("h2", null, item.title));
     const opened = Date.now();
-    if (item.type === "picture") { const img = el("img", "big"); img.src = item.thumb; img.alt = item.title; box.appendChild(img); const at = attribution(item); if (at) box.appendChild(at); }
+    if (item.type === "picture") { const img = el("img", "big"); img.src = item.thumb; img.alt = item.title; box.appendChild(img); const at = attribution(item); if (at) box.appendChild(at); if (body.dataset.readOnly !== "1") MM.activity.startContent(item); }
     else if (item.embed) {
       box.appendChild(MM.player(item));
       if (item.provider === "youtube") box.appendChild(el("p", "tile__meta", "If the video does not start, use “Watch on YouTube” below."));
-      if (body.dataset.readOnly !== "1" && (item.type === "video" || item.type === "short")) MM.activity.startWatch(item);
+      if (body.dataset.readOnly !== "1" && (item.type === "video" || item.type === "short" || item.type === "song")) MM.activity.startContent(item);
     } else {
       const n = el("p", "notice"); n.append(ic("info"), el("span", null, "This is demo content, so there is nothing to play. Add API keys to see real videos and music.")); box.appendChild(n);
       if (item.thumb) { const img = el("img", "big"); img.src = item.thumb; img.alt = ""; box.appendChild(img); }
@@ -427,7 +563,7 @@
     dlg.showModal();
     dlg.onclose = () => {
       box.replaceChildren();
-      if (body.dataset.readOnly !== "1" && (item.type === "video" || item.type === "short")) MM.activity.endWatch();
+      if (body.dataset.readOnly !== "1") MM.activity.endContent();
       if (body.dataset.readOnly !== "1" && item.embed && Date.now() - opened > 10000) MM.react(item, "watched");
     };
   };
