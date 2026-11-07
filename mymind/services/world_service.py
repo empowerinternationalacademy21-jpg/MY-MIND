@@ -3,6 +3,8 @@
 * Themes apply only after REPEATED positive evidence (score >= 3 and >= 3 child actions) or an interest the caregiver confirmed.
   One click never changes the world; skips, views and dislikes never create a theme; close runners-up stay "Mixed".
   Sports themes (football / basketball) come only from the sports zones the caregiver picks, never from guesses.
+* Real activity (sessions, completions, replays recorded by the activity tracker) adds modest, decaying evidence per category, so the
+  world reflects what the child actually does. With no recorded activity nothing changes. Likes/favorites are NOT counted twice.
 * Every theme comes with a plain-language reason. Nothing is a diagnosis: these are observations of choices.
 * Stops are data (STOP_DEFS), so adding one is a data change, not a code change.
 """
@@ -10,6 +12,7 @@ from database.db import Session
 from database.models import ContentItem, Favorite, utcnow
 from services import settings_service, world_library_service as wl
 from services import recommendation_service as rec
+from services import interest_discovery_service as disc
 from services.ai3d import library as a3d_library
 from services.categories import CATEGORIES
 
@@ -141,6 +144,43 @@ def _by_category(interests):
     return {i["category"]: i for i in interests}
 
 
+def activity_interests(child_id, found=None):
+    """Saved interest profile plus evidence from the child's recorded activity -> same list shape as rec.get_interests.
+
+    Activity only ever ADDS modest evidence (see interest_discovery_service.world_boost); a child with no recorded activity gets
+    exactly the saved profile. Returns (interests, discovery) so callers can reuse the one discovery pass.
+    """
+    found = found or disc.discover(child_id)
+    interests = [dict(i) for i in rec.get_interests(child_id)]
+    by_cat = {i["category"]: i for i in interests}
+    for category, boost in disc.world_boost_from(found).items():
+        row = by_cat.get(category)
+        if row is None:
+            from services.categories import CATEGORIES
+            if category not in CATEGORIES:
+                continue
+            row = {"category": category, "label": CATEGORIES[category]["label"], "icon": CATEGORIES[category]["icon"], "score": 0.0,
+                   "evidence": 0, "confidence": 0.0, "first_observed_at": None, "last_observed_at": None, "seed": 0.0}
+            interests.append(row)
+            by_cat[category] = row
+        row["score"] = round(row["score"] + boost["score"], 2)
+        row["evidence"] = int(row["evidence"]) + int(boost["evidence"])
+        row["confidence"] = round(min(1.0, row["evidence"] / 8), 2)
+    interests.sort(key=lambda d: -d["score"])
+    return interests, found
+
+
+def stop_interest(key, found):
+    """Emphasis for one stop from the discovery pass: {level 0-3, status, minutes, sessions, evidence} or None."""
+    members = STOP_DEFS[key]["cats"]
+    rows = [i for i in found["interests"] if i["category"] in members and i["sessions"] > 0]
+    if not rows:
+        return None
+    best = max(rows, key=lambda r: (r["level"], r["score"]))
+    return {"level": best["level"], "status": best["status"], "label": best["label"], "minutes": round(sum(r["minutes"] for r in rows), 1),
+            "sessions": sum(r["sessions"] for r in rows), "evidence": best["evidence"]}
+
+
 def resolve_theme(interests, w):
     """-> (key, reason, source). Pure function of saved data, so it is easy to test and to explain."""
     if w["theme"] != "auto" and w["theme"] in THEMES:
@@ -244,7 +284,7 @@ def island_settings(user_id):
 
 def payload(user, child):
     w = get_settings(user.id)
-    interests = rec.get_interests(child.id)
+    interests, found = activity_interests(child.id)
     cats = _by_category(interests)
     theme, reason, source = resolve_theme(interests, w)
     shots_ok = settings_service.get("shots_enabled") == "1" and settings_service.caregiver_settings(user.id)["shots_enabled"]
@@ -262,6 +302,7 @@ def payload(user, child):
         stops.append({"key": key, "label": d["label"], "icon": d["icon"], "x": d["x"], "y": d["y"], "color": d["color"], "blurb": d["blurb"],
                       "evidence": ev, "decor": decorations(key, ev, w), "characters": len(chars), "chars": [c["url"] for c in chars[:6]],
                       "friends3d": len(friends3d_for(key)), "extra": d["tier"] == "extra", "badge": badges.get(key),
+                      "interest": stop_interest(key, found),
                       "landmark3d": ({"id": kit[key].id, "url": f"/assets3d/{kit[key].id}/glb"} if key in kit else None)})
     keys = [s["key"] for s in stops]
     walk = [k for k in PATH_ORDER if k in keys]
@@ -270,6 +311,9 @@ def payload(user, child):
     return {"child": {"name": child.display_name, "avatar": child.avatar},
             "theme": {"key": theme, "label": t["label"], "icon": t["icon"], "reason": reason, "source": source, "palette": {k: t[k] for k in ("sky", "water", "grass", "sand", "accent")}},
             "stops": stops, "bridges": bridges, "island_locked": island_locked(),
+            "discovery": {"has_activity": found["has_activity"],
+                          "top": [{"category": i["category"], "label": i["label"], "icon": i["icon"], "color": i["color"],
+                                   "level": i["level"], "status": i["status"]} for i in found["possible"][:4]]},
             "island_base": ({"id": island.id, "url": f"/assets3d/{island.id}/glb"} if island else None),
             "backgrounds": [a["url"] for a in (wl.as_dict(x) for x in wl.visible(w["real_people"], kind="background", theme=theme if theme != "mixed" else None))][:1],
             "settings": {k: w[k] for k in ("theme", "island", "strength", "interests", "sports_zones", "rotation", "animation", "hidden_stops", "decor_off", "sound", "real_people")},
@@ -290,7 +334,7 @@ def _rotation_seconds():
 
 def stop_detail(user, child, key):
     w = get_settings(user.id)
-    interests = rec.get_interests(child.id)
+    interests, _ = activity_interests(child.id)
     cats = _by_category(interests)
     shots_ok = settings_service.get("shots_enabled") == "1" and settings_service.caregiver_settings(user.id)["shots_enabled"]
     if key not in STOP_DEFS or not _unlocked(key, cats, w, shots_ok):
@@ -322,7 +366,7 @@ def stop_detail(user, child, key):
 def reset_theme(user_id, child):
     """Forget the evidence collected so far when choosing a theme. Nothing is deleted: choices, favourites and decorations stay."""
     w = get_settings(user_id)
-    interests = rec.get_interests(child.id)
+    interests, _ = activity_interests(child.id)
     baseline = {i["category"]: int(i["evidence"]) for i in interests}
     world = {k: w[k] for k in DEFAULTS}
     world.update(theme="auto", baseline=baseline)
