@@ -70,17 +70,13 @@ def add_child():
         return redirect(url_for("caretaker.children"))
     username = _new_child_username(g.user)
     password = (request.form.get("child_password") or "").strip()
-    if password:
-        try:
-            auth_service.validate_password(password, username)
-        except auth_service.AuthError as exc:
-            flash(str(exc), "error")
-            return redirect(url_for("caretaker.children"))
-        password_hash = auth_service.hash_password(password)
-        legacy_shared = False
-    else:
-        password_hash = g.user.password_hash
-        legacy_shared = True
+    try:      # required, strong, and different from the caretaker's and every sibling's password
+        auth_service.validate_child_password(g.user, password)
+    except auth_service.AuthError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("caretaker.children"))
+    password_hash = auth_service.hash_password(password)
+    legacy_shared = False
     try:
         age = age_service.parse_age(request.form.get("age")) if request.form.get("age") else None
     except age_service.AgeError as exc:
@@ -98,7 +94,7 @@ def add_child():
     Session.add(ConsentRecord(user_id=g.user.id, consent_type="child_profile_processing", policy_version=POLICY_VERSION))
     Session.commit()
     session["selected_child_id"] = child.id
-    flash(f"{name}'s profile is ready. Their family username is {child.child_username}.", "success")
+    flash(f"{name}'s profile is ready. They sign in with your family username ({g.user.username}) and the password you just set for them.", "success")
     return redirect(url_for("auth.caretaker"))
 
 
@@ -124,6 +120,24 @@ def edit_child(child_uid):
     child.display_name, child.avatar, child.age_years, child.updated_at = name, avatar, age, utcnow()
     Session.commit()
     flash("Child profile updated.", "success")
+    return redirect(url_for("caretaker.children"))
+
+
+@bp.route("/caretaker/children/<child_uid>/password", methods=["POST"])
+@caregiver_required
+def set_child_password(child_uid):
+    child = _owned_child(child_uid)
+    if not child or child.archived_at:
+        abort(404)
+    if plan_service.child_is_read_only(g.user.id, child):
+        flash("This profile is read-only on the current plan. Upgrade to manage it.", "error")
+        return redirect(url_for("caretaker.children"))
+    try:
+        auth_service.set_child_password(g.user, child, (request.form.get("child_password") or "").strip())
+    except auth_service.AuthError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("caretaker.children"))
+    flash(f"{child.display_name}'s password was changed.", "success")
     return redirect(url_for("caretaker.children"))
 
 
