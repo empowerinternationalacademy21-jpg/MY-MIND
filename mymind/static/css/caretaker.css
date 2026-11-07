@@ -327,3 +327,28 @@
   .cp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .cp-price { font-size: 1.8rem; }
 }
+
+/* =========== live indicator =========== */
+.ct-live { display: inline-flex; align-items: center; gap: .55rem; margin: 0; padding: .4rem .85rem; border-radius: 999px; background: var(--ct-tile); border: 1px solid var(--ct-line); color: var(--ct-mute); font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.ct-live i { width: 9px; height: 9px; border-radius: 50%; background: var(--ct-good); box-shadow: 0 0 0 0 rgba(98, 227, 148, .6); animation: ct-pulse 2.4s infinite; }
+.ct-live time { color: var(--ct-ink); }
+.ct-live.is-fresh { border-color: rgba(98, 227, 148, .6); background: rgba(98, 227, 148, .14); color: #bdf5d0; }
+.ct-live.is-paused i { background: var(--ct-faint); animation: none; }
+@keyframes ct-pulse { 0% { box-shadow: 0 0 0 0 rgba(98, 227, 148, .55); } 70% { box-shadow: 0 0 0 9px rgba(98, 227, 148, 0); } 100% { box-shadow: 0 0 0 0 rgba(98, 227, 148, 0); } }
+@media (prefers-reduced-motion: reduce) { .ct-live i { animation: none; } }
+[data-live] { transition: opacity .2s; }
+@media (max-width: 640px) { .ct-live { white-space: normal; } }
+
+/* tooltips stay inside the chart at both edges */
+.ct-dot.is-right > span { left: auto; right: -6px; transform: translateY(4px); }
+.ct-dot.is-right:hover > span, .ct-dot.is-right:focus-visible > span, .ct-dot.is-right.is-peak > span { transform: none; }
+.ct-dot.is-left > span { left: -6px; transform: translateY(4px); }
+.ct-dot.is-left:hover > span, .ct-dot.is-left:focus-visible > span, .ct-dot.is-left.is-peak > span { transform: none; }
+
+/* this-week split while there is not yet a trend */
+.ct-mini-bars { display: grid; gap: .7rem; }
+.ct-mini-bars > div { display: grid; grid-template-columns: minmax(80px, 150px) minmax(0, 1fr) auto; align-items: center; gap: .8rem; font-size: .82rem; }
+.ct-mini-bars span { color: var(--ct-mute); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-mini-bars i { display: block; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--bar), color-mix(in srgb, var(--bar) 55%, transparent)); width: var(--w); min-width: 6px; }
+.ct-mini-bars b { font-weight: 800; white-space: nowrap; }
+@media (max-width: 640px) { .ct-mini-bars > div { grid-template-columns: 1fr auto; } .ct-mini-bars i { grid-column: 1 / -1; grid-row: 2; } }
