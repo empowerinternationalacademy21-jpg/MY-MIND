@@ -90,14 +90,26 @@
     stage.appendChild(n);
   }
 
+  var LEVEL_WORD = ["", "A favourite", "A big favourite", "A top favourite"];
   function renderTheme() {
     var t = data.theme;
     themeEl.replaceChildren(ic(t.icon), el("strong", null, t.label + " world"), el("span", null, " " + t.reason));
+    var loves = $("w3d-loves");                                   // interests found from what the child really does (labels only, never numbers)
+    if (!loves) return;
+    loves.replaceChildren();
+    var top = (data.discovery && data.discovery.top) || [];
+    if (!top.length) { loves.hidden = true; return; }
+    loves.hidden = false; loves.appendChild(el("strong", null, "Lately loved: "));
+    top.forEach(function (i) {
+      var chip = el("span", "w3d-love"); chip.style.setProperty("--c", i.color); chip.title = LEVEL_WORD[i.level] || "";
+      chip.append(ic(i.icon, "sm"), el("span", null, i.label)); loves.appendChild(chip);
+    });
   }
+  function interestLevel(s) { return s.interest && s.interest.level > 0 ? s.interest.level : 0; }
   function renderList() {
     listEl.replaceChildren();
     data.stops.forEach(function (s) {
-      var li = el("li"), b = el("button", "w3d-chip"); b.type = "button"; b.style.setProperty("--c", s.color); b.dataset.key = s.key;
+      var li = el("li"), b = el("button", "w3d-chip" + (interestLevel(s) ? " has-interest interest-" + interestLevel(s) : "")); b.type = "button"; b.style.setProperty("--c", s.color); b.dataset.key = s.key;
       b.append(ic(s.icon), el("span", null, s.label)); b.addEventListener("click", function () { openStop(s.key, b); });
       if (s.time_label) b.appendChild(el("small", "w3d-time-badge", s.time_label));
       li.appendChild(b); listEl.appendChild(li);
@@ -118,10 +130,12 @@
   // ------------------------------------------------------------------ 3D labels
   function buildLabels() {
     data.stops.forEach(function (s) {
-      var b = el("button", "w3d-label"); b.type = "button"; b.dataset.key = s.key; b.style.setProperty("--c", s.color);
-      b.setAttribute("aria-label", "Open " + s.label);
+      var lv = interestLevel(s);
+      var b = el("button", "w3d-label" + (lv ? " has-interest interest-" + lv : "")); b.type = "button"; b.dataset.key = s.key; b.style.setProperty("--c", s.color);
+      b.setAttribute("aria-label", "Open " + s.label + (lv ? " (" + LEVEL_WORD[lv].toLowerCase() + ")" : ""));
       var bub = el("span", "w3d-bubble");
       if (s.badge) { var im = el("img"); im.src = s.badge; im.alt = ""; bub.appendChild(im); } else bub.appendChild(ic(s.icon));
+      if (lv) { var stars = el("span", "w3d-stars"); stars.setAttribute("aria-hidden", "true"); for (var k = 0; k < lv; k++) stars.appendChild(ic("star", "sm")); bub.appendChild(stars); }
       b.append(bub, el("span", "w3d-name", s.label)); if (s.time_label) b.appendChild(el("small", "w3d-time-badge", s.time_label));
       if (s.chars && s.chars.length) { var av = el("img", "w3d-char"); av.alt = ""; av.src = s.chars[slotIndex(s.key, s.chars.length, data.rotation_seconds)]; av.dataset.n = s.chars.length; b.appendChild(av); }
       b.addEventListener("click", function () { openStop(s.key, b); });
@@ -150,6 +164,8 @@
     data.bridges.forEach(function (b) { var a = s[b[0]], c = s[b[1]]; if (a && c) root2.appendChild(svg("line", { x1: a.x, y1: fy(a.y), x2: c.x, y2: fy(c.y), stroke: "#c9955a", "stroke-width": 1.6, "stroke-dasharray": "1.2 1", "stroke-linecap": "round" })); });
     data.stops.forEach(function (st) {
       var g = svg("g", { class: "flat-stop", tabindex: 0, role: "button", "aria-label": "Open " + st.label, transform: "translate(" + st.x + " " + fy(st.y) + ")" });
+      var lvl = interestLevel(st);
+      if (lvl) g.append(svg("circle", { r: 9.2 + lvl * 1.1, fill: "none", stroke: st.color, "stroke-width": 0.9 + lvl * 0.3, opacity: 0.55, class: "flat-halo" }));
       g.append(svg("circle", { r: 8.2, fill: p.sand }), svg("circle", { r: 7.2, fill: p.grass }), svg("circle", { r: 5.4, fill: st.color }));
       var u = svg("g", { stroke: "#fff", fill: "none", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round" }), use = svg("use", { href: "#i-" + st.icon, x: -3.2, y: -3.2, width: 6.4, height: 6.4 });
       u.appendChild(use); g.appendChild(u);
