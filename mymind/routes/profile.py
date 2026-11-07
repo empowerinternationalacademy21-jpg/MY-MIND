@@ -1,9 +1,9 @@
 import json
 import re
 from datetime import date
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, Response, session
+from flask import Blueprint, abort, render_template, request, redirect, url_for, flash, g, Response, session
 from database.db import Session
-from database.models import ChildProfile, Favorite, ContentItem, DailyActivity, Subscription, PaymentVerificationRequest, utcnow
+from database.models import ChildAccount, ChildProfile, Favorite, ContentItem, DailyActivity, Subscription, PaymentVerificationRequest, utcnow
 from services import recommendation_service as rec, settings_service, auth_service, payment_service, account_service, safety, age_service
 from services.categories import CATEGORIES
 from services import world_service
@@ -93,6 +93,46 @@ def world_reset():
     rec.reset_profile(g.child.id)
     flash("Interest profile reset. We'll start learning again.", "success")
     return redirect(url_for("profile.world"))
+
+
+@bp.route("/me/settings", methods=["GET", "POST"])
+@subscribed_required
+def child_settings():
+    """The child's own settings page: pick an avatar and change their own password."""
+    if g.auth_role != "child":
+        return redirect(url_for("auth.caretaker"))
+    child = g.child
+    account = Session.query(ChildAccount).filter_by(child_profile_id=child.id).first()
+    can_change_password = bool(account and not account.legacy_shared_password)
+    if request.method == "POST":
+        if g.child_read_only:
+            abort(403)
+        action = request.form.get("action")
+        if action == "avatar":
+            avatar = request.form.get("avatar")
+            if avatar in AVATARS:
+                child.avatar, child.updated_at = avatar, utcnow()
+                Session.commit()
+                flash("Your avatar is saved.", "success")
+            else:
+                flash("Please pick one of the avatars.", "error")
+        elif action == "password" and can_change_password:
+            f = request.form
+            if not auth_service.verify_password(account.password_hash, f.get("current", "")):
+                flash("Your current password is not right.", "error")
+            elif f.get("new") != f.get("confirm"):
+                flash("The new passwords do not match.", "error")
+            else:
+                try:
+                    auth_service.set_child_password(g.user, child, f.get("new", ""))
+                    flash("Your password was changed.", "success")
+                except auth_service.AuthError as exc:
+                    flash(str(exc), "error")
+        else:
+            flash("That change is not available. Ask your caretaker for help.", "error")
+        return redirect(url_for("profile.child_settings"))
+    return render_template("child_settings.html", child=child, avatars=AVATARS, active="settings",
+                           can_change_password=can_change_password, read_only=g.child_read_only)
 
 
 @bp.route("/updates", methods=["GET", "POST"])
