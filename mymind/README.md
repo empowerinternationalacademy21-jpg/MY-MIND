@@ -152,3 +152,18 @@ The map works out of the box with a built-in procedural look. These steps replac
 * JS was syntax-checked and every page renders in tests, but it has not been click-tested in a real browser — try it on an Android phone.
 * YouTube/Spotify/Pexels are tested with mocks only (no keys here).
 * Screen-time reminders are counted per browser: a gentle reminder, not enforcement.
+## Activity tracking, caretaker analytics and interest discovery
+
+* **Child side** (`static/js/app.js`): one *session* per piece of content (`watch` video/short, `listen` song, `look` picture). YouTube and Spotify
+  embeds report play / pause / end through `postMessage`, so only playing time counts and pauses, resumes, replays and completion are recorded.
+  Pictures, and players that cannot report, record the time the viewer was open (`measured = false`). Opening is never counted as watching.
+  Events carry a stable id, so retries, re-renders and page changes cannot create duplicates.
+* **Server** (`routes/api.py` → `/api/activity-events`): validates every field, keeps the largest duration / completion seen for a session,
+  stores content type and category on the row. Migration 14 adds the columns and back-fills existing rows.
+* **Caretaker dashboard**: `/caretaker/activity` (`routes/activity_dashboard.py`, `services/activity_analytics_service.py`). All numbers are
+  computed from stored events; definitions and formulas are listed at the top of the service and on the page.
+* **Interest discovery**: `services/interest_discovery_service.py`. A category needs ≥3 engaged sessions on ≥2 days and a decayed score ≥3.
+  `services/world_service.py` adds this evidence to the saved interest profile, so each child's world emphasises what they really do while every
+  child shares the administrator's island.
+* **Privacy**: search text is never stored; activity older than `ACTIVITY_RETENTION_DAYS` (default 365, minimum 30, `0` = keep) is deleted
+  automatically (at most daily) or with `flask purge-activity`. Deleting an account now erases all of its children's records.
