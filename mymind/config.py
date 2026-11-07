@@ -52,6 +52,8 @@ class Config:
     AI3D_MAX_JOBS_PER_DAY = int(os.getenv("AI3D_MAX_JOBS_PER_DAY", "20"))  # credit guard-rail
     AI3D_MAX_DOWNLOAD_BYTES = 40 * 1024 * 1024
     AI3D_MANUAL_MAX_BYTES = 25 * 1024 * 1024                                         # admin uploads of your own .glb (Blender etc.)
+    AI3D_FOLDER_MAX_FILES = 30                                                       # .glb models per folder upload
+    AI3D_FOLDER_MAX_BYTES = 250 * 1024 * 1024                                        # whole folder upload request
     AI3D_DOWNLOAD_HOSTS = tuple(h.strip() for h in os.getenv("AI3D_DOWNLOAD_HOSTS", "assets.meshy.ai,tripo-data.rg1.data.tripo3d.com,.tripo3d.com,.tripo3d.ai").split(",") if h.strip())
     AI3D_PRIVATE_DIR = os.getenv("AI3D_PRIVATE_DIR", "") or os.path.join(BASE_DIR, "instance", "ai3d_private")
     # ---- Caretaker 18+ verification (Sumsub). Server-side only. ----
