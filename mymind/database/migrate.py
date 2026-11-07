@@ -213,6 +213,26 @@ def m0013_independent_child_portfolios(engine):
         c.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_child_time ON audit_logs(child_id, created_at)"))
 
 
+def m0014_activity_engagement_detail(engine):
+    """Richer activity detail: content type/category copies, completion, pauses, resumes, replays.
+
+    Existing rows keep NULL/0 values and stay valid. Content type and category are back-filled from the content item
+    so history and analytics also work for activity recorded before this migration.
+    """
+    _add_missing_columns(engine, "activity_events", [
+        ("content_type", "VARCHAR(12)"), ("category", "VARCHAR(30)"), ("completion_pct", "FLOAT"),
+        ("content_seconds", "INTEGER"), ("pause_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("resume_count", "INTEGER NOT NULL DEFAULT 0"), ("replay_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("completed", "BOOLEAN NOT NULL DEFAULT 0"), ("measured", "BOOLEAN NOT NULL DEFAULT 0")])
+    with engine.begin() as c:
+        c.execute(text("""UPDATE activity_events SET
+            content_type = (SELECT content_type FROM content_items WHERE content_items.id = activity_events.content_id),
+            category = (SELECT category FROM content_items WHERE content_items.id = activity_events.content_id)
+            WHERE content_id IS NOT NULL AND content_type IS NULL"""))
+        c.execute(text("CREATE INDEX IF NOT EXISTS ix_activity_child_content ON activity_events (child_id, content_id)"))
+        c.execute(text("CREATE INDEX IF NOT EXISTS ix_activity_child_category_time ON activity_events (child_id, category, created_at)"))
+
+
 MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_world_assets), (3, "ai 3d assets", m0003_assets3d),
               (4, "parent links", m0004_parent_links), (5, "id verification", m0005_id_verification),
               (6, "child age", m0006_child_age), (7, "activity events", m0007_activity_events),
@@ -220,7 +240,8 @@ MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_wo
               (10, "world share links", m0010_world_share_links),
               (11, "recommendation states", m0011_recommendation_states),
               (12, "multi-child profiles", m0012_multi_child_profiles),
-              (13, "independent child portfolios", m0013_independent_child_portfolios)]
+              (13, "independent child portfolios", m0013_independent_child_portfolios),
+              (14, "activity engagement detail", m0014_activity_engagement_detail)]
 
 def run_migrations():
     engine = db.get_engine()
