@@ -82,7 +82,7 @@ CHILD_ENDPOINTS = {
     "api.pictures", "api.videos", "api.shots", "api.music", "api.feed", "api.favorites", "api.recent",
     "api.related", "api.react", "api.favorite", "api.activity_events",
     "world_share.create_child_link",
-    "profile.world", "world.asset_file", "world.api_assets", "world.asset3d_file",
+    "profile.world", "profile.child_settings", "world.asset_file", "world.api_assets", "world.asset3d_file",
     "world.api_world", "world.api_world_stop",
 }
 
