@@ -4,7 +4,8 @@ from conftest import PW
 
 
 def test_edit_and_archive_child_keeps_profile_data_but_disables_login(ready, app):
-    ready.post("/caretaker/children/add", {"display_name": "Mika", "avatar": "star", "age": "7", "consent": "yes"})
+    ready.post("/caretaker/children/add", {"display_name": "Mika", "avatar": "star", "age": "7", "consent": "yes",
+                                            "child_password": "Mika!Secret2468"})
     with app.app_context():
         child = Session.query(ChildProfile).filter_by(display_name="Mika").one()
         child_id, child_username = child.id, child.child_username
