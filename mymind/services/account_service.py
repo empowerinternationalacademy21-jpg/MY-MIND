@@ -3,16 +3,25 @@ import json
 from database.db import Session
 from database.models import (User, ChildProfile, CaregiverQuestionnaire, Interaction, Favorite, InterestProfile, DailyActivity,
                              ActivityEvent, RecommendationLog, ConsentRecord, CaregiverSettings, Subscription, PaymentVerificationRequest,
-                             AuditLog, ParentLink)
+                             AuditLog, ParentLink, CaregiverChildAccess, ChildAccount, ChildSummary, ChildInsightSnapshot,
+                             ChildMyWorld, ChildRecommendation, ChildShareLink, WorldShareLink, CaregiverRecommendationState)
 
 
 def delete_user(user_id):
-    child = Session.query(ChildProfile).filter_by(caregiver_user_id=user_id).first()
-    if child:
-        Session.query(ActivityEvent).filter_by(child_id=child.id).delete()
-        for M in (Interaction, Favorite, InterestProfile, DailyActivity, RecommendationLog, CaregiverQuestionnaire, ParentLink):   # family links die with the child
-            Session.query(M).filter_by(child_profile_id=child.id).delete()
-        Session.delete(child)
+    """Hard-delete a caregiver and EVERY child profile they own, with all of those children's data (explicit deletes, so it
+    works on drivers without FK enforcement and never leaves orphaned child records behind)."""
+    children = Session.query(ChildProfile).filter_by(caregiver_user_id=user_id).all()
+    for child in children:
+        Session.query(ActivityEvent).filter_by(child_id=child.id).delete(synchronize_session=False)
+        for M in (Interaction, Favorite, InterestProfile, DailyActivity, RecommendationLog, CaregiverQuestionnaire, ParentLink,
+                  WorldShareLink, CaregiverRecommendationState, ChildAccount):
+            Session.query(M).filter_by(child_profile_id=child.id).delete(synchronize_session=False)
+        for M in (ChildSummary, ChildInsightSnapshot, ChildMyWorld, ChildRecommendation, ChildShareLink):
+            Session.query(M).filter_by(child_id=child.id).delete(synchronize_session=False)
+        Session.query(CaregiverChildAccess).filter_by(child_id=child.id).delete(synchronize_session=False)
+        Session.expunge(child)
+        Session.query(ChildProfile).filter_by(id=child.id).delete(synchronize_session=False)
+    Session.query(CaregiverChildAccess).filter_by(caregiver_id=user_id).delete(synchronize_session=False)
     sub_ids = [s.id for s in Session.query(Subscription).filter_by(user_id=user_id).all()]
     if sub_ids:
         Session.query(PaymentVerificationRequest).filter(PaymentVerificationRequest.subscription_id.in_(sub_ids)).delete(synchronize_session=False)
