@@ -1,6 +1,6 @@
 import uuid
 
-from conftest import Client
+from conftest import CPW, Client
 from database.db import Session
 from database.models import ActivityEvent, ChildProfile, utcnow
 from services import activity_service
@@ -15,7 +15,7 @@ def login_as_child(app, client):
         child = Session.query(ChildProfile).one()
         username = child.caregiver.child_username
     client.post("/logout")
-    assert client.login(username).status_code == 302
+    assert client.login(username, CPW).status_code == 302
     return client
 
 
