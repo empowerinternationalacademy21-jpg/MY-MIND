@@ -607,3 +607,71 @@
 .sv-bar [aria-pressed=true] .ic {
     fill: currentColor
 }
+
+/* ---------- search ---------- */
+.sh-search {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: .1rem 0 .7rem;
+    padding: 0 .4rem 0 1rem;
+    min-height: 50px;
+    border-radius: 999px;
+    border: 1px solid var(--glass-line-w);
+    background: var(--glass-w);
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    color: var(--muted);
+    box-shadow: var(--shadow)
+}
+
+.sh-search:focus-within {
+    border-color: var(--blue);
+    box-shadow: var(--ring)
+}
+
+.sh-search input {
+    flex: 1;
+    min-width: 0;
+    min-height: 46px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    font-weight: 700;
+    color: var(--text)
+}
+
+.sh-search input::-webkit-search-cancel-button {
+    display: none
+}
+
+.sh-clear {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer
+}
+
+.sh-clear:hover {
+    background: rgba(0, 0, 0, .06)
+}
+
+.sh-go {
+    flex: none;
+    min-height: 40px;
+    padding: 0 1.1rem;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--blue), var(--blue-d));
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer
+}
