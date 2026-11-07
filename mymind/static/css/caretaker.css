@@ -170,7 +170,7 @@
 .ct-child-switch { display: flex; align-items: center; justify-content: center; }
 .ct-child-switch label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .ct-child-switch select { width: auto; min-width: 170px; max-width: 100%; min-height: 38px; padding: .3rem 1rem; border-radius: 999px; font-size: .84rem; font-weight: 700; text-align: center; }
-.ct-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; width: 100%; margin-top: .5rem; }
+.ct-quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: .5rem; width: 100%; margin-top: .5rem; }
 .ct-quick a { display: grid; justify-items: center; gap: .35rem; color: var(--ct-mute); font-size: .7rem; font-weight: 700; text-decoration: none !important; }
 .ct-quick a > span { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: var(--ct-tile-hi); color: var(--ct-ink); border: 1px solid var(--ct-line); transition: background .16s, transform .16s; }
 .ct-quick a:hover > span { background: rgba(255, 122, 26, .3); transform: translateY(-2px); }
