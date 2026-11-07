@@ -10,6 +10,14 @@
         <p>Quick videos to explore. Tap one to watch.</p>
     </header>
 
+    <form id="sh-search" class="sh-search" role="search">
+        <label class="sr-only" for="sh-q">Search shorts</label>
+        {{ icon('search') }}
+        <input id="sh-q" type="search" maxlength="60" placeholder="Search shorts, like “dancing cats”" autocomplete="off" enterkeyhint="search">
+        <button id="sh-clear" class="sh-clear" type="button" aria-label="Clear search" hidden>{{ icon('x') }}</button>
+        <button class="sh-go" type="submit">Search</button>
+    </form>
+
     <div class="sh-chips" role="group" aria-label="Topic filter">
         <button class="sh-chip" data-cat="" aria-pressed="true">For me</button>
         {% for k, c in categories.items() %}
