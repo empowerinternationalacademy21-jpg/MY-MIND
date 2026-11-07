@@ -185,11 +185,23 @@ class ActivityEvent(Base):
     client_event_id = Column(String(64), nullable=False, unique=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     last_active_at = Column(DateTime, default=utcnow, nullable=False)
+    # ---- richer engagement detail (migration 14). All nullable/defaulted so older rows and older clients keep working ----
+    content_type = Column(String(12))                # picture | video | short | song (copied from the content item when the event is stored)
+    category = Column(String(30))                    # interest category (copied from the content item, or the explored category)
+    completion_pct = Column(Float)                   # 0-100, only when the player reported the content length; NULL = unknown
+    content_seconds = Column(Integer)                # total length of the content as reported by the player, when known
+    pause_count = Column(Integer, nullable=False, default=0)
+    resume_count = Column(Integer, nullable=False, default=0)
+    replay_count = Column(Integer, nullable=False, default=0)   # times playback restarted after the content ended
+    completed = Column(Boolean, nullable=False, default=False)
+    measured = Column(Boolean, nullable=False, default=False)   # True = time came from the player (playing time only); False = time the viewer was open
     content = relationship("ContentItem")
     __table_args__ = (Index("ix_activity_child_time", "child_id", "created_at"),
                       Index("ix_activity_scope_time", "child_id", "caregiver_id", "created_at"),
                       Index("ix_activity_child_stop_time", "child_id", "stop", "created_at"),
-                      Index("ix_activity_child_type_time", "child_id", "event_type", "created_at"))
+                      Index("ix_activity_child_type_time", "child_id", "event_type", "created_at"),
+                      Index("ix_activity_child_content", "child_id", "content_id"),
+                      Index("ix_activity_child_category_time", "child_id", "category", "created_at"))
 
 
 class Favorite(Base):
