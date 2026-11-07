@@ -41,7 +41,7 @@
       <nav class="right" aria-label="Quick links">
         {% if auth_role != 'child' %}<a class="iconbtn" href="{{ url_for('journey.view') }}" aria-label="My Journey">{{ icon('calendar') }}</a>{% endif %}
         <a class="iconbtn" href="{{ url_for('profile.world') }}" aria-label="My World">{{ icon('user-round') }}</a>
-        {% if auth_role != 'child' %}<a class="iconbtn" href="{{ url_for('profile.settings') }}" aria-label="Settings">{{ icon('settings') }}</a>{% endif %}
+        {% if auth_role != 'child' %}<a class="iconbtn" href="{{ url_for('profile.settings') }}" aria-label="Settings">{{ icon('settings') }}</a>{% else %}<a class="iconbtn" href="{{ url_for('profile.child_settings') }}" aria-label="My settings">{{ icon('settings') }}</a>{% endif %}
         {% if auth_role == 'child' %}<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="iconbtn" type="submit" aria-label="Log out">{{ icon('log-out') }}</button></form>{% endif %}
       </nav>
       {% else %}
