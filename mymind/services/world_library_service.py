@@ -93,6 +93,60 @@ def add_asset(admin, raw, kind, stop, zone, theme, name, caption, is_real_person
     return row
 
 
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _name_from_filename(filename):
+    """'my_red-fox.PNG' -> 'my red fox'. Only the last path part is used; the name is a label and never touches the disk."""
+    base = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    stem = os.path.splitext(base)[0]
+    return " ".join(stem.replace("_", " ").replace("-", " ").split())[:80]
+
+
+def add_folder(admin, files, kind, stop, zone, theme, is_real_person, rights_confirmed, source_note, max_files=60, max_file_bytes=10 * 1024 * 1024):
+    """Add many images at once. `files` is a list of (filename, raw_bytes) from a chosen folder.
+
+    The shared settings are checked once up front, so a bad form adds nothing. After that each image is checked and re-encoded on its own,
+    exactly like a single upload; one bad image is skipped and reported, it never blocks the others.
+    -> {"added": [WorldAsset, ...], "skipped": [(filename, reason), ...]}
+    """
+    _clean(kind, KINDS, "kind")                                    # fail early with the same messages as a single upload
+    kind_v = (kind or "").strip().lower()
+    _clean(stop, STOPS, "stop", blank_ok=(kind_v == "background"))
+    _clean(zone, ZONES, "sports zone", blank_ok=True)
+    _clean(theme, THEMES, "theme", blank_ok=True)
+    if not rights_confirmed:
+        raise WorldError("Please confirm you have the right to use these images.")
+    if is_real_person and len((source_note or "").strip()) < 5:
+        raise WorldError("Pictures of real people need a source or licence note.")
+    if not files:
+        raise WorldError("Please choose a folder that has images in it.")
+    added, skipped = [], []
+    candidates = []
+    for filename, raw in files:
+        shown = (filename or "").replace("\\", "/").rsplit("/", 1)[-1] or "(no name)"
+        if shown.startswith(".") or not shown.lower().endswith(IMAGE_EXTENSIONS):
+            skipped.append((shown, "not a PNG, JPEG or WebP image"))
+            continue
+        candidates.append((shown, filename, raw))
+    if not candidates:
+        raise WorldError("That folder has no PNG, JPEG or WebP images in it.")
+    if len(candidates) > max_files:
+        raise WorldError(f"That folder has {len(candidates)} images. Please add at most {max_files} at a time.")
+    for shown, filename, raw in candidates:
+        if len(raw) > max_file_bytes:
+            skipped.append((shown, "file is too large"))
+            continue
+        try:
+            row = add_asset(admin, raw, kind, stop, zone, theme, _name_from_filename(filename), "", is_real_person, True, source_note)
+            added.append(row)
+        except WorldError as exc:
+            skipped.append((shown, str(exc)))
+    auth_service.audit(admin.id, "world_folder_added", "world_asset", None, f"{len(added)} added, {len(skipped)} skipped")
+    Session.commit()
+    return {"added": added, "skipped": skipped}
+
+
 def set_active(admin, asset_id, active):
     row = Session.get(WorldAsset, asset_id)
     if not row:
