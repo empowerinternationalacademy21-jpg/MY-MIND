@@ -151,7 +151,7 @@
             th.addEventListener('click', function () {
                 if (!item.yt) { toast('This video preview is not available to play.'); return; }
                 var f = S(document.createElement('iframe'), { 'position': 'absolute', 'inset': '0', 'width': '100%', 'height': '100%', 'border': '0' });
-                f.src = CONFIG.embedBase + encodeURIComponent(item.yt) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1';
+                f.src = CONFIG.embedBase + encodeURIComponent(item.yt) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin);
                 f.title = item.title; f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
                 f.setAttribute('allowfullscreen', ''); f.referrerPolicy = 'strict-origin-when-cross-origin';
                 th.textContent = ''; th.style.setProperty('cursor', 'default'); th.appendChild(f);
@@ -252,7 +252,7 @@
         if (window.MyMind.activity) window.MyMind.activity.startWatch(item);
         var f = document.createElement('iframe');
         f.className = 'vp-frame';
-        f.src = CONFIG.embedBase + encodeURIComponent(item.yt) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1';
+        f.src = CONFIG.embedBase + encodeURIComponent(item.yt) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin);
         f.title = item.title;
         f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
         f.setAttribute('allowfullscreen', '');
