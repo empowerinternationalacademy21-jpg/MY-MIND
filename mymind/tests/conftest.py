@@ -9,6 +9,7 @@ from database.models import User
 from services import auth_service, cache
 
 PW = "Sup3rSecret!pw"
+CPW = "Kid!Secret4567"          # the first child's OWN password (never the caretaker's)
 
 
 @pytest.fixture()
@@ -79,7 +80,7 @@ def subscribe_and_approve(app, caregiver, admin, plan="weekly", ref="TXN12345"):
     return sid, rid
 
 
-ONB = {"consent": "yes", "display_name": "Sunny", "avatar": "smile", "interests": ["animals", "music"], "activities": ["dance"]}
+ONB = {"consent": "yes", "display_name": "Sunny", "child_password": CPW, "avatar": "smile", "interests": ["animals", "music"], "activities": ["dance"]}
 
 
 @pytest.fixture()
