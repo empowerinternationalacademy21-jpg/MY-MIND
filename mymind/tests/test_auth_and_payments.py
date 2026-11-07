@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from conftest import PW, Client, subscribe_and_approve
+from conftest import CPW, PW, Client, subscribe_and_approve
 from database.db import Session
 from database.models import User, ChildProfile, Subscription, PaymentVerificationRequest, AuditLog, utcnow
 
@@ -52,7 +52,7 @@ def test_family_usernames_share_password_and_enforce_roles(app, ready):
     assert ready.get("/caretaker").status_code == 200
 
     ready.post("/logout")
-    assert ready.login(child_name).location.endswith("/world")
+    assert ready.login(child_name, CPW).location.endswith("/world")
     world_page = ready.get("/world")
     assert world_page.status_code == 200
     assert b"mum" not in world_page.data and child_name.encode() not in world_page.data
@@ -65,7 +65,7 @@ def test_family_usernames_share_password_and_enforce_roles(app, ready):
         {"event_id": "caretaker-action-00000001", "event_type": "view", "stop": "home"},
     ]}).status_code == 403
     ready.post("/logout")
-    ready.login(child_name)
+    ready.login(child_name, CPW)
     assert ready.jpost("/api/activity-events", {"events": [
         {"event_id": "child-action-000000000001", "event_type": "view", "stop": "home"},
     ]}).status_code == 200
@@ -91,7 +91,7 @@ def test_caretaker_account_settings_change_both_usernames_and_shared_password(ap
     assert ready.login(child_name, "NewShared12345").status_code == 401
     assert ready.login("guardian", "NewShared12345").location.endswith("/caretaker")
     ready.post("/logout")
-    assert ready.login("kiddo", "NewShared12345").location.endswith("/world")
+    assert ready.login("kiddo", CPW).location.endswith("/world")
 
 
 def test_optional_caretaker_pin_is_hashed_and_required(app, ready):
@@ -118,7 +118,7 @@ def test_optional_caretaker_pin_is_hashed_and_required(app, ready):
         assert "0426" not in user.caretaker_pin_hash
 
     ready.post("/logout")
-    assert ready.login(child_name).location.endswith("/world")
+    assert ready.login(child_name, CPW).location.endswith("/world")
     assert ready.get("/settings").status_code == 403
 
 
