@@ -14,7 +14,7 @@
   <button class="btn primary block" type="submit">Create the island kit</button>
 </form></section>
 
-<section class="card-box"><h2>Upload your own model (free, from Blender)</h2>
+<section class="card-box"><h2>Option 1: upload one model (free, from Blender)</h2>
 <p class="small muted">Made an island or landmark in Blender? Export it as <b>glTF Binary (.glb)</b> and upload it here. No AI credits are used. It goes live in My World straight away (untick the first box below to keep it for review instead), and you can still preview, Unpublish or Delete it afterwards. Choose <b>Island piece: Island base</b> for the big island itself, or a place (Home, Pictures, Videos...) for the landmark that stands on it.</p>
 <form method="post" action="{{ url_for('admin_ai3d.upload') }}" enctype="multipart/form-data" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -27,6 +27,20 @@
   <label class="choice"><input type="checkbox" name="publish" checked><span>Show it in My World right away</span></label>
   <label class="choice"><input type="checkbox" name="make_default"><span>Island bases: make this the default island for everyone who hasn't chosen one (the first island you upload is the default automatically)</span></label>
   <button class="btn primary block" type="submit">Upload</button>
+</form></section>
+
+<section class="card-box"><h2>Option 2: upload a whole folder (free, from Blender)</h2>
+<p class="small muted">Export all your models as <b>glTF Binary (.glb)</b> into one folder, then choose that folder here. Every .glb inside it (subfolders too) is checked and added, up to {{ folder_max_files }} at a time. Each file is matched to its place by its <b>file name</b>: <code>island_base.glb</code> (or <code>island.glb</code>), <code>home.glb</code>, <code>pictures.glb</code>, <code>videos.glb</code>, <code>shorts.glb</code>, <code>music.glb</code>, <code>sports.glb</code>, <code>food.glb</code>, <code>colors.glb</code>, <code>nature.glb</code>, <code>animals.glb</code>, <code>vehicles.glb</code>, <code>art.glb</code>. Item names such as <code>cupcake.glb</code> work too. A file whose name does not match is skipped and listed, and the rest are still added. No AI credits are used.</p>
+<form method="post" action="{{ url_for('admin_ai3d.upload_folder') }}" enctype="multipart/form-data" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="f-dir">Folder of .glb models (each up to 25 MB)</label><input id="f-dir" name="models" type="file" webkitdirectory directory multiple required></div>
+  <div class="field"><label for="f-arch">What are they?</label><select id="f-arch" name="archetype">
+    <option value="">Match each file to its place by its file name</option>
+    <optgroup label="Island kit">{% for k in kit %}<option value="{{ k.key }}">Island piece: {{ k.label }}</option>{% endfor %}</optgroup>
+    {% for cat, groups in catalog.items() %}<optgroup label="{{ cat|capitalize }}">{% for kind, label in (('item','Items'),('character','Characters')) %}{% for a in groups[kind] %}<option value="{{ a.key }}">{{ label[:-1] }}: {{ a.label }}</option>{% endfor %}{% endfor %}</optgroup>{% endfor %}</select></div>
+  <p class="hint">Picking one kind instead of matching by name makes every file that kind, named after its file. Handy for uploading many island looks at once.</p>
+  <label class="choice"><input type="checkbox" name="publish" checked><span>Show them in My World right away (untick to review each one first)</span></label>
+  <button class="btn primary block" type="submit">Upload whole folder</button>
 </form></section>
 
 <section class="card-box"><h2>New model</h2>
