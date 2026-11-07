@@ -32,6 +32,7 @@ class Config:
     SESSION_COOKIE_SECURE = PRODUCTION
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 12
     MAX_CONTENT_LENGTH = 256 * 1024
+    ACTIVITY_RETENTION_DAYS = int(os.getenv("ACTIVITY_RETENTION_DAYS", "365"))   # child activity older than this is deleted (min 30; 0 = keep)
     YOUTUBE_API_KEY = _clean("YOUTUBE_API_KEY")
     SPOTIFY_CLIENT_ID = _clean("SPOTIFY_CLIENT_ID")
     SPOTIFY_CLIENT_SECRET = _clean("SPOTIFY_CLIENT_SECRET")
