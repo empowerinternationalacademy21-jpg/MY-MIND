@@ -100,6 +100,8 @@ def update_settings(user_id, raw):
                 raise WorldError("Unknown theme.")
             world["theme"] = value
         elif key == "island":
+            if island_locked():          # the administrator's island applies to everyone: keep the stored choice, ignore this one
+                continue
             ok = {"auto", "classic"} | {str(a.id) for a in a3d_library.island_bases()}
             if not isinstance(value, str) or value not in ok:
                 raise WorldError("That island look is not available.")
@@ -212,16 +214,23 @@ def friends3d_for(key):
     return [a for a in a3d_library.published() if a.category == key]
 
 
+def island_locked():
+    """True when the administrator applies ONE island to every user's world (personal choices are ignored)."""
+    return settings_service.get("island_lock") == "1"
+
+
 def _island_choice(w):
-    """-> (chosen asset or None, option list). 'auto' = the newest published island base; 'classic' = the built-in look."""
+    """-> (chosen asset or None, option list). 'auto' = the administrator's default island (else the newest published);
+    'classic' = the built-in look. While the island is locked, everyone gets the administrator's island and no picker is offered."""
     bases = a3d_library.island_bases()
     by_id = {str(a.id): a for a in bases}
-    pick = w.get("island", "auto")
+    locked = island_locked()
+    pick = "auto" if locked else w.get("island", "auto")
     if pick == "classic":
         chosen = None
     else:
         chosen = by_id.get(pick) or a3d_library.default_island()            # 'auto', unknown or unpublished choices fall back to the default island
-    options = ([{"key": "classic", "label": "Classic (built-in)"}] + [{"key": str(a.id), "label": a.name or f"Island {a.id}", "caption": a.caption} for a in bases]) if bases else []
+    options = ([{"key": "classic", "label": "Classic (built-in)"}] + [{"key": str(a.id), "label": a.name or f"Island {a.id}", "caption": a.caption} for a in bases]) if bases and not locked else []
     return chosen, options
 
 
@@ -260,7 +269,7 @@ def payload(user, child):
     t = THEMES[theme]
     return {"child": {"name": child.display_name, "avatar": child.avatar},
             "theme": {"key": theme, "label": t["label"], "icon": t["icon"], "reason": reason, "source": source, "palette": {k: t[k] for k in ("sky", "water", "grass", "sand", "accent")}},
-            "stops": stops, "bridges": bridges,
+            "stops": stops, "bridges": bridges, "island_locked": island_locked(),
             "island_base": ({"id": island.id, "url": f"/assets3d/{island.id}/glb"} if island else None),
             "backgrounds": [a["url"] for a in (wl.as_dict(x) for x in wl.visible(w["real_people"], kind="background", theme=theme if theme != "mixed" else None))][:1],
             "settings": {k: w[k] for k in ("theme", "island", "strength", "interests", "sports_zones", "rotation", "animation", "hidden_stops", "decor_off", "sound", "real_people")},
