@@ -4,7 +4,9 @@ from database.db import Session
 from database.models import ChildProfile, Subscription, User, utcnow
 from services import plan_service
 from services.plan_config import FREE_CHILD_PROFILE_LIMIT, PAID_CHILD_PROFILE_LIMIT
-from conftest import ONB, PW
+from conftest import CPW, ONB, PW
+
+ALEX_PW = "Alex!Secret8901"
 
 
 def test_free_plan_feature_gates_and_profile_limit(client, app):
@@ -27,7 +29,7 @@ def test_free_plan_feature_gates_and_profile_limit(client, app):
 
 def test_paid_plan_add_child_and_child_login_selects_correct_profile(ready, app):
     result = ready.post("/caretaker/children/add", {
-        "display_name": "Alex", "avatar": "star", "age": "8", "consent": "yes",
+        "display_name": "Alex", "avatar": "star", "age": "8", "consent": "yes", "child_password": ALEX_PW,
     })
     assert result.status_code == 302
     with app.app_context():
@@ -35,7 +37,7 @@ def test_paid_plan_add_child_and_child_login_selects_correct_profile(ready, app)
         assert len(children) == 2 and children[1].child_username
         child_name = children[1].child_username
     ready.post("/logout")
-    login = ready.login(child_name, PW)
+    login = ready.login(child_name, ALEX_PW)
     assert login.status_code == 302 and login.location.endswith("/world")
     page = ready.get("/world")
     assert page.status_code == 200 and b"Alex's World" in page.data
@@ -43,7 +45,8 @@ def test_paid_plan_add_child_and_child_login_selects_correct_profile(ready, app)
 
 
 def test_paid_profile_limit_constant_and_expiry_keeps_extra_children_read_only(ready, app):
-    ready.post("/caretaker/children/add", {"display_name": "Extra", "avatar": "star", "consent": "yes"})
+    ready.post("/caretaker/children/add", {"display_name": "Extra", "avatar": "star", "consent": "yes",
+                                           "child_password": "Extra!Secret5678"})
     with app.app_context():
         user = Session.query(User).filter_by(username="mum").one()
         sub = Session.query(Subscription).filter_by(user_id=user.id, status="active").one()
