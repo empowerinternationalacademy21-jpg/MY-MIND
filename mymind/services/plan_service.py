@@ -4,7 +4,7 @@ from database.models import ChildProfile, Subscription
 from services import payment_service
 from services.plan_config import (FREE_ACTIVE_SHARE_LINK_LIMIT, FREE_CHILD_PROFILE_LIMIT,
                                   FREE_FEATURES, FREE_HISTORY_DAYS, PAID_CHILD_PROFILE_LIMIT,
-                                  PAID_FEATURES, PAID_HISTORY_DAYS)
+                                  PAID_FEATURES, PAID_HISTORY_DAYS, TRIAL_CHILD_PROFILE_LIMIT)
 
 
 def current_subscription(user_id):
@@ -41,6 +41,10 @@ def history_days(user_id):
 
 
 def child_limit(user_id):
+    """Free and trial accounts manage ONE child; only a real paid plan unlocks more profiles."""
+    plan = current_plan(user_id)
+    if plan == "trial":
+        return TRIAL_CHILD_PROFILE_LIMIT
     return PAID_CHILD_PROFILE_LIMIT if is_paid(user_id) else FREE_CHILD_PROFILE_LIMIT
 
 
@@ -54,8 +58,9 @@ def can_add_child(user_id):
 
 
 def child_is_read_only(user_id, child):
-    if not child or is_paid(user_id):
+    if not child:
         return False
+    limit = child_limit(user_id)
     active = (Session.query(ChildProfile).filter_by(caregiver_user_id=user_id, archived_at=None)
               .order_by(ChildProfile.created_at.asc(), ChildProfile.id.asc()).all())
-    return child.id not in {profile.id for profile in active[:FREE_CHILD_PROFILE_LIMIT]}
+    return child.id not in {profile.id for profile in active[:limit]}
