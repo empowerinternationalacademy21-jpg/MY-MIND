@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from database.db import Session
 from database.models import Asset3D
 from routes.helpers import admin_required
-from services import auth_service
+from services import auth_service, settings_service
 from services.ai3d import library, optimize, pipeline, providers, safe_prompts
 
 bp = Blueprint("admin_ai3d", __name__, url_prefix="/admin/3d")
@@ -24,7 +24,42 @@ def jobs():
     return render_template("admin/ai3d.html", jobs=rows, catalog=safe_prompts.catalog(), colors=list(safe_prompts.COLORS), styles=list(safe_prompts.STYLES),
                            moods=list(safe_prompts.MOODS), accessories=list(safe_prompts.ACCESSORIES), archetypes=safe_prompts.ARCHETYPES, kit=safe_prompts.kit_catalog(),
                            provider_ready={n: c.configured() for n, c in providers.PROVIDERS.items()}, concept_ready=providers.concept_configured(),
-                           optimizer=optimize.available(), folder_max_files=current_app.config["AI3D_FOLDER_MAX_FILES"], nav="3d")
+                           optimizer=optimize.available(), folder_max_files=current_app.config["AI3D_FOLDER_MAX_FILES"], nav="3d",
+                           island_bases=library.island_bases(), island_choice=(settings_service.get("default_island_id") or "").strip(),
+                           island_locked=settings_service.get("island_lock") == "1")
+
+
+@bp.route("/island", methods=["POST"])
+@admin_required
+def set_island():
+    """One island for every user's My World, on every device. With the lock on, personal island choices are ignored."""
+    choice = (request.form.get("island") or "auto").strip()
+    valid = {"auto", "classic"} | {str(a.id) for a in library.island_bases()}
+    if choice not in valid:
+        flash("Please choose one of the published islands.", "error")
+        return redirect(url_for("admin_ai3d.jobs"))
+    lock = "lock" in request.form
+    settings_service.set_value("default_island_id", "" if choice == "auto" else choice)
+    settings_service.set_value("island_lock", "1" if lock else "0")
+    auth_service.audit(g.user.id, "world_island_set", "setting", choice, "locked for everyone" if lock else "default only")
+    Session.commit()
+    flash("Every user's My World now uses this island." if lock else "Saved. This is the default island for everyone who has not chosen another.", "success")
+    return redirect(url_for("admin_ai3d.jobs"))
+
+
+@bp.route("/<int:job_id>/island-for-everyone", methods=["POST"])
+@admin_required
+def island_for_everyone(job_id):
+    job = _job_or_404(job_id)
+    if job.status != "published" or job.kind != "landmark" or job.category != "island":
+        flash("Only a published island base can be used for everyone's world.", "error")
+        return redirect(url_for("admin_ai3d.detail", job_id=job_id))
+    settings_service.set_value("default_island_id", str(job.id))
+    settings_service.set_value("island_lock", "1")
+    auth_service.audit(g.user.id, "world_island_set", "asset3d", job.id, "locked for everyone")
+    Session.commit()
+    flash("Done. Every user's My World now uses this island, on every device.", "success")
+    return redirect(url_for("admin_ai3d.detail", job_id=job_id))
 
 
 @bp.route("/new", methods=["POST"])
