@@ -16,8 +16,8 @@
     if (!r.ok) throw new Error(data.error || "Something went wrong.");
     const path = url.split("?")[0], payload = o.json || {};
     if (MM.activity && path === "/api/react") {
-      const eventType = payload.type === "skip" ? "next" : payload.type;
-      if (data.counted !== false && ["like", "dislike", "next"].includes(eventType)) {
+      const eventType = ({ skip: "next", selected: "open", explore: "open" })[payload.type] || payload.type;
+      if (data.counted !== false && ["like", "dislike", "next", "open"].includes(eventType)) {
         MM.activity.log(eventType, null, payload.content_id);
       }
     } else if (MM.activity && path === "/api/favorite" && data.favorite) {
@@ -31,9 +31,9 @@
   MM.activity = (function () {
     const enabled = body.dataset.app === "1";
     const key = "mymind.activity.pending";
-    const validTypes = new Set(["view", "watch", "like", "dislike", "favorite", "search", "next"]);
+    const validTypes = new Set(["view", "watch", "like", "dislike", "favorite", "search", "next", "open"]);
     let pending = [];
-    let timer = null, retryTimer = null, retryCount = 0, flushing = false, lastSearchAt = 0;
+    let timer = null, retryTimer = null, retryCount = 0, flushing = false, lastSearchAt = 0, isolate = false;
     let currentStop = "", viewSession = null, watchSession = null;
     try {
       const saved = JSON.parse(sessionStorage.getItem(key) || "[]");
@@ -65,18 +65,30 @@
     async function flush(keepalive = false) {
       if (!enabled || flushing || !pending.length) return;
       flushing = true;
-      const batch = pending.slice(0, 50).map((e) => Object.assign({}, e));
+      const batch = pending.slice(0, isolate ? 1 : 50).map((e) => Object.assign({}, e));
       try {
         const response = await fetch("/api/activity-events", {
           method: "POST", credentials: "same-origin", keepalive,
           headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
           body: JSON.stringify({ events: batch })
         });
+        if (response.status === 400) {
+          /* The server rejects a whole batch if one event is invalid. Send events one at a time until the queue
+             clears so a single bad event is dropped instead of blocking everything queued behind it. */
+          if (batch.length === 1) {
+            pending = pending.filter((e) => e.event_id !== batch[0].event_id);
+            persist();
+          }
+          isolate = true; flushing = false; retryCount = 0;
+          if (pending.length) schedule(0);
+          return;
+        }
         if (!response.ok) throw new Error("Activity request failed.");
         const sent = new Map(batch.map((e) => [e.event_id, JSON.stringify(e)]));
         pending = pending.filter((e) => sent.get(e.event_id) !== JSON.stringify(e));
         retryCount = 0;
         persist();
+        if (!pending.length) isolate = false;
       } catch (e) {
         retryCount++;
         if (!retryTimer) retryTimer = setTimeout(() => {
