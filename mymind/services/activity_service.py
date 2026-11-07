@@ -6,7 +6,7 @@ from database.db import Session
 from database.models import ActivityEvent, ContentItem, utcnow
 
 
-EVENT_TYPES = frozenset({"view", "watch", "like", "dislike", "favorite", "search", "next"})
+EVENT_TYPES = frozenset({"view", "watch", "like", "dislike", "favorite", "search", "next", "open"})
 STOPS = frozenset({
     # Requested stop names and the additional stops currently present in My World.
     "home", "soccer", "music", "food", "basketball", "colors", "pictures", "videos", "shorts", "nature",
