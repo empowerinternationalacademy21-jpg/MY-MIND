@@ -137,3 +137,42 @@ def test_hide_show_delete(app, ready, admin):
     assert admin.post(f"/admin/world/{aid}/explode").status_code == 404
     admin.post(f"/admin/world/{aid}/delete")
     assert rows(app) == [] and not os.path.exists(path) and admin.post("/admin/world/999/delete").status_code == 404
+
+
+def upload_folder(admin, items, **over):
+    form = {"kind": "character", "stop": "sports", "zone": "football", "theme": "football", "rights_confirmed": "on", "source_note": ""}
+    form.update(over)
+    form = {k: v for k, v in form.items() if v is not None}
+    form["images"] = [(io.BytesIO(raw), name) for name, raw in items]
+    return admin.post("/admin/world/upload-folder", form, content_type="multipart/form-data", follow_redirects=True)
+
+
+def test_folder_upload_adds_every_image_and_skips_the_rest(app, admin):
+    r = upload_folder(admin, [("art/red_fox.png", png()), ("art/blue-bird.jpg", png(color=(0, 0, 200))), ("art/notes.txt", b"hello"),
+                              ("art/.DS_Store", b"x"), ("art/broken.png", b"not an image at all")])
+    text = r.get_data(as_text=True)
+    assert "2 images added" in text and "Skipped broken.png" in text and "Skipped notes.txt" in text
+    with app.app_context():
+        names = sorted(a.name for a in Session.query(WorldAsset).all())
+        assert names == ["blue bird", "red fox"]
+        assert all(a.kind == "character" and a.stop == "sports" and a.rights_confirmed for a in Session.query(WorldAsset).all())
+        assert any(x.action == "world_folder_added" for x in Session.query(AuditLog).all())
+        assert len(os.listdir(app.config["WORLD_ASSET_DIR"])) == 2
+
+
+def test_folder_upload_rules(app, admin):
+    assert "right to use" in upload_folder(admin, [("a.png", png())], rights_confirmed=None).get_data(as_text=True)
+    assert "valid kind" in upload_folder(admin, [("a.png", png())], kind="weird").get_data(as_text=True)
+    assert "source or licence" in upload_folder(admin, [("a.png", png())], is_real_person="on").get_data(as_text=True)
+    assert "no PNG" in upload_folder(admin, [("a.txt", b"hi")]).get_data(as_text=True)
+    assert "choose a folder" in admin.post("/admin/world/upload-folder", {"kind": "character", "stop": "sports", "rights_confirmed": "on"},
+                                           content_type="multipart/form-data", follow_redirects=True).get_data(as_text=True)
+    app.config["WORLD_FOLDER_MAX_FILES"] = 2
+    assert "at most 2" in upload_folder(admin, [(f"{i}.png", png()) for i in range(3)]).get_data(as_text=True)
+    assert rows(app) == []
+
+
+def test_folder_upload_is_admin_only_and_page_shows_both_options(app, ready, admin):
+    assert ready.post("/admin/world/upload-folder", {"kind": "character"}).status_code == 403
+    page = admin.get("/admin/world/").get_data(as_text=True)
+    assert "Option 1" in page and "Option 2" in page and "webkitdirectory" in page
