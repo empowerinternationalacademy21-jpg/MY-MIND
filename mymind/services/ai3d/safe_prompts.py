@@ -131,6 +131,27 @@ def archetype_info(key):
     return {"key": key, "category": category, "kind": kind, "label": label, "desc": desc}
 
 
+def match_archetype(filename):
+    """Work out which item, character or island piece a file is for, from its file name. -> archetype key, or None.
+
+    'lm_home.glb', 'home.glb', 'Island base.glb' and 'cupcake.glb' all match. Island-kit places win over items with the same word
+    (music.glb is the Music landmark). A label shared by several items or characters is ambiguous, so it matches nothing.
+    """
+    base = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    norm = re.sub(r"[^a-z0-9]+", "_", base.rsplit(".", 1)[0].lower()).strip("_")
+    if not norm:
+        return None
+    if norm in LANDMARKS or norm in ARCHETYPES:
+        return norm
+    if "lm_" + norm in LANDMARKS:
+        return "lm_" + norm
+    for table in (LANDMARKS, ARCHETYPES):
+        hits = [k for k, v in table.items() if re.sub(r"[^a-z0-9]+", "_", v[2].lower()).strip("_") == norm]
+        if len(hits) == 1:
+            return hits[0]
+    return None
+
+
 def clean_options(options):
     """Validate against the allow-lists. Unknown keys or values are refused, never ignored (so nothing free-form slips through)."""
     options = dict(options or {})
