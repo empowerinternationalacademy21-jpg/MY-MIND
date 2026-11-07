@@ -1,14 +1,21 @@
-{% extends "base.html" %}{% block title %}Complete Your Payment{% endblock %}
-{% block content %}
-<div class="screen-title"><h1>Complete Your Payment</h1><p>After making the payment, please contact the admin to confirm.</p></div>
-<div class="card-box"><dl class="kv"><dt>Plan:</dt><dd>{{ plan.name }}</dd><dt>Amount:</dt><dd>${{ '%g'|format(sub.amount) }} USD</dd><dt>Duration:</dt><dd>{{ sub.duration_days }} days</dd>
-<dt>{{ icon('message-circle','sm') }}Admin WhatsApp:</dt><dd>{{ pay.whatsapp_number }}</dd><dt>{{ icon('phone','sm') }}Admin Phone:</dt><dd>{{ pay.contact_phone }}</dd></dl></div>
-<div class="card-box"><h2>Bank Details</h2><p class="small muted">{{ pay.payment_instructions }}</p>
-<dl class="kv"><dt>Bank Name:</dt><dd>{{ pay.bank_name }}</dd><dt>Account Name:</dt><dd>{{ pay.bank_account_name }}</dd><dt>Account Number:</dt><dd>{{ pay.bank_account_number }}</dd><dt>Reference:</dt><dd><code>{{ reference }}</code></dd></dl>
-<p class="hint">Never share a bank password, card PIN or one-time code. MyMind will never ask for them.</p></div>
+{% extends "ct_layout.html" %}
+{% set ct_active = 'plan' %}
+{% block title %}Complete Your Payment{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page cp-page">
+<header class="ct-heading"><div><p class="ct-kicker">Plans</p><h1>Complete your payment</h1><p class="muted">After making the payment, please contact the admin to confirm.</p></div>
+<a class="btn small" href="{{ url_for('subscriptions.status') }}">{{ icon('arrow-left') }} Back to plans</a></header>
+<div class="ct-duo">
+<section class="ct-panel"><div class="ct-panel-heading"><div><h2>Order</h2></div></div><dl class="kv"><dt>Plan</dt><dd>{{ plan.name }}</dd><dt>Amount</dt><dd>${{ '%g'|format(sub.amount) }} USD</dd><dt>Duration</dt><dd>{{ sub.duration_days }} days</dd>
+<dt>{{ icon('message-circle','sm') }} Admin WhatsApp</dt><dd>{{ pay.whatsapp_number }}</dd><dt>{{ icon('phone','sm') }} Admin phone</dt><dd>{{ pay.contact_phone }}</dd></dl></section>
+<section class="ct-panel"><div class="ct-panel-heading"><div><h2>Bank details</h2><p class="muted small">{{ pay.payment_instructions }}</p></div></div>
+<dl class="kv"><dt>Bank name</dt><dd>{{ pay.bank_name }}</dd><dt>Account name</dt><dd>{{ pay.bank_account_name }}</dd><dt>Account number</dt><dd>{{ pay.bank_account_number }}</dd><dt>Reference</dt><dd><code>{{ reference }}</code></dd></dl>
+<p class="ct-privacy">Never share a bank password, card PIN or one-time code. MyMind will never ask for them.</p></section>
+</div>
 {% if pay.whatsapp_url %}<a class="btn green block" target="_blank" rel="noopener noreferrer" href="{{ pay.whatsapp_url }}">{{ icon('message-circle') }} Contact on WhatsApp</a>
 {% else %}<span class="btn disabled block" aria-disabled="true">{{ icon('message-circle') }} WhatsApp (not configured yet)</span>{% endif %}
-<p></p>{% if sub.status == 'pending_payment' %}<a class="btn primary block" href="{{ url_for('subscriptions.verify', sub_id=sub.id) }}">I've Made the Payment</a>{% endif %}
-<p class="center small muted" style="margin-top:.8rem">Tapping the button above does not activate your account. Access starts only after the administrator confirms your payment.</p>
-<p class="center small"><a href="{{ url_for('subscriptions.status') }}">← Back to plans</a></p>
+{% if sub.status == 'pending_payment' %}<a class="btn primary block" href="{{ url_for('subscriptions.verify', sub_id=sub.id) }}">I've made the payment</a>{% endif %}
+<p class="center small muted">Tapping the button above does not activate your account. Access starts only after the administrator confirms your payment.</p>
+</div>
 {% endblock %}
