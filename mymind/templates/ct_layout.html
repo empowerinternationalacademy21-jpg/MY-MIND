@@ -8,7 +8,7 @@
 <div class="ctx{% block ct_stage %}{% endblock %}">
   {% block ct_rail %}
   <nav class="ctx-rail" aria-label="Caretaker">
-    {% for key, ep, ic, label in [('dashboard','auth.caretaker','layout-dashboard','Dashboard'),('children','caretaker.children','users','Child profiles'),('links','parent_links.page','key-round','Parent links'),('plan','subscriptions.status','credit-card','Plans')] %}
+    {% for key, ep, ic, label in [('dashboard','auth.caretaker','layout-dashboard','Dashboard'),('activity','activity_dashboard.page','sparkles','Activity & interests'),('children','caretaker.children','users','Child profiles'),('links','parent_links.page','key-round','Parent links'),('plan','subscriptions.status','credit-card','Plans')] %}
     <a href="{{ url_for(ep) }}" aria-label="{{ label }}" title="{{ label }}" {% if ct_active == key %}aria-current="page"{% endif %}>{{ icon(ic) }}</a>
     {% endfor %}
     <span class="ctx-sep" aria-hidden="true"></span>
