@@ -68,5 +68,7 @@ class Config:
     API_MAX_PER_MINUTE = 120
     TESTING = False
     WORLD_ROTATION_SECONDS = int(os.getenv("WORLD_ROTATION_SECONDS", "300") or 300)    # character/scene rotation (5 min)
-    WORLD_UPLOAD_MAX_BYTES = 10 * 1024 * 1024                                         # admin art uploads only
+    WORLD_UPLOAD_MAX_BYTES = 10 * 1024 * 1024                                         # admin art uploads only (per image)
+    WORLD_FOLDER_MAX_FILES = 60                                                       # images per folder upload
+    WORLD_FOLDER_MAX_BYTES = 100 * 1024 * 1024                                        # whole folder upload request
     WORLD_ASSET_DIR = os.getenv("WORLD_ASSET_DIR", "") or os.path.join(BASE_DIR, "instance", "world_assets")
