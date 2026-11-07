@@ -20,6 +20,10 @@
 {%- if n == 1 -%}{%- set ns.d = 'M0,%.2f L100,%.2f'|format(ns.py, ns.py) -%}{%- endif -%}
 {{ ns.d }}
 {%- endmacro %}
+{% macro mnum(m) -%}{%- if m <= 0 -%}0{%- elif m < 1 -%}{{ (m * 60)|round|int }}{%- elif m < 10 -%}{{ ('%.1f'|format(m))|replace('.0', '') }}{%- else -%}{{ m|round|int }}{%- endif -%}{%- endmacro %}
+{% macro munit(m) -%}{{ 'sec' if 0 < m < 1 else 'min' }}{%- endmacro %}
+{% macro mfmt(m) -%}{{ mnum(m) }} {{ munit(m) }}{%- endmacro %}
+{% macro ev_title(event) -%}{%- if event.content -%}{{ event.content.title }}{%- elif event.event_type == 'view' -%}Visited {{ event.stop_label }}{%- else -%}{{ event.event_type|title }}{%- endif -%}{%- endmacro %}
 {% macro smooth(points) -%}
 {%- set ns = namespace(d='', px=0, py=0, n=0) -%}
 {%- for p in points.split(' ') if p -%}
@@ -54,15 +58,16 @@
     <div class="ct-main">
       <header class="ct-heading">
         <div><p class="ct-kicker">Family overview</p><h1 id="caretaker-title">{{ child.display_name }}'s activity</h1><p class="muted">A private view of activity and content explored in MyMind.</p></div>
+        <p class="ct-live" id="ct-live" role="status" data-last="{{ data.summary.last_active_iso or '' }}"><i aria-hidden="true"></i><span data-live-text>{% if data.summary.last_active_iso %}Last activity <time data-utc="{{ data.summary.last_active_iso }}" data-rel>{{ data.summary.last_active_iso[11:16] }} UTC</time>{% else %}Waiting for {{ child.display_name }}'s first activity{% endif %}</span></p>
       </header>
 
-      <section class="ct-stats" aria-label="Activity summary">
+      <section class="ct-stats" data-live="stats" aria-label="Activity summary">
         {% for label, value, unit, symbol in [('Time today',data.summary.today_minutes,'min','clock'),('Time this week',data.summary.week_minutes,'min','calendar'),('Videos watched',data.summary.videos_watched,'','clapperboard'),('Favorites added',data.summary.favorites_added,'','heart'),('Current streak',data.summary.streak,'days','rocket'),('Most active stop',data.summary.top_stop,'','locate-fixed')] %}
-        <article class="ct-stat"><span class="ct-stat-icon">{{ icon(symbol) }}</span><span class="ct-stat-label">{{ label }}</span><strong>{{ value }}{% if unit == 'min' %}<small> min</small>{% elif unit %}<small> {{ unit }}</small>{% endif %}</strong></article>
+        <article class="ct-stat"><span class="ct-stat-icon">{{ icon(symbol) }}</span><span class="ct-stat-label">{{ label }}</span><strong>{% if unit == 'min' %}{{ mnum(value) }}<small> {{ munit(value) }}</small>{% else %}{{ value }}{% if unit %}<small> {{ unit }}</small>{% endif %}{% endif %}</strong></article>
         {% endfor %}
       </section>
 
-      <section class="ct-panel ct-statistic" aria-label="Activity charts">
+      <section class="ct-panel ct-statistic" data-live="statistic" aria-label="Activity charts">
         <div class="ct-panel-heading">
           <div><h2>Statistic</h2></div>
           <div class="ct-ranges" role="group" aria-label="Date range">
@@ -79,9 +84,9 @@
           </form>
         </details>
 
-        <div class="ct-hero-head"><div><h3>Minutes per day</h3><p class="muted small">{{ start.strftime('%b %-d') }} to {{ end.strftime('%b %-d') }}</p></div>
+        <div class="ct-hero-head"><div><h3>Minutes per day</h3><p class="muted small">{{ start.strftime('%b %-d') }} to {{ end.strftime('%b %-d') }} · {{ data.summary.range_actions }} action{{ '' if data.summary.range_actions == 1 else 's' }} (opens, likes, favorites)</p></div>
           <ul class="ct-hero-legend" aria-hidden="true"><li><i style="--legend-color:#ff7a1a"></i>Minutes of activity</li><li><i style="--legend-color:#f6f2ec"></i>Peak day</li></ul></div>
-        {% if data.days|sum(attribute='minutes') > 0 %}
+        {% if data.days|sum(attribute='minutes') > 0 or data.summary.range_actions > 0 %}
         {% set n_days = data.days|length %}
         {% set peak = data.days|map(attribute='minutes')|max or 1 %}
         {% set label_step = ((n_days / 6)|round(0, 'ceil')|int) or 1 %}
@@ -97,39 +102,39 @@
           {% set x = (loop.index0 * 100 / (n_days - 1)) if n_days > 1 else 50 %}
           {% set y = 90 - (day.minutes / peak * 72) %}
           {% set is_peak = (day.minutes == peak and not pk.done) %}{% if is_peak %}{% set pk.done = true %}{% endif %}
-          <a class="ct-dot{{ ' is-peak' if is_peak }}" style="--x:{{ '%.2f'|format(x) }}%;--y:{{ '%.2f'|format(y) }}%" href="{{ url_for('auth.caretaker', range=period, start=start.isoformat(), end=end.isoformat(), day=day.date) }}" title="{{ day.date }}: {{ day.minutes }} minutes"><span>{{ day.date[8:10]|int }} {{ ct_months[day.date[5:7]|int - 1] }}<b>{{ day.minutes|round|int }} min</b></span></a>
+          <a class="ct-dot{{ ' is-peak' if is_peak }}{{ ' is-right' if x > 78 }}{{ ' is-left' if x < 14 }}" style="--x:{{ '%.2f'|format(x) }}%;--y:{{ '%.2f'|format(y) }}%" href="{{ url_for('auth.caretaker', range=period, start=start.isoformat(), end=end.isoformat(), day=day.date) }}" title="{{ day.date }}: {{ day.minutes }} minutes, {{ day.actions }} actions"><span>{{ day.date[8:10]|int }} {{ ct_months[day.date[5:7]|int - 1] }}<b>{{ mfmt(day.minutes) }}{% if day.actions %} · {{ day.actions }} action{{ '' if day.actions == 1 else 's' }}{% endif %}</b></span></a>
           {% endfor %}
         </div>
         <div class="ct-curve-labels">{% for day in data.days[::label_step] %}<a style="--x:{{ '%.2f'|format((loop.index0 * label_step * 100 / (n_days - 1)) if n_days > 1 else 50) }}%" href="{{ url_for('auth.caretaker', range=period, start=start.isoformat(), end=end.isoformat(), day=day.date) }}">{{ day.date[8:10]|int }} {{ ct_months[day.date[5:7]|int - 1] }}</a>{% endfor %}</div>
         {% else %}<p class="ct-empty">No activity in this date range.</p>{% endif %}
       </section>
 
-      <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Top contributors</h2><p class="muted small">Weekly trend: total time and most active stops</p></div>
-        {% if can_view_long_history and data.trend %}<div class="ct-line-legend">{% for line in data.trend_series %}<span><i style="--legend-color:{{ ct_line_colors[loop.index0 % ct_line_colors|length] }}"></i>{{ line.label }}</span>{% endfor %}</div>{% endif %}</div>
-        {% if can_view_long_history %}{% if data.trend %}<div class="ct-line-wrap"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Weekly activity trend"><path d="M0 100H100" class="ct-axis"/>{% for line in data.trend_series %}<path d="{{ smooth(line.points) }}" style="--line-color:{{ ct_line_colors[loop.index0 % ct_line_colors|length] }}" class="ct-line"/>{% endfor %}</svg><div class="ct-week-labels">{% for item in data.trend %}<span>{{ item.week[5:] }}</span>{% endfor %}</div></div>{% else %}<p class="ct-empty">Weekly trends will appear as activity is recorded.</p>{% endif %}{% else %}<p class="ct-empty">Unlock full dashboard trends with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
+      <article class="ct-panel" data-live="trend"><div class="ct-panel-heading"><div><h2>Top contributors</h2><p class="muted small">Weekly trend: total time and most active stops</p></div>
+        {% if can_view_long_history and data.trend|length >= 2 %}<div class="ct-line-legend">{% for line in data.trend_series %}<span><i style="--legend-color:{{ ct_line_colors[loop.index0 % ct_line_colors|length] }}"></i>{{ line.label }}</span>{% endfor %}</div>{% endif %}</div>
+        {% if can_view_long_history %}{% if data.trend|length >= 2 %}<div class="ct-line-wrap"><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Weekly activity trend"><path d="M0 100H100" class="ct-axis"/>{% for line in data.trend_series %}<path d="{{ smooth(line.points) }}" style="--line-color:{{ ct_line_colors[loop.index0 % ct_line_colors|length] }}" class="ct-line"/>{% endfor %}</svg><div class="ct-week-labels">{% for item in data.trend %}<span>{{ item.week[8:10]|int }} {{ ct_months[item.week[5:7]|int - 1] }}</span>{% endfor %}</div></div>{% elif data.trend and data.stops %}<p class="muted small" style="margin:0 0 .7rem">Trend lines appear once there are two or more weeks of activity. Here is the split so far.</p>{% set top_min = data.stops[0].minutes or 1 %}<div class="ct-mini-bars">{% for stop in data.stops[:4] %}<div><span>{{ stop.label }}</span><i style="--w:{{ (stop.minutes / top_min * 100)|round|int }}%;--bar:{{ ct_stop_colors[loop.index0 % ct_stop_colors|length] }}"></i><b>{{ mfmt(stop.minutes) }}</b></div>{% endfor %}</div>{% else %}<p class="ct-empty">Weekly trends will appear as activity is recorded.</p>{% endif %}{% else %}<p class="ct-empty">Unlock full dashboard trends with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
       </article>
 
-      <section class="ct-duo" aria-label="Time breakdown">
+      <section class="ct-duo" data-live="duo" aria-label="Time breakdown">
         <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Time by stop</h2><p class="muted small">Selected date range</p></div></div>
           {% if data.stops %}
           {% set tot = data.stops|sum(attribute='minutes') %}
           {% set dn = namespace(off=0, parts=[]) %}
           {% if tot > 0 %}{% for stop in data.stops %}{% set seg_end = dn.off + (stop.minutes / tot * 100) %}{% set _ = dn.parts.append(ct_stop_colors[loop.index0 % ct_stop_colors|length] ~ ' %.2f%% %.2f%%'|format(dn.off, seg_end)) %}{% set dn.off = seg_end %}{% endfor %}{% endif %}
-          <div class="ct-donut-layout"><div class="ct-donut-wrap"><div class="ct-donut" style="--donut:{{ ('conic-gradient(' ~ dn.parts|join(', ') ~ ')') if tot > 0 else data.donut }}" role="img" aria-label="Time share by stop"></div><div class="ct-donut-centre">{{ data.summary.range_minutes|round|int }}<small>min</small></div></div>
-            <ul class="ct-legend">{% for stop in data.stops %}<li><i style="--legend-color:{{ ct_stop_colors[loop.index0 % ct_stop_colors|length] }}"></i><span>{{ stop.label }}</span><b>{{ stop.minutes|round|int }}m</b></li>{% endfor %}</ul></div>
+          <div class="ct-donut-layout"><div class="ct-donut-wrap"><div class="ct-donut" style="--donut:{{ ('conic-gradient(' ~ dn.parts|join(', ') ~ ')') if tot > 0 else data.donut }}" role="img" aria-label="Time share by stop"></div><div class="ct-donut-centre">{{ mnum(data.summary.range_minutes) }}<small>{{ munit(data.summary.range_minutes) }}</small></div></div>
+            <ul class="ct-legend">{% for stop in data.stops %}<li><i style="--legend-color:{{ ct_stop_colors[loop.index0 % ct_stop_colors|length] }}"></i><span>{{ stop.label }}</span><b>{{ mnum(stop.minutes) }}{{ 's' if 0 < stop.minutes < 1 else 'm' }}</b></li>{% endfor %}</ul></div>
           {% else %}<p class="ct-empty">No activity in this date range.</p>{% endif %}
         </article>
         <article class="ct-panel"><div class="ct-panel-heading"><div><h2>When {{ child.display_name }} is active</h2><p class="muted small">Activity minutes by hour of day</p></div></div>
-          {% if can_view_long_history %}{% if data.peak_hour is not none %}<p class="ct-peak">Busiest around <strong>{{ '%02d:00'|format(data.peak_hour) }}</strong></p><div class="ct-hour-chart" role="img" aria-label="Activity minutes by hour">{% set max_hour = data.hours|map(attribute='minutes')|max or 1 %}{% for hour in data.hours %}<i title="{{ '%02d:00'|format(hour.hour) }}: {{ hour.minutes }} minutes" style="--hour:{{ (hour.minutes / max_hour * 100)|round|int }}%"></i>{% endfor %}</div><div class="ct-hour-labels"><span>12 am</span><span>6 am</span><span>12 pm</span><span>6 pm</span><span>12 am</span></div>{% else %}<p class="ct-empty">No activity yet in this date range.</p>{% endif %}{% else %}<p class="ct-empty">Unlock activity timing with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
+          {% if can_view_long_history %}{% if data.peak_hour is not none %}<p class="ct-peak">Busiest around <strong>{{ '%02d:00'|format(data.peak_hour) }}</strong></p><div class="ct-hour-chart" data-hours role="img" aria-label="Activity minutes by hour">{% set max_hour = data.hours|map(attribute='minutes')|max or 1 %}{% for hour in data.hours %}<i title="{{ '%02d:00'|format(hour.hour) }}: {{ hour.minutes }} minutes" style="--hour:{{ (hour.minutes / max_hour * 100)|round|int }}%"></i>{% endfor %}</div><div class="ct-hour-labels"><span>12 am</span><span>6 am</span><span>12 pm</span><span>6 pm</span><span>12 am</span></div>{% else %}<p class="ct-empty">No activity yet in this date range.</p>{% endif %}{% else %}<p class="ct-empty">Unlock activity timing with a paid plan. <a href="{{ url_for('subscriptions.status') }}">View plans</a></p>{% endif %}
         </article>
       </section>
 
-      <section class="ct-panel ct-timeline" id="ct-timeline" aria-labelledby="ct-timeline-title">
-        <div class="ct-panel-heading"><div><h2 id="ct-timeline-title">Daily activity</h2><p class="muted small">{{ selected_day.strftime('%A, %B %-d') }}</p></div><form method="get" action="{{ url_for('auth.caretaker') }}"><input type="hidden" name="range" value="{{ period }}"><input type="hidden" name="start" value="{{ start.isoformat() }}"><input type="hidden" name="end" value="{{ end.isoformat() }}"><label class="sr-only" for="ct-day">Choose a day</label><input id="ct-day" type="date" name="day" value="{{ selected_day.isoformat() }}" min="{{ start.isoformat() }}" max="{{ end.isoformat() }}" onchange="this.form.submit()"></form></div>
-        {% if data.timeline %}<ol class="ct-event-list">{% for event in data.timeline %}<li><time>{{ event.time }}</time><span class="ct-event-dot"></span><div class="ct-event-content">{% if event.content and event.content.thumbnail_url %}<img src="{{ event.content.thumbnail_url }}" alt="" loading="lazy">{% endif %}<div><strong>{{ event.content.title if event.content else event.event_type|title }}</strong><span>{{ event.stop_label }}{% if event.duration_seconds %} · {{ (event.duration_seconds / 60)|round|int }} min{% endif %}{% if event.reaction in ('like','dislike','favorite') %} · {{ event.reaction|title }}{% endif %}</span></div><span class="ct-event-kind">{{ event.event_type|title }}</span></div></li>{% endfor %}</ol>{% else %}<p class="ct-empty">No activity yet today.</p>{% endif %}
+      <section class="ct-panel ct-timeline" id="ct-timeline" data-live="timeline" aria-labelledby="ct-timeline-title">
+        <div class="ct-panel-heading"><div><h2 id="ct-timeline-title">Daily activity</h2><p class="muted small">{{ selected_day.strftime('%A, %B %-d') }} · times shown in your local time</p></div><form method="get" action="{{ url_for('auth.caretaker') }}"><input type="hidden" name="range" value="{{ period }}"><input type="hidden" name="start" value="{{ start.isoformat() }}"><input type="hidden" name="end" value="{{ end.isoformat() }}"><label class="sr-only" for="ct-day">Choose a day</label><input id="ct-day" type="date" name="day" value="{{ selected_day.isoformat() }}" min="{{ start.isoformat() }}" max="{{ end.isoformat() }}" onchange="this.form.submit()"></form></div>
+        {% if data.timeline %}<ol class="ct-event-list">{% for event in data.timeline %}<li><time data-utc="{{ event.iso }}">{{ event.time }}</time><span class="ct-event-dot"></span><div class="ct-event-content">{% if event.content and event.content.thumbnail_url %}<img src="{{ event.content.thumbnail_url }}" alt="" loading="lazy">{% endif %}<div><strong>{{ ev_title(event) }}</strong><span>{{ event.stop_label }}{% if event.duration_seconds %} · {{ mfmt(event.duration_seconds / 60) }}{% endif %}{% if event.reaction in ('like','dislike','favorite') %} · {{ event.reaction|title }}{% endif %}</span></div><span class="ct-event-kind">{{ {'view':'Visit','watch':'Watched','like':'Liked','dislike':'Disliked','favorite':'Favorite','next':'Skipped','open':'Opened'}.get(event.event_type, event.event_type|title) }}</span></div></li>{% endfor %}</ol>{% else %}<p class="ct-empty">No activity yet today.</p>{% endif %}
       </section>
 
-      <section class="ct-content-sections" aria-label="Content activity">
+      <section class="ct-content-sections" data-live="content" aria-label="Content activity">
         {% for key, title, items in [('recent','Recently explored',data.content.recent),('favorites','Favorites',data.content.favorites),('watched','Videos watched',data.content.watched)] %}
         <article class="ct-panel"><div class="ct-panel-heading"><div><h2>{{ title }}</h2><p class="muted small">{{ items|length }} items in this range</p></div></div>{% if items %}<div class="ct-content-grid">{% for item in (items if key == 'watched' else items[:8]) %}<div class="ct-content-item">{% if item.thumbnail_url %}<img src="{{ item.thumbnail_url }}" alt="" loading="lazy">{% else %}<span class="ct-content-placeholder">{{ icon('sparkles') }}</span>{% endif %}<strong>{{ item.title }}</strong><small>{{ item.content_type|title }}{% if item.category %} · {{ item.category|title }}{% endif %}</small></div>{% endfor %}</div>{% else %}<p class="ct-empty">Nothing to show yet.</p>{% endif %}</article>
         {% endfor %}
@@ -156,7 +161,7 @@
     </div>
 
     {# =================== side column: profile, card, last activity =================== #}
-    <aside class="ct-side" aria-label="Selected child">
+    <aside class="ct-side" data-live="side" aria-label="Selected child">
       <section class="ct-profile">
         <span class="ct-profile-badge">{{ icon('shield-check','sm') }} Private family view</span>
         <span class="ct-avatar">{{ icon(child.avatar or 'smile') }}</span>
@@ -170,13 +175,13 @@
           <a href="{{ url_for('profile.settings') }}"><span>{{ icon('settings') }}</span>Settings</a>
         </nav>
         <div class="ct-card" aria-label="Time this week">
-          <div class="ct-card-art"><span class="ct-card-logo">MyMind</span><div><small>Time this week</small><strong>{{ data.summary.week_minutes|round|int }}<em>min</em></strong></div></div>
+          <div class="ct-card-art"><span class="ct-card-logo">MyMind</span><div><small>Time this week</small><strong>{{ mnum(data.summary.week_minutes) }}<em>{{ munit(data.summary.week_minutes) }}</em></strong></div></div>
           <div class="ct-card-side"><span class="ct-card-chip" aria-hidden="true"></span><div><small>Current streak</small><b>{{ data.summary.streak }} day{{ '' if data.summary.streak == 1 else 's' }}</b></div></div>
         </div>
       </section>
       <section class="ct-recent" aria-labelledby="ct-recent-title">
         <h2 id="ct-recent-title">Last activity</h2>
-        {% if data.timeline %}<ul class="ct-last">{% for event in (data.timeline[-3:])|reverse %}<li>{% if event.content and event.content.thumbnail_url %}<img class="ct-thumb" src="{{ event.content.thumbnail_url }}" alt="" loading="lazy" style="border-radius:50%">{% else %}<span class="ct-thumb">{{ icon('sparkles') }}</span>{% endif %}<div><strong>{{ event.content.title if event.content else event.event_type|title }}</strong><small>{{ event.time }} · {{ event.stop_label }}</small></div><span class="ct-event-kind">{{ event.event_type|title }}</span></li>{% endfor %}</ul>
+        {% set meaningful = data.timeline|selectattr('content')|list %}{% if data.timeline %}<ul class="ct-last">{% for event in ((meaningful or data.timeline)[-4:])|reverse %}<li>{% if event.content and event.content.thumbnail_url %}<img class="ct-thumb" src="{{ event.content.thumbnail_url }}" alt="" loading="lazy" style="border-radius:50%">{% else %}<span class="ct-thumb">{{ icon('sparkles') }}</span>{% endif %}<div><strong>{{ ev_title(event) }}</strong><small><time data-utc="{{ event.iso }}">{{ event.time }}</time> · {{ event.stop_label }}</small></div><span class="ct-event-kind">{{ {'view':'Visit','watch':'Watched','like':'Liked','dislike':'Disliked','favorite':'Favorite','next':'Skipped','open':'Opened'}.get(event.event_type, event.event_type|title) }}</span></li>{% endfor %}</ul>
         {% else %}<p class="ct-empty">No activity yet on {{ selected_day.strftime('%b %-d') }}.</p>{% endif %}
         <a class="ct-see-all" href="#ct-timeline">See all activity {{ icon('arrow-right') }}</a>
       </section>
@@ -185,3 +190,4 @@
   {% endif %}
 </div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/caretaker_live.js') }}" defer></script>{% endblock %}
