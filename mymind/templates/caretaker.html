@@ -169,6 +169,7 @@
         <h2>{{ child.display_name }}</h2>
         {% if children %}<form method="post" action="{{ url_for('caretaker.select_child', child_uid=child.public_uid) }}" class="ct-child-switch"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="ct-child-select">Child</label><select id="ct-child-select" aria-label="Switch child" onchange="this.form.action='/caretaker/children/select/'+this.value;this.form.requestSubmit()">{% for profile in children %}<option value="{{ profile.public_uid }}" {{ 'selected' if profile.id == child.id }}>{{ profile.display_name }}{{ ' · read-only' if profile_is_read_only(profile) }}</option>{% endfor %}</select></form>{% endif %}
         <nav class="ct-quick" aria-label="Quick actions">
+          <a href="{{ url_for('activity_dashboard.page') }}"><span>{{ icon('sparkles') }}</span>Activity</a>
           <a href="{{ url_for('caretaker.children') }}"><span>{{ icon('users') }}</span>Children</a>
           <a href="{{ url_for('parent_links.page') }}"><span>{{ icon('key-round') }}</span>Links</a>
           {% if can_export %}<a href="{{ url_for('auth.caretaker_report', start=start.isoformat(), end=end.isoformat()) }}"><span>{{ icon('download') }}</span>Report</a>{% else %}<a href="{{ url_for('subscriptions.status') }}" title="Export on paid plan"><span>{{ icon('lock') }}</span>Export</a>{% endif %}
