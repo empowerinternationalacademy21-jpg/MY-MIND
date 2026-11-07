@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}My settings{% endblock %}
+{% block content %}
+<section class="auth-panel" aria-labelledby="child-settings-title">
+  <div class="auth-heading">
+    <span class="auth-heading__icon">{{ icon(child.avatar) }}</span>
+    <p class="auth-eyebrow">{{ child.display_name }}</p>
+    <h1 id="child-settings-title">My settings</h1>
+    <p>Choose your avatar and keep your password safe.</p>
+  </div>
+  {% if read_only %}<p class="notice">{{ icon('lock') }} Ask your caretaker to unlock this profile to change settings.</p>{% else %}
+  <form method="post" class="auth-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="avatar">
+    <p><b>My avatar</b></p>
+    <div class="choices avatars">{% for a in avatars %}<label class="choice"><input type="radio" name="avatar" value="{{ a }}" {{ 'checked' if child.avatar == a }}><span>{{ icon(a) }}<span class="sr-only">{{ a }}</span></span></label>{% endfor %}</div>
+    <button class="btn primary block" type="submit">Save avatar</button>
+  </form>
+  <hr>
+  {% if can_change_password %}
+  <form method="post" class="auth-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="password">
+    <h2>Change my password</h2>
+    <div class="field"><label for="cur-pw">Current password</label><input id="cur-pw" name="current" type="password" autocomplete="current-password" required></div>
+    <div class="field"><label for="new-pw">New password</label><input id="new-pw" name="new" type="password" minlength="10" maxlength="128" autocomplete="new-password" required>
+      <p class="hint">At least 10 characters, with a letter and a number.</p></div>
+    <div class="field"><label for="conf-pw">Confirm new password</label><input id="conf-pw" name="confirm" type="password" autocomplete="new-password" required></div>
+    <button class="btn primary block" type="submit">Change password</button>
+  </form>
+  {% else %}<p class="hint">Ask your caretaker to set a password just for you.</p>{% endif %}
+  {% endif %}
+  <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn block" type="submit">{{ icon('log-out') }} Log out</button></form>
+</section>
+{% endblock %}
