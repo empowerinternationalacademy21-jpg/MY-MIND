@@ -49,6 +49,7 @@
         const cur = queue[current];
         if (cur && cur.embed && opened && Date.now() - opened > 10000) MM.react(cur, "watched");
         opened = 0;
+        MM.activity.endContent();                                       // listening time for this song ends here
     }
 
     function play(item) {
@@ -58,6 +59,7 @@
         markActive(item);
         renderSheet(item);
         if (!dlg.open) dlg.showModal();
+        if (item.embed) MM.activity.startContent(item);                 // one 'listen' session per song, measured from the player
     }
 
     async function playNext() {
