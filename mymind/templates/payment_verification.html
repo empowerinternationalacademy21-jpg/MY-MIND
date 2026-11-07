@@ -1,14 +1,20 @@
-{% extends "base.html" %}{% block title %}Payment Verification{% endblock %}
-{% block content %}
-<div class="screen-title"><h1>Payment Verification</h1><p>Submit your payment details for review.</p></div>
+{% extends "ct_layout.html" %}
+{% set ct_active = 'plan' %}
+{% block title %}Payment Verification{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page cp-page">
+<header class="ct-heading"><div><p class="ct-kicker">Plans</p><h1>Payment verification</h1><p class="muted">Submit your payment details for review.</p></div></header>
+<section class="ct-panel cp-narrow">
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div class="field"><label>Plan Selected</label><div class="card-box" style="margin:0;padding:.7rem .9rem;background:var(--sky)"><b>{{ sub.plan_code|title }} · ${{ '%g'|format(sub.amount) }}</b></div></div>
-  <div class="field"><label for="ref">Payment Reference / ID</label><input id="ref" name="payment_reference" type="text" required maxlength="60" placeholder="e.g. TRX123456" value="{{ request.form.get('payment_reference','') }}"></div>
-  <div class="field"><label for="pd">Date of Payment</label><input id="pd" name="payment_date" type="date" required value="{{ request.form.get('payment_date','') }}"></div>
-  <div class="field"><label for="note">Additional Note (Optional)</label><textarea id="note" name="note" rows="3" maxlength="500" placeholder="Any extra information…">{{ request.form.get('note','') }}</textarea></div>
-  <p class="hint">Do not enter any bank password, card PIN or security code.</p>
-  <button class="btn primary block" type="submit">Submit Request</button>
+  <div class="field"><label>Plan selected</label><div class="cp-chosen"><b>{{ sub.plan_code|title }} · ${{ '%g'|format(sub.amount) }}</b></div></div>
+  <div class="field"><label for="ref">Payment reference / ID</label><input id="ref" name="payment_reference" type="text" required maxlength="60" placeholder="e.g. TRX123456" value="{{ request.form.get('payment_reference','') }}"></div>
+  <div class="field"><label for="pd">Date of payment</label><input id="pd" name="payment_date" type="date" required value="{{ request.form.get('payment_date','') }}"></div>
+  <div class="field"><label for="note">Additional note (optional)</label><textarea id="note" name="note" rows="3" maxlength="500" placeholder="Any extra information…">{{ request.form.get('note','') }}</textarea></div>
+  <p class="ct-privacy">Do not enter any bank password, card PIN or security code.</p>
+  <button class="btn primary block" type="submit" style="margin-top:.9rem">Submit request</button>
   <p class="center small"><a href="{{ url_for('subscriptions.payment', sub_id=sub.id) }}">Back</a></p>
-</form>
+</form></section>
+</div>
 {% endblock %}
