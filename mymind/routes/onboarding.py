@@ -64,17 +64,13 @@ def onboarding():
             if Session.query(ChildAccount).filter_by(username=child_username).first():
                 child_username = auth_service.new_child_username(g.user)
             child_password = (request.form.get("child_password") or "").strip()
-            if child_password:
-                try:
-                    auth_service.validate_password(child_password, child_username)
-                except auth_service.AuthError as exc:
-                    flash(str(exc), "error")
-                    return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS, **_age_ctx()), 400
-                child_pwd_hash = auth_service.hash_password(child_password)
-                legacy_shared = False
-            else:
-                child_pwd_hash = g.user.password_hash
-                legacy_shared = True
+            try:      # the child's own password: required and different from the caretaker's
+                auth_service.validate_child_password(g.user, child_password)
+            except auth_service.AuthError as exc:
+                flash(str(exc), "error")
+                return render_template("onboarding.html", child=child, r=parse_form(), C=C, avatars=AVATARS, **_age_ctx()), 400
+            child_pwd_hash = auth_service.hash_password(child_password)
+            legacy_shared = False
             child = ChildProfile(caregiver_user_id=g.user.id, display_name=name, avatar=avatar,
                                  child_username=child_username, age_years=age)
             Session.add(child)
