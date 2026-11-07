@@ -117,6 +117,49 @@ def add_manual(admin, archetype, raw, name="", caption="", publish=False, make_d
     return job
 
 
+def add_manual_folder(admin, files, archetype="", publish=False, max_files=30):
+    """Upload a whole folder of your own .glb models (Blender etc.) in one go.
+
+    `files` is a list of (filename, file_object). With `archetype` blank, each file is matched to its island piece / item / character
+    by its file name (home.glb, lm_music.glb, Island base.glb, cupcake.glb); a file that matches nothing is skipped and reported.
+    With an `archetype` chosen, every file becomes that kind of thing and is named after its file (handy for many island looks).
+    Each model goes through the same checks as a single upload and one bad file never blocks the others.
+    -> {"added": [Asset3D, ...], "skipped": [(filename, reason), ...]}
+    """
+    if archetype:
+        try:
+            safe_prompts.archetype_info(archetype)
+        except safe_prompts.PromptRefused as exc:
+            raise PipelineError(str(exc))
+    candidates, skipped = [], []
+    for filename, fh in files:
+        shown = (filename or "").replace("\\", "/").rsplit("/", 1)[-1] or "(no name)"
+        if shown.startswith(".") or not shown.lower().endswith(".glb"):
+            skipped.append((shown, "not a .glb file"))
+        else:
+            candidates.append((shown, fh))
+    if not candidates:
+        raise PipelineError("That folder has no .glb files in it. In Blender use File > Export > glTF 2.0 and pick 'glTF Binary (.glb)'.")
+    if len(candidates) > max_files:
+        raise PipelineError(f"That folder has {len(candidates)} models. Please upload at most {max_files} at a time.")
+    added = []
+    for shown, fh in candidates:
+        key = archetype or safe_prompts.match_archetype(shown)
+        if not key:
+            skipped.append((shown, "its name doesn't match an island piece, item or character (try names like home.glb or island_base.glb, or pick one type for the whole folder)"))
+            continue
+        name = ""
+        if archetype:                                                     # one type for all: the file name tells them apart
+            name = " ".join(os.path.splitext(shown)[0].replace("_", " ").replace("-", " ").split())[:80]
+        try:
+            added.append(add_manual(admin, key, fh.read(), name, "", publish=publish))
+        except PipelineError as exc:
+            skipped.append((shown, str(exc)))
+    auth_service.audit(admin.id, "ai3d_manual_folder", "asset3d", None, f"{len(added)} added, {len(skipped)} skipped")
+    Session.commit()
+    return {"added": added, "skipped": skipped}
+
+
 def _fail(job, message):
     job.status, job.error, job.next_poll_at = "failed", (message or "Something went wrong.")[:400], None
 
