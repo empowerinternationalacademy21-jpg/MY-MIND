@@ -25,6 +25,7 @@
 {% if job.status in ('queued','running') %}{{ btn('refresh','Refresh') }}{% endif %}
 {% if job.status == 'review' %}{{ btn('publish','Approve and publish','primary') }}{{ btn('reject','Reject') }}{% endif %}
 {% if job.status == 'published' %}{{ btn('unpublish','Take down') }}{% endif %}
+{% if job.status == 'published' and job.kind == 'landmark' and job.category == 'island' %}<form method="post" action="{{ url_for('admin_ai3d.island_for_everyone', job_id=job.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn primary" type="submit" data-confirm="Use this island for every user's My World on every device?">Use this island for everyone</button></form>{% endif %}
 {% if job.status == 'failed' %}{{ btn('retry','Retry','primary') }}{{ btn('reject','Reject') }}{% endif %}
 <form method="post" action="{{ url_for('admin_ai3d.act', job_id=job.id, action='delete') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn red" type="submit" data-confirm="Delete this model and its files?">Delete</button></form></div>
 {% endblock %}
