@@ -1,6 +1,6 @@
 """Admin → AI 3D: create jobs from allow-listed choices, watch them, review, publish."""
 import json
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, current_app
 from database.db import Session
 from database.models import Asset3D
 from routes.helpers import admin_required
@@ -24,7 +24,7 @@ def jobs():
     return render_template("admin/ai3d.html", jobs=rows, catalog=safe_prompts.catalog(), colors=list(safe_prompts.COLORS), styles=list(safe_prompts.STYLES),
                            moods=list(safe_prompts.MOODS), accessories=list(safe_prompts.ACCESSORIES), archetypes=safe_prompts.ARCHETYPES, kit=safe_prompts.kit_catalog(),
                            provider_ready={n: c.configured() for n, c in providers.PROVIDERS.items()}, concept_ready=providers.concept_configured(),
-                           optimizer=optimize.available(), nav="3d")
+                           optimizer=optimize.available(), folder_max_files=current_app.config["AI3D_FOLDER_MAX_FILES"], nav="3d")
 
 
 @bp.route("/new", methods=["POST"])
@@ -78,6 +78,31 @@ def upload():
         return redirect(url_for("admin_ai3d.jobs"))
     flash("Uploaded and live in My World. Check how it looks below." if publish else "Uploaded. Check how it looks below, then press Publish to show it in My World.", "success")
     return redirect(url_for("admin_ai3d.detail", job_id=job.id))
+
+
+@bp.route("/upload-folder", methods=["POST"])
+@admin_required
+def upload_folder():
+    """Option 2 of the Blender upload: a whole folder of .glb models at once."""
+    files = [(x.filename, x) for x in request.files.getlist("models") if x and x.filename]
+    publish = "publish" in request.form
+    try:
+        result = pipeline.add_manual_folder(g.user, files, request.form.get("archetype", ""), publish=publish,
+                                            max_files=current_app.config["AI3D_FOLDER_MAX_FILES"])
+    except pipeline.PipelineError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("admin_ai3d.jobs"))
+    n, skipped = len(result["added"]), result["skipped"]
+    if n:
+        live = "and live in My World" if publish else "and waiting for your review (open each one, then press Publish)"
+        flash(f"{n} model{'s' if n != 1 else ''} uploaded {live}." + (f" {len(skipped)} skipped." if skipped else ""), "success")
+    else:
+        flash("No models were added.", "error")
+    for name, reason in skipped[:10]:
+        flash(f"Skipped {name}: {reason}", "error")
+    if len(skipped) > 10:
+        flash(f"...and {len(skipped) - 10} more skipped.", "error")
+    return redirect(url_for("admin_ai3d.jobs"))
 
 
 @bp.route("/<int:job_id>")
