@@ -63,6 +63,9 @@ def create_app(test_config=None):
         if request.method == "POST" and request.path == "/admin/world/upload-folder":      # a whole folder of art in one request
             request.max_content_length = app.config["WORLD_FOLDER_MAX_BYTES"] + 64 * 1024
             request.max_form_parts = app.config["WORLD_FOLDER_MAX_FILES"] * 2 + 50       # one part per image plus a few small form fields
+        if request.method == "POST" and request.path == "/admin/3d/upload-folder":     # a whole folder of Blender .glb models
+            request.max_content_length = app.config["AI3D_FOLDER_MAX_BYTES"] + 64 * 1024
+            request.max_form_parts = app.config["AI3D_FOLDER_MAX_FILES"] * 2 + 50
         if request.method == "POST" and request.path == "/admin/3d/upload":          # admin uploads of a Blender .glb
             request.max_content_length = app.config["AI3D_MANUAL_MAX_BYTES"] + 64 * 1024
         if request.method in ("POST", "PUT", "PATCH", "DELETE") and not check_csrf():
