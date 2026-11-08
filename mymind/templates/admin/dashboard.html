@@ -7,5 +7,6 @@
 <p style="margin-top:1rem"><a class="btn primary block" href="{{ url_for('admin.payments') }}">Open payment queue</a></p>
 <div class="sec-title" style="margin-top:1.4rem"><h2>Content library</h2></div>
 <div class="rows"><a class="row" href="{{ url_for('admin_world.library') }}"><span class="bub">{{ icon('image') }}</span><span class="grow">World Library<span class="sub">Island art, interiors, characters</span></span><span class="go">{{ icon('chevron-right') }}</span></a>
-<a class="row" href="{{ url_for('admin_ai3d.jobs') }}"><span class="bub">{{ icon('box') }}</span><span class="grow">AI 3D items<span class="sub">Create, review and publish 3D characters</span></span><span class="go">{{ icon('chevron-right') }}</span></a></div>
+<a class="row" href="{{ url_for('admin_ai3d.jobs') }}"><span class="bub">{{ icon('box') }}</span><span class="grow">AI 3D items<span class="sub">Create, review and publish 3D characters</span></span><span class="go">{{ icon('chevron-right') }}</span></a>
+<a class="row" href="{{ url_for('admin_ai3d.island_manager') }}"><span class="bub">{{ icon('box') }}</span><span class="grow">3D World &amp; Islands<span class="sub">Default world, delete and restore islands</span></span><span class="go">{{ icon('chevron-right') }}</span></a></div>
 {% endblock %}
