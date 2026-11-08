@@ -6,6 +6,7 @@ Source order for every kind of content:
   3. clearly labelled demo content
 """
 import html
+import random
 import json
 import re
 from urllib.parse import parse_qs, urlparse
@@ -90,18 +91,31 @@ def blocklist_for(user_settings, age=None):
             + age_service.extra_blocklist(age))
 
 
-def _topic_round(category, q, page, age=None):
+def _topic_round(category, q, page, age=None, seed=None):
     """Pick the search words and the 'round' (which provider page of that search) for an endless-scroll page.
 
     No free-text search: each page uses the NEXT keyword of the category (variety); once every keyword was used,
     the cycle starts again on the provider's next result page (round 2, 3, ...).
     With free-text search: the same words every time, and page N is the provider's page N.
+
+    `seed` (a number the page picks once per visit) makes every visit different without making scrolling inconsistent:
+    the keyword ORDER is shuffled by the seed and the provider page starts at a seed-chosen offset, so two visits begin
+    with different searches and different photos, while the pages of one visit still follow on from each other.
     """
     q = (q or "").strip()
     if q:
         return q, page
     kws = age_service.keywords_for(category if category in CATEGORIES else "objects", age) or ["kids"]
-    return kws[(page - 1) % len(kws)], (page - 1) // len(kws) + 1
+    if seed is not None:
+        kws = list(kws)
+        random.Random(f"{seed}:{category}").shuffle(kws)
+    rnd = (page - 1) // len(kws) + 1
+    if seed is not None:
+        rnd += random.Random(f"{seed}:round").randint(0, VARIETY_PAGE_SPREAD)
+    return kws[(page - 1) % len(kws)], rnd
+
+
+VARIETY_PAGE_SPREAD = 4         # a visit may start up to this many provider pages deep (more variety, still relevant photos)
 
 
 def _provider_items(kind, topic, category, rnd, n, age=None):
@@ -124,31 +138,42 @@ def _provider_items(kind, topic, category, rnd, n, age=None):
     return None
 
 
-def _stored(kind, category, n, page):
-    """Real (non-demo) items we saved earlier, newest first, `n` per page. Used when live search is unavailable."""
-    rows = (Session.query(ContentItem)
-            .filter(ContentItem.content_type == kind, ContentItem.provider != "demo", ContentItem.category == category)
-            .order_by(ContentItem.id.desc()).offset((max(1, page) - 1) * n).limit(n).all())
+def _stored(kind, category, n, page, seed=None):
+    """Real (non-demo) items we saved earlier, `n` per page. Newest first, or in a seed-specific order (different every
+    visit, stable while scrolling one visit). Used when live search is unavailable."""
+    query = (Session.query(ContentItem)
+             .filter(ContentItem.content_type == kind, ContentItem.provider != "demo", ContentItem.category == category))
+    if seed is None:
+        query = query.order_by(ContentItem.id.desc())
+    else:
+        query = query.order_by(((ContentItem.id * (int(seed) % 9973 * 2 + 1)) % 100003), ContentItem.id)
+    rows = query.offset((max(1, page) - 1) * n).limit(n).all()
     return [dict(provider=r.provider, provider_content_id=r.provider_content_id, content_type=r.content_type,
                  title=r.title, description=r.description, thumbnail_url=r.thumbnail_url, canonical_url=r.canonical_url,
                  category=r.category, tags=json.loads(r.tags_json or "[]"),
                  attribution=json.loads(r.attribution_json or "{}")) for r in rows]
 
 
-def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None):
+def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None, seed=None):
     """kind: picture | video | short | song. Returns (list[dict], notice|None). Never raises.
-    `age` (3-25, or None) picks the age band's search words, audience word and demo labels."""
-    topic, rnd = _topic_round(category, q, page, age)
+    `age` (3-25, or None) picks the age band's search words, audience word and demo labels.
+    `seed` (pictures only) makes this visit show different pictures from the last one (see _topic_round)."""
+    if kind != "picture":
+        seed = None                                     # videos/songs cost provider quota and keep their steady behaviour
+    topic, rnd = _topic_round(category, q, page, age, seed)
     notice = None
     items = None
     try:
         items = _provider_items(kind, topic, category, rnd, n, age)
+        if seed is not None and items == [] and rnd > 1 and not (q or "").strip():
+            items = _provider_items(kind, topic, category, (page - 1) // max(1, len(age_service.keywords_for(
+                category if category in CATEGORIES else "objects", age) or [1])) + 1, n, age)   # started too deep: fall back to the first pages
     except ServiceError as exc:
         current_app.logger.warning("provider failure (%s): %s", kind, exc)
         notice = exc.user_message
     if items is None:                                   # provider missing or failed
         try:
-            items = _stored(kind, category, n, page) or None
+            items = _stored(kind, category, n, page, seed) or None
         except Exception as exc:                        # a database hiccup must not break the page
             current_app.logger.warning("saved-items lookup failed (%s): %s", kind, exc)
             items = None
@@ -161,7 +186,7 @@ def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None):
             else:
                 notice = "Showing demo content. Add API keys in .env to see real results."
         if kind == "picture":
-            items = demo_service.pictures(category, page, n, age)
+            items = demo_service.pictures(category, page, n, age, offset=_demo_offset(seed, n))
         elif kind in ("video", "short"):
             items = demo_service.videos(category, page, n, short=(kind == "short"), age=age)
         else:
@@ -169,11 +194,19 @@ def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None):
         if q:   # demo content ignores free text, but keep a polite match on the topic
             items = [dict(i, title=f"{q.title()} · {i['title']}") for i in items] if len(q) < 40 else items
     items = safety.filter_items(items, block)
+    if seed is not None and kind == "picture":          # same photos can still arrive in the same order: mix them per visit
+        items = list(items)
+        random.Random(f"{seed}:{page}:mix").shuffle(items)
     return items, notice
 
 
-def fetch_models(kind, category, q, page, n, block, age=None):
-    dicts, notice = fetch(kind, category, q, page, n, block, age)
+def _demo_offset(seed, n):
+    """Demo art has no real catalogue; start each visit a few pages further in so it does not look identical either."""
+    return 0 if seed is None else (int(seed) % 5) * n * 3
+
+
+def fetch_models(kind, category, q, page, n, block, age=None, seed=None):
+    dicts, notice = fetch(kind, category, q, page, n, block, age, seed)
     return upsert_many(dicts), notice
 
 
