@@ -19,7 +19,8 @@
     recentWrap = $('recent-wrap'), recent = $('recent');
   if (!grid) return;
 
-  var state = { cat: '', q: '', page: 1, loading: false, hasMore: true, seen: {}, favs: {}, token: 0 };
+  function newSeed() { return Math.floor(Math.random() * 2147483647); }   // a new number every visit = different pictures every visit
+  var state = { seed: newSeed(), cat: '', q: '', page: 1, loading: false, hasMore: true, seen: {}, favs: {}, token: 0 };
 
   /* ---------- helpers ---------- */
   function csrfToken() {
@@ -216,7 +217,7 @@
   function load(reset) {
     if (state.loading) return;
     if (reset) {
-      state.page = 1; state.hasMore = true; state.seen = {}; heartButtons = {};
+      state.page = 1; state.hasMore = true; state.seen = {}; heartButtons = {}; state.seed = newSeed();
       state.token++; grid.textContent = ''; emptyMsg.classList.add('hidden');
     }
     var token = state.token;
@@ -226,6 +227,7 @@
     if (state.cat) params.set('cat', state.cat);
     params.set('page', state.page);
     params.set('limit', CONFIG.pageSize);
+    params.set('seed', state.seed);
 
     fetch(CONFIG.listEndpoint + '?' + params.toString(), {
       credentials: 'same-origin', headers: { 'Accept': 'application/json' }
