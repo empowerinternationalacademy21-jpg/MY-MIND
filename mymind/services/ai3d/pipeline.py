@@ -332,6 +332,9 @@ def retry(admin, job):
 
 
 def delete(admin, job):
+    from services.ai3d import islands
+    if islands.is_island(job) and job.status != islands.TRASH:
+        raise PipelineError("Islands are removed from 3D World & Island Management, where the default world is protected and deletions can be undone.")
     library.remove_files(job)
     jid = job.id
     Session.delete(job)
