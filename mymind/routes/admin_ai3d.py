@@ -5,7 +5,7 @@ from database.db import Session
 from database.models import Asset3D
 from routes.helpers import admin_required
 from services import auth_service, settings_service
-from services.ai3d import library, optimize, pipeline, providers, safe_prompts
+from services.ai3d import islands, library, optimize, pipeline, providers, safe_prompts
 
 bp = Blueprint("admin_ai3d", __name__, url_prefix="/admin/3d")
 
@@ -20,13 +20,14 @@ def _job_or_404(job_id):
 @bp.route("/")
 @admin_required
 def jobs():
-    rows = Session.query(Asset3D).order_by(Asset3D.id.desc()).limit(100).all()
+    rows = Session.query(Asset3D).filter(Asset3D.status != islands.TRASH).order_by(Asset3D.id.desc()).limit(100).all()
     return render_template("admin/ai3d.html", jobs=rows, catalog=safe_prompts.catalog(), colors=list(safe_prompts.COLORS), styles=list(safe_prompts.STYLES),
                            moods=list(safe_prompts.MOODS), accessories=list(safe_prompts.ACCESSORIES), archetypes=safe_prompts.ARCHETYPES, kit=safe_prompts.kit_catalog(),
                            provider_ready={n: c.configured() for n, c in providers.PROVIDERS.items()}, concept_ready=providers.concept_configured(),
                            optimizer=optimize.available(), folder_max_files=current_app.config["AI3D_FOLDER_MAX_FILES"], nav="3d",
                            island_bases=library.island_bases(), island_choice=(settings_service.get("default_island_id") or "").strip(),
-                           island_locked=settings_service.get("island_lock") == "1")
+                           island_locked=settings_service.get("island_lock") == "1",
+                           island_summary={"total": len(islands.all_islands()), "trash": len(islands.trashed()), "state": islands.default_state()})
 
 
 @bp.route("/island", methods=["POST"])
@@ -60,6 +61,115 @@ def island_for_everyone(job_id):
     Session.commit()
     flash("Done. Every user's My World now uses this island, on every device.", "success")
     return redirect(url_for("admin_ai3d.detail", job_id=job_id))
+
+
+# ---------------------------------------------------------------- 3D WORLD & ISLAND MANAGEMENT
+def _confirmed():
+    """Destructive or world-wide changes need an explicit confirmation field (the page's dialog sets it)."""
+    return request.form.get("confirm") == "yes"
+
+
+def _island_ids():
+    out = []
+    for raw in request.form.getlist("ids"):
+        try:
+            out.append(int(raw))
+        except ValueError:
+            continue
+    return out
+
+
+def _islands_back():
+    return redirect(url_for("admin_ai3d.island_manager"))
+
+
+@bp.route("/islands")
+@admin_required
+def island_manager():
+    islands.repair_default()                                            # the page never shows a default that points at a deleted island
+    rows = islands.all_islands()
+    state = islands.default_state()
+    return render_template("admin/islands.html", islands=rows, trash=islands.trashed(), state=state, usage={a.id: islands.usage_summary(a) for a in rows},
+                           confirm_phrase=islands.CONFIRM_PHRASE, nav="3d")
+
+
+@bp.route("/islands/default", methods=["POST"])
+@admin_required
+def island_set_default():
+    if not _confirmed():
+        flash("Please confirm before changing the default world.", "error")
+        return _islands_back()
+    try:
+        row = islands.set_default(g.user, int(request.form.get("id", "0") or 0))
+    except (islands.IslandError, ValueError) as exc:
+        flash(str(exc) if isinstance(exc, islands.IslandError) else "Please choose an island.", "error")
+        return _islands_back()
+    flash(f"“{row.name or 'Island ' + str(row.id)}” is now the default world for every child account.", "success")
+    return _islands_back()
+
+
+@bp.route("/islands/delete", methods=["POST"])
+@admin_required
+def island_delete():
+    """One island or a selection. Soft delete: it moves to 'Recently deleted' and can be restored."""
+    if not _confirmed():
+        flash("Please confirm before deleting.", "error")
+        return _islands_back()
+    try:
+        n = islands.soft_delete(g.user, _island_ids())
+    except islands.IslandError as exc:
+        flash(str(exc), "error")
+        return _islands_back()
+    flash(f"{n} island{'s' if n != 1 else ''} deleted. You can restore {'them' if n != 1 else 'it'} from Recently deleted.", "success")
+    return _islands_back()
+
+
+@bp.route("/islands/delete-all", methods=["POST"])
+@admin_required
+def island_delete_all():
+    if not _confirmed():
+        flash("Please confirm before deleting all islands.", "error")
+        return _islands_back()
+    try:
+        n = islands.delete_all(g.user, request.form.get("phrase", ""))
+    except islands.IslandError as exc:
+        flash(str(exc), "error")
+        return _islands_back()
+    flash(f"All {n} island{'s' if n != 1 else ''} deleted and the default world was reset. Children now see the built-in map until you choose a new default.", "success")
+    return _islands_back()
+
+
+@bp.route("/islands/restore", methods=["POST"])
+@admin_required
+def island_restore():
+    try:
+        row = islands.restore(g.user, int(request.form.get("id", "0") or 0))
+    except (islands.IslandError, ValueError) as exc:
+        flash(str(exc) if isinstance(exc, islands.IslandError) else "Please choose an island.", "error")
+        return _islands_back()
+    flash(f"“{row.name or 'Island ' + str(row.id)}” restored.", "success")
+    return _islands_back()
+
+
+@bp.route("/islands/purge", methods=["POST"])
+@admin_required
+def island_purge():
+    if not _confirmed():
+        flash("Please confirm before removing permanently.", "error")
+        return _islands_back()
+    ids = _island_ids()
+    if request.form.get("all") == "yes":
+        ids = [a.id for a in islands.trashed()]
+    try:
+        removed, kept = islands.purge(g.user, ids)
+    except islands.IslandError as exc:
+        flash(str(exc), "error")
+        return _islands_back()
+    msg = f"{removed} island{'s' if removed != 1 else ''} removed permanently."
+    if kept:
+        msg += f" {kept} shared file{'s' if kept != 1 else ''} kept because another 3D model still uses {'them' if kept != 1 else 'it'}."
+    flash(msg, "success")
+    return _islands_back()
 
 
 @bp.route("/new", methods=["POST"])
@@ -152,6 +262,14 @@ def detail(job_id):
 @admin_required
 def act(job_id, action):
     job = _job_or_404(job_id)
+    if action == "delete" and islands.is_island(job):                    # islands are never hard-deleted from here: soft delete, default protected
+        try:
+            islands.soft_delete(g.user, [job.id])
+            flash("Island deleted. You can restore it from 3D World & Island Management.", "success")
+        except islands.IslandError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("admin_ai3d.detail", job_id=job_id))
+        return redirect(url_for("admin_ai3d.island_manager"))
     fn = {"publish": pipeline.publish, "unpublish": pipeline.unpublish, "reject": pipeline.reject, "retry": pipeline.retry, "delete": pipeline.delete}.get(action)
     try:
         if action == "refresh":
