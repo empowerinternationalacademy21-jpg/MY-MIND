@@ -1,0 +1,78 @@
+{% extends "base.html" %}{% block title %}3D World &amp; Island Management{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/asset3d.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin-islands.css') }}">{% endblock %}
+{% block content %}
+<a href="{{ url_for('admin_ai3d.jobs') }}">{{ icon('chevron-left','sm') }} AI 3D</a>
+<div id="isl-root" data-csrf="{{ csrf_token() }}">
+<h1>3D WORLD &amp; ISLAND MANAGEMENT</h1>
+<p class="muted">Every child's My World stands on one shared island that <b>you</b> control. Choose the default world, remove islands you no longer want, or start fresh. Children's activity, accounts and other 3D models are never touched here.</p>
+
+<section class="card-box isl-default" aria-labelledby="isl-default-title">
+  <h2 id="isl-default-title">Default world</h2>
+  {% if state.island %}
+    <p><span class="isl-badge">DEFAULT</span> <b>{{ state.island.name or ('Island ' ~ state.island.id) }}</b>
+      {% if state.mode == 'automatic' %}<span class="small muted">· chosen automatically (the newest published island). Press “Set as default world” on any island to choose one yourself.</span>{% endif %}</p>
+    <p class="small muted">{% if state.locked %}Used by <b>every child account</b>; personal island choices are switched off.{% else %}Used by every child account that has not picked another island.{% endif %}</p>
+  {% else %}
+    <div class="isl-setup"><p><b>No default world yet.</b> Children currently see MyMind's built-in island. Publish an island below (or upload one on the <a href="{{ url_for('admin_ai3d.jobs') }}">AI 3D page</a>), then press <b>Set as default world</b>.</p></div>
+  {% endif %}
+</section>
+
+<section class="card-box" aria-labelledby="isl-list-title">
+  <div class="isl-toolbar">
+    <h2 id="isl-list-title">Islands <span class="small muted">({{ islands|length }})</span></h2>
+    {% if islands %}<div class="isl-tools">
+      <label class="choice"><input type="checkbox" id="isl-all"><span>Select all</span></label>
+      <button class="btn red" type="button" id="isl-bulk" disabled>Delete selected (<span id="isl-count">0</span>)</button>
+      <button class="btn red" type="button" id="isl-deleteall">Delete all islands</button>
+    </div>{% endif %}
+  </div>
+  {% if islands %}
+  <ul class="isl-grid" id="isl-grid">
+    {% for a in islands %}{% set is_default = state.island and state.island.id == a.id %}{% set u = usage[a.id] %}
+    <li class="isl-card{{ ' is-default' if is_default }}" data-id="{{ a.id }}" data-name="{{ a.name or ('Island ' ~ a.id) }}" data-default="{{ 1 if is_default else 0 }}">
+      <label class="isl-pick"><input type="checkbox" class="isl-check" value="{{ a.id }}" {{ 'disabled' if is_default }} aria-label="Select {{ a.name or ('Island ' ~ a.id) }}"><span class="sr-only">Select</span></label>
+      <div class="isl-preview">
+        {% if a.glb_filename %}<div class="a3d" data-asset3d data-glb="{{ url_for('world.asset3d_file', asset_id=a.id, which='glb') }}" data-clips="[]" data-name="{{ a.name }}"><button class="a3d-start" type="button" aria-label="Preview {{ a.name or 'this island' }} in 3D"><span>Preview in 3D</span><small>Tap to look around</small></button><div class="a3d-stage" hidden></div></div>
+        {% elif a.concept_filename %}<img src="{{ url_for('world.asset3d_file', asset_id=a.id, which='concept') }}" alt="" loading="lazy">
+        {% else %}<div class="isl-none">{{ icon('box') }}<span>No preview yet</span></div>{% endif %}
+      </div>
+      <div class="isl-body">
+        <h3>{{ a.name or ('Island ' ~ a.id) }} {% if is_default %}<span class="isl-badge">DEFAULT</span>{% endif %}</h3>
+        <p class="small muted"><span class="pill {{ {'published':'approved','review':'pending','failed':'rejected','rejected':'rejected'}.get(a.status,'pending') }}">{{ a.status }}</span>
+          {% if u.triangles %} · {{ '{:,}'.format(u.triangles) }} triangles{% endif %}{% if u.mb %} · {{ u.mb }} MB{% endif %}</p>
+        <div class="isl-actions">
+          {% if a.status == 'published' and not is_default %}<button class="btn primary small" type="button" data-act="default">Set as default world</button>{% endif %}
+          {% if a.status != 'published' %}<a class="btn small" href="{{ url_for('admin_ai3d.detail', job_id=a.id) }}">Open to review &amp; publish</a>{% endif %}
+          {% if is_default %}<span class="small muted isl-protect">{{ icon('lock','sm') }} Protected: choose another default to delete it</span>
+          {% else %}<button class="btn red small" type="button" data-act="delete">Delete</button>{% endif %}
+        </div>
+      </div>
+    </li>{% endfor %}
+  </ul>
+  {% else %}<p class="muted">There are no islands. Upload one on the <a href="{{ url_for('admin_ai3d.jobs') }}">AI 3D page</a> (choose “Island piece: Island base”).</p>{% endif %}
+</section>
+
+{% if trash %}<section class="card-box" aria-labelledby="isl-trash-title">
+  <div class="isl-toolbar"><h2 id="isl-trash-title">Recently deleted <span class="small muted">({{ trash|length }})</span></h2>
+    <button class="btn red small" type="button" id="isl-purgeall">Remove all permanently</button></div>
+  <p class="small muted">Deleted islands are not available to anyone, but they can be brought back until you remove them permanently. Files that another model still uses are never erased.</p>
+  <ul class="isl-trash">{% for a in trash %}
+    <li data-id="{{ a.id }}" data-name="{{ a.name or ('Island ' ~ a.id) }}"><span class="grow"><b>{{ a.name or ('Island ' ~ a.id) }}</b></span>
+      <form method="post" action="{{ url_for('admin_ai3d.island_restore') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ a.id }}"><button class="btn small" type="submit">Restore</button></form>
+      <button class="btn red small" type="button" data-act="purge">Remove permanently</button></li>{% endfor %}</ul>
+</section>{% endif %}
+
+<dialog id="isl-dialog" class="isl-dialog" aria-labelledby="isl-dialog-title">
+  <form method="post" id="isl-dialog-form" autocomplete="off">
+    <h2 id="isl-dialog-title"></h2>
+    <p id="isl-dialog-text"></p>
+    <ul id="isl-dialog-list" class="small"></ul>
+    <div class="field" id="isl-dialog-typed" hidden><label for="isl-phrase">Type <b>{{ confirm_phrase }}</b> to confirm</label><input id="isl-phrase" name="phrase" type="text" autocomplete="off"></div>
+    <div id="isl-dialog-hidden"></div>
+    <div class="isl-dialog-actions"><button class="btn" type="button" id="isl-cancel">Cancel</button><button class="btn" type="submit" id="isl-confirm">Confirm</button></div>
+  </form>
+</dialog>
+<script type="application/json" id="isl-urls">{{ {'default': url_for('admin_ai3d.island_set_default'), 'delete': url_for('admin_ai3d.island_delete'), 'deleteAll': url_for('admin_ai3d.island_delete_all'), 'purge': url_for('admin_ai3d.island_purge'), 'phrase': confirm_phrase}|tojson }}</script>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='vendor/three-gltf.min.js') }}"></script><script src="{{ url_for('static', filename='js/asset3d.js') }}"></script><script src="{{ url_for('static', filename='js/admin_islands.js') }}"></script>{% endblock %}
