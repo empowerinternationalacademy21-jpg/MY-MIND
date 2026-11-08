@@ -1,198 +1,142 @@
-"""Caretaker "Activity & interests" dashboard: the page plus its JSON API.
-
-Access is enforced here on the server, never only in the page:
-* only a signed-in caregiver (not a child session, not an admin) can reach anything in this module;
-* the child is always resolved through ``child_scope`` (active access grant required) and every query is by that child's id;
-* a child that is not yours is a 404, exactly like a child that does not exist.
-"""
-from datetime import date, timedelta
-
-from flask import Blueprint, abort, current_app, g, jsonify, render_template, request, session
+"""Child activity storage vocabulary and privacy-conscious aggregate helpers."""
+from collections import defaultdict
+from datetime import date, datetime, time, timedelta
 
 from database.db import Session
-from database.models import ActivityEvent, utcnow
-from routes.helpers import caregiver_required, child_of, has_questionnaire
-from services import activity_analytics_service as analytics
-from services import watched_service
-from services import activity_service, cache, child_scope, interest_discovery_service as discovery, plan_service
-
-bp = Blueprint("activity_dashboard", __name__)
+from database.models import ActivityEvent, ContentItem, utcnow
 
 
-def _child():
-    """The child this request is about: ?child=<public id> (must be authorised for this caregiver) or the selected child."""
-    uid = (request.args.get("child") or "").strip()
-    if uid:
-        child = child_scope.resolve_child_uid(g.user.id, uid)
-    else:
-        child = child_of(g.user)
-    if not child or not child_scope.can_access(g.user.id, child.id):
-        abort(404)
-    return child
+# view = time on a page/stop (never counted as content engagement); watch/listen/look = one session with one piece of content
+# (video or short / song / picture); browse = the child explored a category; the rest are single taps.
+EVENT_TYPES = frozenset({"view", "watch", "like", "dislike", "favorite", "search", "next", "open", "listen", "look", "browse"})
+# session event type -> the content types it may point at (the server refuses mismatches)
+SESSION_TYPES = {"watch": ("video", "short"), "listen": ("song",), "look": ("picture",)}
+ENGAGEMENT_TYPES = frozenset(SESSION_TYPES)
+MAX_SESSION_SECONDS = 6 * 3600          # a single session is never credited with more than this
+DEFAULT_RETENTION_DAYS = 365
+STOPS = frozenset({
+    # Requested stop names and the additional stops currently present in My World.
+    "home", "soccer", "music", "food", "basketball", "colors", "pictures", "videos", "shorts", "nature",
+    "sports", "animals", "vehicles", "art",
+})
+STOP_ALIASES = {"shots": "shorts"}
 
 
-def _tz():
-    return analytics.clamp_tz(request.args.get("tz", 0))
+def normalize_stop(stop):
+    if not isinstance(stop, str):
+        raise ValueError("Unknown activity stop.")
+    stop = STOP_ALIASES.get(stop, stop)
+    if stop not in STOPS:
+        raise ValueError("Unknown activity stop.")
+    return stop
 
 
-def _today(tz):
-    return (utcnow() + timedelta(minutes=tz)).date()
+def _events(child_id, start=None, end=None, event_type=None):
+    query = Session.query(ActivityEvent).filter(ActivityEvent.child_id == child_id)
+    if start is not None:
+        start_at = datetime.combine(start, time.min) if isinstance(start, date) and not isinstance(start, datetime) else start
+        query = query.filter(ActivityEvent.created_at >= start_at)
+    if end is not None:
+        end_at = datetime.combine(end + timedelta(days=1), time.min) if isinstance(end, date) and not isinstance(end, datetime) else end
+        query = query.filter(ActivityEvent.created_at < end_at)
+    if event_type:
+        query = query.filter(ActivityEvent.event_type == event_type)
+    return query
 
 
-def _earliest(tz):
-    """First local day the caregiver's plan still lets them look back to."""
-    return _today(tz) - timedelta(days=plan_service.history_days(g.user.id) - 1)
+def minutes_per_stop(child_id, start=None, end=None):
+    """Active stop time in minutes; page/map view duration includes time spent watching content there."""
+    totals = defaultdict(int)
+    for stop, seconds in (_events(child_id, start, end, "view")
+                          .with_entities(ActivityEvent.stop, ActivityEvent.duration_seconds)):
+        totals[stop] += seconds or 0
+    return {stop: round(seconds / 60, 2) for stop, seconds in totals.items()}
 
 
-def _parse_day(value):
-    try:
-        return date.fromisoformat(value)
-    except (TypeError, ValueError):
-        return None
+def _minutes_by_period(child_id, period, start=None, end=None):
+    buckets = defaultdict(int)
+    rows = (_events(child_id, start, end, "view")
+            .with_entities(ActivityEvent.stop, ActivityEvent.created_at, ActivityEvent.duration_seconds))
+    for stop, occurred_at, seconds in rows:
+        day = occurred_at.date()
+        if period == "day":
+            bucket = day.isoformat()
+        elif period == "week":
+            bucket = (day - timedelta(days=day.weekday())).isoformat()
+        else:
+            bucket = day.strftime("%Y-%m")
+        buckets[(bucket, stop)] += seconds or 0
+    return [
+        {"period": bucket, "stop": stop, "minutes": round(seconds / 60, 2)}
+        for (bucket, stop), seconds in sorted(buckets.items())
+    ]
 
 
-def _range(tz):
-    """Selected period -> (key, start, end), always inside [earliest, today] and at most 365 days."""
-    today, earliest = _today(tz), _earliest(tz)
-    key = request.args.get("range", "7")
-    if key == "today":
-        start, end = today, today
-    elif key == "30":
-        start, end = today - timedelta(days=29), today
-    elif key == "month":
-        start, end = today.replace(day=1), today
-    elif key == "custom":
-        start, end = _parse_day(request.args.get("start")), _parse_day(request.args.get("end"))
-        if not start or not end or start > end or end > today or (end - start).days > 364:
-            key, start, end = "7", today - timedelta(days=6), today
-    else:
-        key, start, end = "7", today - timedelta(days=6), today
-    start = max(start, earliest)
-    if start > end:
-        start = end
-    return key, start, end
+def minutes_per_stop_by_day(child_id, start=None, end=None):
+    return _minutes_by_period(child_id, "day", start, end)
 
 
-def _reading_allowed(child):
-    return bool(child) and has_questionnaire(child)
+def minutes_per_stop_by_week(child_id, start=None, end=None):
+    return _minutes_by_period(child_id, "week", start, end)
 
 
-@bp.route("/caretaker/activity")
-@caregiver_required
-def page():
-    child = _child() if (request.args.get("child") or child_of(g.user)) else None
-    if child is None:
-        abort(404)
-    # keep children's activity for a bounded time only (at most once a day per server process)
-    if not cache.rate_limited("activity-purge", 1, 86400):
-        try:
-            activity_service.purge_expired(current_app.config.get("ACTIVITY_RETENTION_DAYS", activity_service.DEFAULT_RETENTION_DAYS))
-        except Exception:                                              # housekeeping must never break the page
-            Session.rollback()
-            current_app.logger.warning("activity retention purge failed", exc_info=True)
-    children = child_scope.children_for_caregiver(g.user.id).all()
-    days = plan_service.history_days(g.user.id)
-    return render_template("caretaker_activity.html", child=child, children=children, history_days=days,
-                           can_long=plan_service.can_use(g.user.id, "history_30_days"),
-                           retention_days=current_app.config.get("ACTIVITY_RETENTION_DAYS", activity_service.DEFAULT_RETENTION_DAYS),
-                           is_read_only=plan_service.child_is_read_only(g.user.id, child))
+def minutes_per_stop_by_month(child_id, start=None, end=None):
+    return _minutes_by_period(child_id, "month", start, end)
 
 
-@bp.route("/api/caretaker/activity/summary")
-@caregiver_required
-def api_summary():
-    child, tz = _child(), _tz()
-    key, start, end = _range(tz)
-    focus = _parse_day(request.args.get("day"))
-    data = analytics.summary(child.id, start, end, tz, earliest=_earliest(tz), focus_day=focus)
-    data["child"] = {"id": child.public_uid, "name": child.display_name}
-    data["range"]["key"] = key
-    data["range"]["earliest"] = _earliest(tz).isoformat()
-    return jsonify(data)
+def top_stops(child_id, start=None, end=None, limit=3):
+    totals = minutes_per_stop(child_id, start, end)
+    return sorted(totals.items(), key=lambda row: (-row[1], row[0]))[:max(0, limit)]
 
 
-@bp.route("/api/caretaker/activity/timeline")
-@caregiver_required
-def api_timeline():
-    child, tz = _child(), _tz()
-    day = _parse_day(request.args.get("day")) or _today(tz)
-    if day > _today(tz) or day < _earliest(tz):
-        return jsonify(error="That day is outside your history."), 400
-    return jsonify(analytics.timeline(child.id, day, tz))
+def videos_watched_count(child_id, start=None, end=None):
+    return (_events(child_id, start, end, "watch")
+            .join(ContentItem, ActivityEvent.content_id == ContentItem.id)
+            .filter(ContentItem.content_type.in_(("video", "short")))
+            .count())
 
 
-@bp.route("/api/caretaker/activity/history")
-@caregiver_required
-def api_history():
-    child, tz = _child(), _tz()
-    start, end = _parse_day(request.args.get("start")), _parse_day(request.args.get("end"))
-    earliest = _earliest(tz)
-    start = max(start, earliest) if start else earliest             # never reveal activity older than the plan's history window
-    if end and end < start:
-        end = start
-    try:
-        page_no, per_page = int(request.args.get("page", 1)), int(request.args.get("per_page", 20))
-    except ValueError:
-        page_no, per_page = 1, 20
-    result = analytics.history(child.id, tz=tz, content_type=request.args.get("type") or None,
-                               action=request.args.get("action") or None, category=request.args.get("category") or None,
-                               q=(request.args.get("q") or "").strip()[:60] or None, start=start, end=end,
-                               page=page_no, per_page=per_page, visits=request.args.get("visits", "1") != "0")
-    return jsonify(result)
+def favorites_added_count(child_id, start=None, end=None):
+    return _events(child_id, start, end, "favorite").count()
 
 
-@bp.route("/api/caretaker/activity/series")
-@caregiver_required
-def api_series():
-    child, tz = _child(), _tz()
-    group = request.args.get("group", "day")
-    if group not in ("day", "week", "month"):
-        return jsonify(error="Unknown grouping."), 400
-    _, start, end = _range(tz)
-    if request.args.get("range") is None:                           # no range given: the whole history this plan allows
-        start, end = _earliest(tz), _today(tz)
-    return jsonify(items=analytics.series(child.id, group, start, end, tz), group=group,
-                   start=start.isoformat(), end=end.isoformat())
+def daily_streak(child_id, today=None):
+    today = today or utcnow().date()
+    days = {row[0].date() for row in
+            _events(child_id).with_entities(ActivityEvent.created_at).all()}
+    cursor = today if today in days else today - timedelta(days=1)
+    streak = 0
+    while cursor in days:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
 
 
-@bp.route("/api/caretaker/activity/<int:event_id>")
-@caregiver_required
-def api_detail(event_id):
-    child, tz = _child(), _tz()
-    # the scoped query is the authorisation check: child id AND caregiver id must both match
-    scoped = child_scope.query(ActivityEvent, g.user.id, child.id).filter_by(id=event_id).first()
-    if scoped is None:
-        abort(404)
-    data = analytics.detail(child.id, event_id, tz)
-    if data is None or data["date"] < _earliest(tz).isoformat():
-        abort(404)
-    return jsonify(data)
+def first_last_active_per_day(child_id, start=None, end=None):
+    times = defaultdict(list)
+    for occurred_at, last_active_at in (
+            _events(child_id, start, end)
+            .with_entities(ActivityEvent.created_at, ActivityEvent.last_active_at)):
+        times[occurred_at.date()].extend((occurred_at, last_active_at or occurred_at))
+    return [
+        {"date": day.isoformat(), "first_active_at": min(values).isoformat(),
+         "last_active_at": max(values).isoformat()}
+        for day, values in sorted(times.items())
+    ]
 
 
-@bp.route("/api/caretaker/interests")
-@caregiver_required
-def api_interests():
-    child, tz = _child(), _tz()
-    return jsonify(discovery.discover(child.id, tz=tz))
+def active_times_per_day(child_id, start=None, end=None):
+    """Alias retained for dashboard callers that prefer the shorter aggregate name."""
+    return first_last_active_per_day(child_id, start, end)
 
 
-@bp.route("/api/caretaker/activity/content")
-@caregiver_required
-def api_content():
-    """For one content type (videos, shots, music, pictures): what the child WATCHED (highlighted, real, newest first) and, kept apart,
-    what we would RECOMMEND next (never repeating something already watched)."""
-    child, tz = _child(), _tz()
-    ctype = request.args.get("type", "short")
-    if ctype not in watched_service.KINDS:
-        return jsonify(error="Unknown content type."), 400
-    scope = {"all": False, "types": (ctype,), "cats": ()}
-    mine = watched_service.watched(g.user, child, scope, ctype, limit=24, tz=tz, safe=False)      # the caretaker sees everything, unfiltered
-    earliest = _earliest(tz).isoformat()
-    items = [i for i in mine["items"] if i["w_date"] >= earliest]                                  # plan history window
-    try:
-        seed = max(0, min(int(request.args.get("seed", "")), 2 ** 31 - 1))
-    except ValueError:
-        seed = None
-    suggested = watched_service.recommended(g.user, child, ctype, exclude_ids={i["id"] for i in mine["items"]}, n=12, seed=seed)
-    return jsonify(type=ctype, child={"name": child.display_name}, watched={"items": items, "total": len(items) if len(items) < len(mine["items"]) else mine["total"]},
-                   recommended=suggested)
+
+def purge_expired(retention_days=DEFAULT_RETENTION_DAYS, now=None):
+    """Delete activity older than the retention window (children's data is not kept forever). Returns the number removed."""
+    if not retention_days or retention_days < 30:                   # never purge more aggressively than 30 days by accident
+        return 0
+    cutoff = (now or utcnow()) - timedelta(days=int(retention_days))
+    removed = (Session.query(ActivityEvent).filter(ActivityEvent.created_at < cutoff)
+               .delete(synchronize_session=False))
+    Session.commit()
+    return removed
