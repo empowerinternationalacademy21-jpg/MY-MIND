@@ -263,10 +263,13 @@
       chipsData.forEach(function (z) { chips.appendChild(mk(z.key.charAt(0).toUpperCase() + z.key.slice(1), z.q)); });
       chips.firstChild.setAttribute("aria-pressed", "true"); body.appendChild(chips);
     }
-    var caregiverView = root.dataset.canSeeActivity === "1" && !preview;               // the child's real activity at this place: caregivers only (also enforced by the server)
-    if (caregiverView) body.appendChild(activityPanel(s));
+    var caregiverView = root.dataset.canSeeActivity === "1" && !preview;               // the detailed history panel: caregivers only (also enforced by the server)
+    var childView = document.body.dataset.role === "child";
+    var who = (data.child && data.child.name) || "your child";
+    if (caregiverView) body.appendChild(activityPanel(s));                              // WATCHED, first, with details and filters
+    else body.appendChild(watchedStrip(d, childView ? "You watched" : "Watched by " + who));
     if (d.shelf) {
-      if (caregiverView) body.appendChild(el("h4", "w3d-sub", "More to explore here"));
+      body.appendChild(el("h4", "w3d-sub w3d-rec-title", childView ? "Try something new" : "Recommended"));
       shelfHost = shelf(d, function () { return q; }); body.appendChild(shelfHost.el);
     }
     if (d.favorites) {
@@ -288,7 +291,7 @@
   function activityPanel(s) {
     var wrap = el("section", "w3d-act"); wrap.setAttribute("aria-label", "What " + ((data.child && data.child.name) || "your child") + " did at " + s.label);
     var st = { type: "all", start: "", end: "", page: 1, busy: false, hasMore: false };
-    var head = el("div", "w3d-act__head"); head.append(el("h4", "w3d-sub", "What your child did here"), el("p", "small muted", "Real activity recorded in MyMind, newest first."));
+    var head = el("div", "w3d-act__head"); head.append(el("h4", "w3d-sub", "Watched by " + ((data.child && data.child.name) || "your child")), el("p", "small muted", "Exactly what was opened here, newest first. Recommendations are below."));
     var chips = el("div", "w3d-chips w3d-act__chips"); chips.setAttribute("role", "group"); chips.setAttribute("aria-label", "Type of activity");
     var chipEls = {};
     ACT_TYPES.forEach(function (t) { var c = el("button", "chip", t[1]); c.type = "button"; c.setAttribute("aria-pressed", String(t[0] === "all")); c.dataset.type = t[0]; chipEls[t[0]] = c;
@@ -364,15 +367,41 @@
     load(false);
     return wrap;
   }
+
+  // ------------------------------------------------------------------ "Watched" strip: exactly what the child opened here (child, parent preview, share link)
+  function watchedStrip(d, title) {
+    var w = d.watched || { items: [], total: 0 }, sec = el("section", "w3d-watched");
+    sec.setAttribute("aria-label", title);
+    var head = el("h4", "w3d-sub", title + (w.total ? " (" + w.total + ")" : "")); sec.appendChild(head);
+    if (!w.items.length) { sec.appendChild(el("p", "w3d-watched__none", preview ? "Nothing watched here yet." : "Things you watch here will show up first.")); return sec; }
+    var grid = el("div", "tiles w3d-watched__grid"), shown = 8, more = null;
+    function note(i) {
+      var bits = [(i.w_views === 1 ? "Watched once" : "Watched " + i.w_views + " times")];
+      if (!document.body.dataset.role || document.body.dataset.role !== "child") { if (i.w_minutes) bits.push(i.w_minutes < 1 ? "under a minute" : Math.round(i.w_minutes) + " min"); }
+      return bits.join(" · ");
+    }
+    function draw() {
+      grid.replaceChildren();
+      w.items.slice(0, shown).forEach(function (i) {
+        var c = MM.card(i, { readOnly: preview }); c.classList.add("is-watched");
+        var tag = el("span", "w3d-watched__tag"); tag.append(ic("check", "sm"), el("span", null, "Watched")); c.appendChild(tag);
+        c.appendChild(el("small", "w3d-watched__note", note(i))); grid.appendChild(c);
+      });
+      if (more) more.hidden = shown >= w.items.length;
+    }
+    more = btn("btn small", "Show more watched", null, function () { shown += 8; draw(); }); more.hidden = true;
+    sec.append(grid, more); draw(); return sec;
+  }
   function shelf(d, getQ) {
     var wrap = el("div", "w3d-shelf"), grid = el("div", "tiles"), more = btn("btn", "Show more", null, function () { load(true); });
     var seeAll = { "/api/pictures": "/pictures", "/api/videos": "/videos", "/api/shots": "/shots", "/api/music": "/music" }[d.shelf.endpoint];
-    var page = 1, busy = false, gen = 0, seen = {};
+    var page = 1, busy = false, gen = 0, seen = {}, watchedIds = {};
+    ((d.watched && d.watched.items) || []).forEach(function (i) { watchedIds[i.id] = 1; });
     more.hidden = true; wrap.append(grid, more);
     if (seeAll && !preview) { var a = el("a", "w3d-all", "See all "); a.href = seeAll + (d.shelf.params.category ? "?category=" + encodeURIComponent(d.shelf.params.category) : ""); a.appendChild(ic("chevron-right", "sm")); wrap.appendChild(a); }
     function load(append) {
       if (busy) return; busy = true; var my = append ? gen : ++gen;
-      if (!append) { grid.replaceChildren(MM.skeletons(4)); page = 1; seen = {}; }
+      if (!append) { grid.replaceChildren(MM.skeletons(4)); page = 1; seen = Object.assign({}, watchedIds); }
       var params = new URLSearchParams(Object.assign({}, d.shelf.params, { page: page })); if (getQ()) params.set("q", getQ());
       MM.api(d.shelf.endpoint + "?" + params).then(function (r) {
         if (my !== gen) return;
