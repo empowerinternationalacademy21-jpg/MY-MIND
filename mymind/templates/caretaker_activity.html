@@ -1,0 +1,129 @@
+{% extends "ct_layout.html" %}
+{% set ct_active = 'activity' %}
+{% block title %}Activity & interests{% endblock %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/activity-dashboard.css') }}">{% endblock %}
+
+{% block ct_body %}
+<div class="ct-page-root ad" id="ad-root" data-child="{{ child.public_uid }}" data-history-days="{{ history_days }}" data-can-long="{{ 1 if can_long else 0 }}">
+  <header class="ct-heading">
+    <div>
+      <p class="ct-kicker">Activity &amp; interests</p>
+      <h1 id="ad-title">{{ child.display_name }}'s activity</h1>
+      <p class="muted">Everything {{ child.display_name }} does in MyMind, the content behind it, and the interests that are emerging. Private to you.</p>
+    </div>
+    <div class="ct-heading-actions">
+      {% if children|length > 1 %}
+      <label class="sr-only" for="ad-child">Choose a child</label>
+      <select id="ad-child" class="ad-child" aria-label="Choose a child">
+        {% for profile in children %}<option value="{{ profile.public_uid }}" {{ 'selected' if profile.id == child.id }}>{{ profile.display_name }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <p class="ct-live" id="ad-live" role="status"><i aria-hidden="true"></i><span id="ad-live-text">Loading…</span></p>
+    </div>
+  </header>
+
+  {% if is_read_only %}<p class="ad-note" role="note">This profile is read-only on the current plan. You can still see its history.</p>{% endif %}
+
+  <section class="ct-panel ad-controls" aria-label="Choose a period">
+    <div class="ct-ranges" role="group" aria-label="Date range" id="ad-ranges">
+      <button type="button" class="ct-range" data-range="today">Today</button>
+      <button type="button" class="ct-range is-active" data-range="7" aria-pressed="true">Last 7 days</button>
+      {% if can_long %}<button type="button" class="ct-range" data-range="30">Last 30 days</button>
+      <button type="button" class="ct-range" data-range="month">This month</button>{% else %}<a class="ct-range ct-range--locked" href="{{ url_for('subscriptions.status') }}" title="Upgrade to unlock 30-day history">Last 30 days {{ icon('lock','sm') }}</a>{% endif %}
+    </div>
+    <details class="ct-custom" id="ad-custom">
+      <summary>{{ icon('calendar','sm') }} Custom dates</summary>
+      <div class="ct-custom-range"><label for="ad-start">From</label><input id="ad-start" type="date"><label for="ad-end">To</label><input id="ad-end" type="date"><button class="btn small" id="ad-apply" type="button">Apply</button></div>
+    </details>
+    <nav class="ad-jump" aria-label="Sections">
+      <a href="#ad-feed-panel">Recent activity</a><a href="#ad-content-panel">Content</a><a href="#ad-graphs">Graphs</a><a href="#ad-rank">Most engaging</a><a href="#ad-timeline-panel">Timeline</a><a href="#ad-history-panel">History</a><a href="#ad-interests-panel">Interests</a>
+    </nav>
+  </section>
+
+  <noscript><p class="ad-note">This page needs JavaScript to draw its graphs and history.</p></noscript>
+
+  <section class="ad-stats" id="ad-stats" aria-label="Summary" aria-live="polite"></section>
+
+  <section class="ct-panel" id="ad-feed-panel" aria-labelledby="ad-feed-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-feed-title">Recent activity</h2><p class="muted small">The latest things {{ child.display_name }} did, newest first.</p></div><a class="ct-see-all" href="#ad-history-panel">Full history {{ icon('arrow-right','sm') }}</a></div>
+    <div id="ad-feed" class="ad-feed"></div>
+  </section>
+
+  <section class="ct-panel" id="ad-content-panel" aria-labelledby="ad-content-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-content-title">Content: watched &amp; recommended</h2><p class="muted small">Pick a page to see exactly what {{ child.display_name }} watched, highlighted first, then what we would recommend next.</p></div></div>
+    <div class="ad-chips" role="group" aria-label="Content page" id="ad-content-tabs">
+      {% for key, label in [('short', 'Shots'), ('video', 'Videos'), ('song', 'Music'), ('picture', 'Pictures')] %}<button type="button" class="ad-chip{{ ' is-on' if key == 'short' }}" data-ctype="{{ key }}" aria-pressed="{{ 'true' if key == 'short' else 'false' }}">{{ label }}</button>{% endfor %}
+    </div>
+    <div id="ad-content" class="ad-content" aria-live="polite"></div>
+  </section>
+
+  <section id="ad-graphs" class="ad-graphs" aria-label="Graphs">
+    <article class="ct-panel ad-wide"><div class="ct-panel-heading"><div><h2>Daily activity</h2><p class="muted small" id="ad-g1-sub">Engagement through the day, by hour</p></div>
+      <div><label class="sr-only" for="ad-day">Choose a day</label><input id="ad-day" type="date"></div></div><div id="ad-g1"></div></article>
+    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Weekly engagement</h2><p class="muted small">The 7 days ending on the last day of the period</p></div></div><div id="ad-g2"></div></article>
+    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Monthly activity</h2><p class="muted small" id="ad-g3-sub">This month, day by day</p></div></div><div id="ad-g3"></div></article>
+    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Interest distribution</h2><p class="muted small">Share of interactions by category</p></div></div><div id="ad-g4"></div></article>
+    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Content types</h2><p class="muted small">Videos, shorts, songs, pictures and other activity</p></div></div><div id="ad-g5"></div></article>
+    <article class="ct-panel ad-wide"><div class="ct-panel-heading"><div><h2>Interest development</h2><p class="muted small">Weekly engagement for the most explored categories</p></div></div><div id="ad-g6"></div></article>
+    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Time allocation</h2><p class="muted small">Share of engagement time by category</p></div></div><div id="ad-g7"></div></article>
+    <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Most engaging content</h2><p class="muted small">Ranked by time, finishes, replays and likes</p></div></div><div id="ad-g8"></div></article>
+  </section>
+
+  <section class="ct-panel" id="ad-trends-panel" aria-labelledby="ad-trends-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-trends-title">Interests going up, down or steady</h2><p class="muted small">This period compared with the period just before it.</p></div></div>
+    <div id="ad-trends"></div>
+  </section>
+
+  <section class="ct-panel" id="ad-rank" aria-labelledby="ad-rank-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-rank-title">Content engagement</h2><p class="muted small">What {{ child.display_name }} watched, listened to and looked at most.</p></div></div>
+    <div id="ad-rankings" class="ad-rankings"></div>
+  </section>
+
+  <section class="ct-panel" id="ad-timeline-panel" aria-labelledby="ad-timeline-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-timeline-title">Activity timeline</h2><p class="muted small" id="ad-timeline-sub">What happened first, what followed and how long it lasted.</p></div></div>
+    <div id="ad-timeline"></div>
+  </section>
+
+  <section class="ct-panel" id="ad-history-panel" aria-labelledby="ad-history-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-history-title">Complete activity history</h2><p class="muted small">Every recorded activity within your plan's {{ history_days }}-day history. Open any row to see the content.</p></div></div>
+    <form class="ad-filters" id="ad-filters" role="search" aria-label="Filter the history">
+      <div class="ad-chips" role="group" aria-label="Content type" id="ad-type-chips">
+        {% for key, label in [('', 'All'), ('video', 'Videos'), ('short', 'Shorts'), ('song', 'Songs'), ('picture', 'Pictures'), ('other', 'Other activity')] %}<button type="button" class="ad-chip{{ ' is-on' if key == '' }}" data-type="{{ key }}" aria-pressed="{{ 'true' if key == '' else 'false' }}">{{ label }}</button>{% endfor %}
+      </div>
+      <div class="ad-filter-row">
+        <label class="sr-only" for="ad-q">Search content titles</label><input id="ad-q" type="search" placeholder="Search content titles" maxlength="60" autocomplete="off">
+        <label class="sr-only" for="ad-action">Action</label>
+        <select id="ad-action"><option value="">Any action</option><option value="engaged">Watched / listened / viewed</option><option value="open">Opened</option><option value="like">Liked</option><option value="favorite">Favorites</option><option value="next">Skipped</option><option value="browse">Explored categories</option><option value="view">Page visits</option></select>
+        <label class="sr-only" for="ad-category">Category</label><select id="ad-category"><option value="">Any category</option></select>
+        <label for="ad-h-start" class="small muted">From</label><input id="ad-h-start" type="date">
+        <label for="ad-h-end" class="small muted">To</label><input id="ad-h-end" type="date">
+        <button class="btn small" type="reset" id="ad-reset">Clear</button>
+      </div>
+      <div class="ad-chips" role="group" aria-label="Quick periods" id="ad-quick">
+        <button type="button" class="ad-chip" data-quick="day">Today</button><button type="button" class="ad-chip" data-quick="week">This week</button><button type="button" class="ad-chip" data-quick="month">This month</button>
+      </div>
+    </form>
+    <div id="ad-periods" class="ad-periods"></div>
+    <p class="muted small" id="ad-history-count" role="status" aria-live="polite"></p>
+    <ul class="ad-list" id="ad-history"></ul>
+    <nav class="ad-pager" id="ad-pager" aria-label="History pages"></nav>
+  </section>
+
+  <section class="ct-panel" id="ad-interests-panel" aria-labelledby="ad-interests-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-interests-title">Possible interests</h2><p class="muted small">Found from what {{ child.display_name }} actually does. The same findings shape {{ child.display_name }}'s own world.</p></div><a class="ct-see-all" href="{{ url_for('profile.world') }}">Open My World {{ icon('arrow-right','sm') }}</a></div>
+    <div id="ad-interests"></div>
+  </section>
+
+  <section class="ct-panel ad-about" aria-labelledby="ad-about-title">
+    <div class="ct-panel-heading"><div><h2 id="ad-about-title">How these numbers work</h2></div></div>
+    <ul class="ad-formulas" id="ad-formulas"></ul>
+    <p class="ct-privacy">Privacy: MyMind records what {{ child.display_name }} opens, watches, listens to and looks at, and for how long. It does not record what was typed into a search box. Only you (and caretakers you have authorised) can see this page. Activity older than {{ retention_days }} days is deleted automatically, and you can clear it any time from My Journey.</p>
+  </section>
+
+  <dialog id="ad-dialog" class="ad-dialog" aria-labelledby="ad-dialog-title">
+    <div class="ad-dialog-head"><h2 id="ad-dialog-title">Activity record</h2><button type="button" class="iconbtn" id="ad-dialog-close" aria-label="Close">{{ icon('x') }}</button></div>
+    <div id="ad-dialog-body"></div>
+  </dialog>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/ct_charts.js') }}" defer></script><script src="{{ url_for('static', filename='js/activity_dashboard.js') }}" defer></script>{% endblock %}
