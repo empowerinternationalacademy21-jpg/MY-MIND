@@ -280,6 +280,49 @@
     }).catch(function () { fail("ad-interests"); });
   }
 
+
+  /* ---------- content: WATCHED (highlighted, real) kept apart from RECOMMENDED ---------- */
+  var ctype = "short", contentSeed = Math.floor(Math.random() * 2147483647), CT_LABEL = { short: "Shots", video: "Videos", song: "Music", picture: "Pictures" };
+  function openItem(it) {
+    var dlg = $("ad-dialog"), body = clear($("ad-dialog-body"));
+    $("ad-dialog-title").textContent = it.title; if (!dlg.open) dlg.showModal();
+    if (it.type === "picture" && it.thumb) { var im = h("img", "ad-big"); im.src = it.thumb; im.alt = it.title; im.referrerPolicy = "no-referrer"; body.appendChild(im); }
+    else if (it.embed) { var f = h("iframe", "ad-embed" + (it.type === "short" ? " is-short" : "")); f.src = it.embed; f.title = it.title; f.loading = "lazy"; f.allow = "encrypted-media; picture-in-picture; fullscreen"; f.referrerPolicy = "strict-origin-when-cross-origin"; f.setAttribute("allowfullscreen", ""); body.appendChild(f); }
+    else if (it.thumb) { var i2 = h("img", "ad-big"); i2.src = it.thumb; i2.alt = ""; body.appendChild(i2); }
+    if (it.reason) body.appendChild(h("p", "muted small", it.reason));
+    if (it.url) { var a = h("a", "btn small", "Open original"); a.href = it.url; a.target = "_blank"; a.rel = "noopener noreferrer"; body.appendChild(a); }
+  }
+  function contentCard(it, watched) {
+    var b = h("button", "ad-ccard" + (watched ? " is-watched" : "")); b.type = "button";
+    var th = h("span", "ad-thumb ad-thumb--lg"); if (it.thumb) { var i = h("img"); i.src = it.thumb; i.alt = ""; i.loading = "lazy"; i.referrerPolicy = "no-referrer"; th.appendChild(i); }
+    th.appendChild(h("span", "ad-badge " + (watched ? "ad-badge--w" : "ad-badge--r"), watched ? "Watched" : "Recommended")); b.appendChild(th);
+    b.appendChild(h("strong", null, it.title));
+    if (watched) {
+      var bits = [it.w_views === 1 ? "Watched once" : "Watched " + it.w_views + " times"]; if (it.w_minutes) bits.push(C.fmtMin(it.w_minutes));
+      if (it.w_completion != null && it.type !== "short") bits.push(it.w_completion + "% played"); if (it.w_replays) bits.push(it.w_replays + " replay" + (it.w_replays === 1 ? "" : "s"));
+      b.append(h("small", null, bits.join(" · ")), h("small", "ad-ccard-date", "Last: " + dayLabel(it.w_date) + " " + it.w_time));
+      b.addEventListener("click", function () { if (it.w_event) openDetail(it.w_event); else openItem(it); });
+    } else { b.appendChild(h("small", null, it.reason_label || "")); b.addEventListener("click", function () { openItem(it); }); }
+    return b;
+  }
+  function renderContent() {
+    var box = clear($("ad-content")); box.appendChild(h("p", "muted", "Loading…"));
+    return api("/api/caretaker/activity/content", { type: ctype, seed: contentSeed }).then(function (r) {
+      clear(box); var name = r.child.name;
+      var w = h("div", "ad-cgroup ad-cgroup--watched"); w.appendChild(h("h3", null, "Watched by " + name + (r.watched.total ? " (" + r.watched.total + ")" : "")));
+      if (!r.watched.items.length) w.appendChild(C.empty(name + " has not watched anything on the " + CT_LABEL[ctype] + " page yet."));
+      else { var g = h("div", "ad-cgrid"); r.watched.items.forEach(function (it) { g.appendChild(contentCard(it, true)); }); w.appendChild(g); }
+      var rc = h("div", "ad-cgroup"); rc.appendChild(h("h3", null, "Recommended for " + name));
+      if (!r.recommended.items.length) rc.appendChild(C.empty("No new recommendations right now."));
+      else { var g2 = h("div", "ad-cgrid"); r.recommended.items.forEach(function (it) { g2.appendChild(contentCard(it, false)); }); rc.appendChild(g2); }
+      box.append(w, rc);
+    }).catch(function (e) { clear(box); box.appendChild(C.empty(e.message)); });
+  }
+  $("ad-content-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-ctype]"); if (!b) return; ctype = b.dataset.ctype; contentSeed = Math.floor(Math.random() * 2147483647);
+    $("ad-content-tabs").querySelectorAll("button").forEach(function (x) { var on = x === b; x.classList.toggle("is-on", on); x.setAttribute("aria-pressed", on ? "true" : "false"); }); renderContent();
+  });
+
   /* ---------- orchestration ---------- */
   function setLive(txt) { $("ad-live-text").textContent = txt; }
   function setDay(day) { state.day = day; $("ad-day").value = day; loadAll(true); $("ad-graphs").scrollIntoView({ block: "start" }); }
@@ -292,7 +335,7 @@
     }).catch(function (e) { ["ad-stats"].forEach(function (id) { fail(id, e.message); }); setLive("Could not refresh"); });
   }
   function loadAll(keepFilters) {
-    return loadSummary().then(function () { return Promise.all([renderFeed(), renderTimeline(), renderInterests(), keepFilters ? null : renderHistory(), renderPeriods(activeGroup)]); });
+    return loadSummary().then(function () { return Promise.all([renderFeed(), renderTimeline(), renderInterests(), keepFilters ? null : renderHistory(), renderPeriods(activeGroup), keepFilters ? null : renderContent()]); });
   }
   var activeGroup = "week";
 
