@@ -35,6 +35,17 @@ def _page():
         return 1
 
 
+def _seed():
+    """Optional per-visit number from the page. With it, pictures differ on every visit; without it nothing changes."""
+    raw = request.args.get("seed")
+    if raw is None:
+        return None
+    try:
+        return max(0, min(int(raw), 2 ** 31 - 1))
+    except ValueError:
+        return None
+
+
 def _q():
     return (request.args.get("q") or "").strip()[:60]
 
@@ -53,7 +64,7 @@ def _listing(kind, n):
         cat = cats[(page - 1) % len(cats)]
         sub = (page - 1) // len(cats) + 1
     cat = cat or ("objects" if _age() is None else age_service.allowed_categories(_age())[0])
-    models, notice = cs.fetch_models(kind, cat, q, sub, n, _block(), _age())
+    models, notice = cs.fetch_models(kind, cat, q, sub, n, _block(), _age(), seed=_seed())
     hidden = rec.disliked_ids(g.child.id)
     models = [m for m in models if m.id not in hidden]
     return jsonify(items=cs.serialise(models, g.child.id), notice=notice, category=cat,
@@ -101,7 +112,7 @@ def feed():
         # YouTube searches cost API quota, so only the first two sections get a video row and a song row
         plan = [("picture", 4)] + ([("video", 3)] if idx < 2 else []) + ([("song", 3)] if idx < 2 else [])
         for kind, n in plan:
-            models, nt = cs.fetch_models(kind, cat, "", page, n, block, _age())
+            models, nt = cs.fetch_models(kind, cat, "", page, n, block, _age(), seed=_seed())
             notice = notice or nt
             models = [m for m in models if m.id not in hidden]
             fresh = [m for m in models if m.id not in shown]
