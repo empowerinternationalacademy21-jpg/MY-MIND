@@ -69,7 +69,8 @@ def world():
                            fav_vids=[f for f in favs if f.content_type in ("video", "short")],
                            fav_songs=[f for f in favs if f.content_type == "song"], categories=CATEGORIES,
                            share_url=session.pop("new_world_share_url", None),
-                           world_data=world_service.payload(g.user, g.child), **world_extras())
+                           world_data=world_service.payload(g.user, g.child), can_see_activity=(g.auth_role == "caregiver"),
+                           **world_extras())
 
 
 @bp.route("/world/interest/<category>", methods=["POST"])
