@@ -22,7 +22,7 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import func, or_
 
 from database.db import Session
-from database.models import ActivityEvent, ContentItem
+from database.models import ActivityEvent, ContentItem, utcnow
 from services import activity_service
 from services.categories import CATEGORIES, label_for
 
@@ -620,3 +620,145 @@ def detail(child_id, event_id, tz=0):
             "first_seen": min(r.created_at for r in mine).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "last_seen": max(r.created_at for r in mine).strftime("%Y-%m-%dT%H:%M:%SZ")}
     return data
+
+
+# ------------------------------------------------------------------ My World: what the child did at ONE stop
+STOP_EVENTS = SESSIONS + ("open", "like", "favorite")          # events that mean "the child actually dealt with this content"
+STOP_TYPES = {"video": "video", "song": "song", "picture": "picture", "short": "short"}
+
+
+def _scope_clause(scope):
+    """SQL for 'content that belongs to this stop': by content type, by category, or by a tag equal to one of the stop's categories.
+    scope = {'all': bool, 'types': (...), 'cats': (...)}. Nothing else is ever matched, so unrelated content cannot appear."""
+    if scope.get("all"):
+        return None
+    parts = []
+    if scope.get("types"):
+        parts.append(ContentItem.content_type.in_(tuple(scope["types"])))
+    for cat in scope.get("cats") or ():
+        parts.append(ContentItem.category == cat)
+        parts.append(ContentItem.tags_json.like(f'%"{cat}"%'))
+    return or_(*parts) if parts else (ContentItem.id < 0)
+
+
+def _stop_query(query, child_id, scope, start, end, tz):
+    query = query.filter(ActivityEvent.child_id == child_id, ActivityEvent.event_type.in_(STOP_EVENTS),
+                         ActivityEvent.content_id.isnot(None))
+    clause = _scope_clause(scope)
+    if clause is not None:
+        query = query.filter(clause)
+    if start or end:
+        lo, hi = _bounds(start or date(2000, 1, 1), end or date(2100, 1, 1), tz)
+        query = query.filter(ActivityEvent.created_at >= lo, ActivityEvent.created_at < hi)
+    return query
+
+
+def _artist(item):
+    import json
+    try:
+        att = json.loads(item.attribution_json or "{}") or {}
+    except ValueError:
+        att = {}
+    return att.get("artist") or att.get("artists") or att.get("channel") or att.get("photographer") or None
+
+
+def stop_activity(child_id, scope, content_type=None, start=None, end=None, tz=0, page=1, per_page=12):
+    """The child's real content at one stop: one card per piece of content, newest first, with views, time, completion, replays.
+    Counts per type ignore the type filter so the filter chips can show them."""
+    tz = clamp_tz(tz)
+    per_page = max(1, min(int(per_page or 12), 30))
+    page = max(1, int(page or 1))
+    joined = lambda q: q.join(ContentItem, ContentItem.id == ActivityEvent.content_id)
+    counts = {t: 0 for t in STOP_TYPES}
+    for ctype, n in _stop_query(joined(Session.query(ContentItem.content_type, func.count(func.distinct(ActivityEvent.content_id)))),
+                                child_id, scope, start, end, tz).group_by(ContentItem.content_type).all():
+        if ctype in counts:
+            counts[ctype] = n
+    counts["all"] = sum(counts.values())
+    grouped = _stop_query(joined(Session.query(ActivityEvent.content_id, func.max(ActivityEvent.created_at).label("last"))),
+                          child_id, scope, start, end, tz)
+    if content_type in STOP_TYPES:
+        grouped = grouped.filter(ContentItem.content_type == STOP_TYPES[content_type])
+    grouped = grouped.group_by(ActivityEvent.content_id)
+    total = grouped.count()
+    page_rows = (grouped.order_by(func.max(ActivityEvent.created_at).desc(), ActivityEvent.content_id.desc())
+                 .offset((page - 1) * per_page).limit(per_page).all())
+    ids = [cid for cid, _ in page_rows]
+    items = []
+    if ids:
+        events = _stop_query(Session.query(ActivityEvent).filter(ActivityEvent.content_id.in_(ids)).join(
+            ContentItem, ContentItem.id == ActivityEvent.content_id), child_id, scope, start, end, tz).order_by(
+            ActivityEvent.created_at.asc(), ActivityEvent.id.asc()).all()
+        content = {c.id: c for c in Session.query(ContentItem).filter(ContentItem.id.in_(ids)).all()}
+        by_content = defaultdict(list)
+        for ev in events:
+            by_content[ev.content_id].append(ev)
+        for cid, last in page_rows:
+            evs, item = by_content.get(cid, []), content.get(cid)
+            if item is None or not evs:
+                continue
+            sessions = [e for e in evs if e.event_type in SESSIONS]
+            seconds = sum(effective_seconds(sessions).values())
+            opens = sum(1 for e in evs if e.event_type == "open")
+            completions = [e.completion_pct for e in sessions if e.completion_pct is not None]
+            replays = sum(e.replay_count or 0 for e in sessions)
+            local = _local(last, tz)
+            reactions = sum(1 for e in evs if e.event_type in ("like", "favorite"))
+            items.append({
+                "content": content_card(item), "artist": _artist(item), "views": max(len(sessions), opens),
+                "minutes": _minutes(seconds), "seconds": int(round(seconds)), "completion_pct": round(max(completions)) if completions else None,
+                "completed": any(e.completed for e in sessions), "replays": replays, "plays": len(sessions) + replays,
+                "interactions": len(evs), "reactions": reactions, "measured": any(e.measured for e in sessions),
+                "last_iso": last.strftime("%Y-%m-%dT%H:%M:%SZ"), "last_date": local.date().isoformat(), "last_time": local.strftime("%H:%M"),
+                "first_date": _local(evs[0].created_at, tz).date().isoformat()})
+    other = _stop_other(child_id, scope, start, end, tz)
+    return {"items": items, "counts": counts, "total": total, "page": page, "per_page": per_page, "pages": max(1, -(-total // per_page)),
+            "has_more": page * per_page < total, "other": other, "any_activity": counts["all"] > 0}
+
+
+def _stop_other(child_id, scope, start, end, tz):
+    """Other meaningful activity for the stop: favorites, likes, skips and categories explored."""
+    out = {"favorites": 0, "likes": 0, "skips": 0, "explored": 0}
+    base = Session.query(ActivityEvent.event_type, func.count(ActivityEvent.id)).join(ContentItem, ContentItem.id == ActivityEvent.content_id)
+    base = base.filter(ActivityEvent.child_id == child_id, ActivityEvent.event_type.in_(("favorite", "like", "next")))
+    clause = _scope_clause(scope)
+    if clause is not None:
+        base = base.filter(clause)
+    lo = hi = None
+    if start or end:
+        lo, hi = _bounds(start or date(2000, 1, 1), end or date(2100, 1, 1), tz)
+        base = base.filter(ActivityEvent.created_at >= lo, ActivityEvent.created_at < hi)
+    for et, n in base.group_by(ActivityEvent.event_type).all():
+        out[{"favorite": "favorites", "like": "likes", "next": "skips"}[et]] = n
+    cats = tuple(scope.get("cats") or ())
+    if cats and not scope.get("all"):
+        q = Session.query(func.count(ActivityEvent.id)).filter(ActivityEvent.child_id == child_id, ActivityEvent.event_type == "browse",
+                                                              ActivityEvent.category.in_(cats))
+        if lo is not None:
+            q = q.filter(ActivityEvent.created_at >= lo, ActivityEvent.created_at < hi)
+        out["explored"] = q.scalar() or 0
+    return out
+
+
+def stop_content_records(child_id, scope, content_id, start=None, end=None, tz=0):
+    """Every recorded event for ONE piece of content, but only if that content belongs to the stop (else None)."""
+    tz = clamp_tz(tz)
+    belongs = _stop_query(Session.query(ActivityEvent.id).join(ContentItem, ContentItem.id == ActivityEvent.content_id).filter(
+        ActivityEvent.content_id == content_id), child_id, scope, None, None, tz).first()
+    if not belongs:
+        return None
+    item = Session.get(ContentItem, content_id)
+    rows = _stop_query(Session.query(ActivityEvent).join(ContentItem, ContentItem.id == ActivityEvent.content_id).filter(
+        ActivityEvent.content_id == content_id), child_id, scope, start, end, tz).order_by(
+        ActivityEvent.created_at.desc(), ActivityEvent.id.desc()).limit(200).all()
+    from services import content_service as cs
+    card = cs.serialise([item], child_id)[0]
+    sessions = [r for r in rows if r.event_type in SESSIONS]
+    completions = [r.completion_pct for r in sessions if r.completion_pct is not None]
+    return {"content": content_card(item), "artist": _artist(item),
+            "viewer": {"type": card["type"], "title": card["title"], "thumb": card["thumb"], "embed": card["embed"],
+                       "url": card["url"] if card["provider"] != "demo" else None, "attribution": card["attribution"]},
+            "totals": {"views": max(len(sessions), sum(1 for r in rows if r.event_type == "open")),
+                       "minutes": _minutes(sum(effective_seconds(sessions).values())), "replays": sum(r.replay_count or 0 for r in sessions),
+                       "completion_pct": round(max(completions)) if completions else None},
+            "records": [_history_row(r, item, tz) for r in rows]}
