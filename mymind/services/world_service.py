@@ -55,6 +55,18 @@ STOP_DEFS = {
     "vehicles": dict(label="Vehicles", icon="car", x=92, y=26, color="#2f80ed", blurb="Cars, trains, planes and boats.", cats=("vehicles",), shelf=("/api/pictures", {"category": "vehicles"}), tier="extra"),
     "art":      dict(label="Art", icon="brush", x=50, y=12, color="#e8590c", blurb="Painting, drawing and making.", cats=("art", "stories", "cartoons"), shelf=("/api/pictures", {"category": "art"}), tier="extra"),
 }
+# which recorded content belongs to which stop: by content type (the media stops) and/or by category (the interest stops)
+ACTIVITY_TYPES = {"pictures": ("picture",), "videos": ("video",), "shots": ("short",), "music": ("song",)}
+
+
+def activity_scope(key):
+    """-> {'all', 'types', 'cats'} describing the content that belongs at stop `key`, or None for an unknown stop.
+    Home is the hub (everything the child did); every other stop only matches its own type and/or categories."""
+    if key not in STOP_DEFS:
+        return None
+    return {"all": key == "home", "types": ACTIVITY_TYPES.get(key, ()), "cats": tuple(STOP_DEFS[key]["cats"])}
+
+
 PATH_ORDER = ("home", "pictures", "music", "colors", "animals", "art", "nature", "vehicles", "food", "videos", "shots", "sports")   # bridges follow this walk
 DECOR_KIND = {"sports": "balls", "music": "notes", "food": "treats", "colors": "shapes", "nature": "trees", "animals": "paws", "vehicles": "cones", "art": "paint"}
 
