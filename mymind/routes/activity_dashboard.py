@@ -13,6 +13,7 @@ from database.db import Session
 from database.models import ActivityEvent, utcnow
 from routes.helpers import caregiver_required, child_of, has_questionnaire
 from services import activity_analytics_service as analytics
+from services import watched_service
 from services import activity_service, cache, child_scope, interest_discovery_service as discovery, plan_service
 
 bp = Blueprint("activity_dashboard", __name__)
@@ -173,3 +174,25 @@ def api_detail(event_id):
 def api_interests():
     child, tz = _child(), _tz()
     return jsonify(discovery.discover(child.id, tz=tz))
+
+
+@bp.route("/api/caretaker/activity/content")
+@caregiver_required
+def api_content():
+    """For one content type (videos, shots, music, pictures): what the child WATCHED (highlighted, real, newest first) and, kept apart,
+    what we would RECOMMEND next (never repeating something already watched)."""
+    child, tz = _child(), _tz()
+    ctype = request.args.get("type", "short")
+    if ctype not in watched_service.KINDS:
+        return jsonify(error="Unknown content type."), 400
+    scope = {"all": False, "types": (ctype,), "cats": ()}
+    mine = watched_service.watched(g.user, child, scope, ctype, limit=24, tz=tz, safe=False)      # the caretaker sees everything, unfiltered
+    earliest = _earliest(tz).isoformat()
+    items = [i for i in mine["items"] if i["w_date"] >= earliest]                                  # plan history window
+    try:
+        seed = max(0, min(int(request.args.get("seed", "")), 2 ** 31 - 1))
+    except ValueError:
+        seed = None
+    suggested = watched_service.recommended(g.user, child, ctype, exclude_ids={i["id"] for i in mine["items"]}, n=12, seed=seed)
+    return jsonify(type=ctype, child={"name": child.display_name}, watched={"items": items, "total": len(items) if len(items) < len(mine["items"]) else mine["total"]},
+                   recommended=suggested)
