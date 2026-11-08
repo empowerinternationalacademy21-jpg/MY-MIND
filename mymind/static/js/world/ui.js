@@ -263,7 +263,12 @@
       chipsData.forEach(function (z) { chips.appendChild(mk(z.key.charAt(0).toUpperCase() + z.key.slice(1), z.q)); });
       chips.firstChild.setAttribute("aria-pressed", "true"); body.appendChild(chips);
     }
-    if (d.shelf) { shelfHost = shelf(d, function () { return q; }); body.appendChild(shelfHost.el); }
+    var caregiverView = root.dataset.canSeeActivity === "1" && !preview;               // the child's real activity at this place: caregivers only (also enforced by the server)
+    if (caregiverView) body.appendChild(activityPanel(s));
+    if (d.shelf) {
+      if (caregiverView) body.appendChild(el("h4", "w3d-sub", "More to explore here"));
+      shelfHost = shelf(d, function () { return q; }); body.appendChild(shelfHost.el);
+    }
     if (d.favorites) {
       body.appendChild(el("h4", "w3d-sub", "My favourites"));
       var fg = el("div", "tiles"); body.appendChild(fg);
@@ -272,6 +277,92 @@
     sheet.replaceChildren(head, body);
     sheet.querySelector("#w3d-sheet-title").focus({ preventScroll: true });
     if (window.MMAsset3D) window.MMAsset3D.scan(sheet);
+  }
+
+  // ------------------------------------------------------------------ what the child actually did at this stop (caregivers)
+  var ACT_TYPES = [["all", "All activity"], ["video", "Videos"], ["song", "Music"], ["picture", "Pictures"], ["short", "Shots & clips"]];
+  var TZ = -new Date().getTimezoneOffset();
+  function actDur(sec) { return sec < 60 ? sec + " sec" : sec < 3600 ? Math.round(sec / 60) + " min" : (Math.round(sec / 360) / 10) + " h"; }
+  function actDate(iso, time) { var d = new Date(iso + "T12:00:00"); return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) + (time ? " · " + time : ""); }
+  function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+  function activityPanel(s) {
+    var wrap = el("section", "w3d-act"); wrap.setAttribute("aria-label", "What " + ((data.child && data.child.name) || "your child") + " did at " + s.label);
+    var st = { type: "all", start: "", end: "", page: 1, busy: false, hasMore: false };
+    var head = el("div", "w3d-act__head"); head.append(el("h4", "w3d-sub", "What your child did here"), el("p", "small muted", "Real activity recorded in MyMind, newest first."));
+    var chips = el("div", "w3d-chips w3d-act__chips"); chips.setAttribute("role", "group"); chips.setAttribute("aria-label", "Type of activity");
+    var chipEls = {};
+    ACT_TYPES.forEach(function (t) { var c = el("button", "chip", t[1]); c.type = "button"; c.setAttribute("aria-pressed", String(t[0] === "all")); c.dataset.type = t[0]; chipEls[t[0]] = c;
+      c.addEventListener("click", function () { st.type = t[0]; st.page = 1; Object.keys(chipEls).forEach(function (k) { chipEls[k].setAttribute("aria-pressed", String(k === st.type)); }); load(false); }); chips.appendChild(c); });
+    var when = el("select", "w3d-act__when"); when.setAttribute("aria-label", "Date range");
+    [["all", "Any time"], ["7", "Last 7 days"], ["30", "Last 30 days"], ["custom", "Choose dates…"]].forEach(function (o) { var op = el("option", null, o[1]); op.value = o[0]; when.appendChild(op); });
+    var from = el("input"), to = el("input"); from.type = to.type = "date"; from.setAttribute("aria-label", "From date"); to.setAttribute("aria-label", "To date");
+    var custom = el("span", "w3d-act__custom"); custom.hidden = true; custom.append(from, el("span", null, "to"), to);
+    function iso(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+    function applyRange() {
+      var now = new Date();
+      if (when.value === "all") { st.start = st.end = ""; }
+      else if (when.value === "custom") { st.start = from.value; st.end = to.value; }
+      else { var a = new Date(now); a.setDate(a.getDate() - (+when.value - 1)); st.start = iso(a); st.end = iso(now); }
+      st.page = 1; custom.hidden = when.value !== "custom"; load(false);
+    }
+    when.addEventListener("change", applyRange); from.addEventListener("change", applyRange); to.addEventListener("change", applyRange);
+    var bar = el("div", "w3d-act__bar"); bar.append(chips, when, custom);
+    var other = el("p", "small muted w3d-act__other"), list = el("div", "w3d-act__list"), more = btn("btn", "Show more", null, function () { load(true); }); more.hidden = true;
+    var detail = el("div", "w3d-act__detail"); detail.hidden = true;
+    wrap.append(head, bar, other, list, more, detail);
+
+    function empty(msg) { list.replaceChildren(el("div", "w3d-act__empty", msg)); st.hasMore = false; more.hidden = true; }
+    function card(it) {
+      var c = el("button", "w3d-act__card"); c.type = "button"; c.setAttribute("aria-label", "Open details for " + it.content.title);
+      var th = el("span", "w3d-act__thumb"); if (it.content.thumbnail_url) { var im = el("img"); im.src = it.content.thumbnail_url; im.alt = ""; im.loading = "lazy"; im.referrerPolicy = "no-referrer"; th.appendChild(im); }
+      th.appendChild(el("span", "w3d-act__tag", { video: "Video", song: "Song", picture: "Picture", short: "Shot" }[it.content.type] || ""));
+      var b = el("span", "w3d-act__body"), t = el("strong", null, it.content.title), meta = [];
+      if (it.artist) meta.push(it.artist); if (it.content.category_label) meta.push(it.content.category_label);
+      b.append(t, el("small", null, meta.join(" · ")));
+      var facts = [], type = it.content.type;
+      if (type === "song") { facts.push(plural(it.plays, "play")); if (it.minutes) facts.push("listened " + actDur(it.seconds)); }
+      else if (type === "picture") { facts.push(plural(it.interactions, "interaction")); if (it.seconds >= 5) facts.push("viewed " + actDur(it.seconds)); }
+      else { facts.push(plural(it.views, "view")); if (it.seconds) facts.push("watched " + actDur(it.seconds)); if (type === "short" && it.replays) facts.push(plural(it.replays, "replay")); if (it.completion_pct != null && type !== "short") facts.push(it.completion_pct + "% played"); }
+      b.append(el("small", "w3d-act__facts", facts.join(" · ")), el("small", "w3d-act__date", "Last: " + actDate(it.last_date, it.last_time)));
+      c.append(th, b); c.addEventListener("click", function () { showDetail(it); }); return c;
+    }
+    function load(append) {
+      if (st.busy) return; st.busy = true;
+      if (!append) list.replaceChildren(MM.skeletons(3));
+      var p = new URLSearchParams({ type: st.type, page: st.page, tz: TZ }); if (st.start) p.set("start", st.start); if (st.end) p.set("end", st.end);
+      MM.api(apiRoot + "/stop/" + s.key + "/activity?" + p).then(function (r) {
+        ACT_TYPES.forEach(function (t) { chipEls[t[0]].textContent = t[1] + " (" + (r.counts[t[0]] || 0) + ")"; });
+        var o = r.other, bits = []; if (o.favorites) bits.push(plural(o.favorites, "favourite")); if (o.likes) bits.push(plural(o.likes, "like")); if (o.skips) bits.push(plural(o.skips, "skip")); if (o.explored) bits.push("explored " + plural(o.explored, "time"));
+        other.textContent = bits.length ? "Also here: " + bits.join(" · ") : ""; other.hidden = !bits.length;
+        if (!append) list.replaceChildren();
+        if (!r.any_activity) { if (st.start || st.end) empty("No activity in this time. Try a longer period."); else empty("No activity recorded here yet. As your child explores the application, their activities will appear here."); bar.hidden = !(st.start || st.end); return; }
+        bar.hidden = false;
+        if (!r.items.length && !append) { empty("Nothing matches these filters."); return; }
+        r.items.forEach(function (it) { list.appendChild(card(it)); });
+        st.hasMore = r.has_more; more.hidden = !r.has_more; st.page = r.page + 1;
+      }).catch(function (e) { if (!append) empty(e.message || "Couldn't load the activity right now."); }).then(function () { st.busy = false; });
+    }
+    function showDetail(it) {
+      list.hidden = bar.hidden = other.hidden = more.hidden = true; detail.hidden = false; detail.replaceChildren(el("p", "muted", "Loading…"));
+      var p = new URLSearchParams({ tz: TZ }); if (st.start) p.set("start", st.start); if (st.end) p.set("end", st.end);
+      var back = btn("btn small", "Back to the list", "chevron-left", function () { detail.hidden = true; detail.replaceChildren(); list.hidden = bar.hidden = false; other.hidden = !other.textContent; more.hidden = !st.hasMore; });
+      MM.api(apiRoot + "/stop/" + s.key + "/activity/" + it.content.id + "?" + p).then(function (r) {
+        var v = r.viewer, box = el("div", "w3d-act__view");
+        if (v.type === "picture" && v.thumb) { var im = el("img", "w3d-act__big"); im.src = v.thumb; im.alt = v.title; im.referrerPolicy = "no-referrer"; box.appendChild(im); }
+        else if (v.embed) { var f = el("iframe", "w3d-act__embed" + (v.type === "short" ? " is-short" : "")); f.src = v.embed; f.title = v.title; f.loading = "lazy"; f.allow = "encrypted-media; picture-in-picture; fullscreen"; f.setAttribute("allowfullscreen", ""); f.referrerPolicy = "strict-origin-when-cross-origin"; box.appendChild(f); }
+        else if (v.thumb) { var i2 = el("img", "w3d-act__big"); i2.src = v.thumb; i2.alt = ""; box.appendChild(i2); }
+        var t = r.totals, sum = [plural(t.views, "view"), t.minutes ? actDur(Math.round(t.minutes * 60)) + " in total" : null, t.replays ? plural(t.replays, "replay") : null, t.completion_pct != null ? t.completion_pct + "% played" : null].filter(Boolean);
+        var recs = el("ul", "w3d-act__records");
+        r.records.forEach(function (x) {
+          var li = el("li"), what = x.action_label + (x.seconds && x.engagement ? " · " + actDur(x.seconds) : "") + (x.completion_pct != null ? " · " + x.completion_pct + "%" : "") + (x.replays ? " · " + plural(x.replays, "replay") : "");
+          li.append(el("span", null, actDate(x.date, x.time)), el("b", null, what)); recs.appendChild(li);
+        });
+        var links = el("div", "w3d-act__links"); if (v.url) { var a = el("a", "btn small", "Open original"); a.href = v.url; a.target = "_blank"; a.rel = "noopener noreferrer"; links.appendChild(a); }
+        detail.replaceChildren(back, el("h4", "w3d-sub", r.content.title), el("p", "small muted", [r.artist, r.content.category_label].filter(Boolean).join(" · ")), box, el("p", "w3d-act__sum", sum.join(" · ")), el("h5", "w3d-act__h", "Every time it was opened"), recs, links);
+      }).catch(function (e) { detail.replaceChildren(back, el("p", "notice", e.message || "That record couldn't open.")); });
+    }
+    load(false);
+    return wrap;
   }
   function shelf(d, getQ) {
     var wrap = el("div", "w3d-shelf"), grid = el("div", "tiles"), more = btn("btn", "Show more", null, function () { load(true); });
