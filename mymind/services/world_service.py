@@ -367,6 +367,9 @@ def stop_detail(user, child, key):
         out["flavors"] = [{"key": f, "q": f"{f} ice cream"} for f in FLAVORS]
     if d["shelf"]:
         out["shelf"] = {"endpoint": d["shelf"][0], "params": d["shelf"][1]}
+    # what the child really opened here (kept apart from the recommendations in "shelf"); shown first in every view
+    from services import watched_service
+    out["watched"] = watched_service.watched(user, child, activity_scope(key), limit=24)
     if key == "home":
         from services import content_service as cs
         favs = (Session.query(ContentItem).join(Favorite, Favorite.content_item_id == ContentItem.id)
