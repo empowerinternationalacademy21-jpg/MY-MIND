@@ -5,6 +5,11 @@
 <p class="muted">Create <b>original</b> items and friendly characters from a fixed list of choices. Nothing reaches children until you review and publish it. Real people, teams, leagues, brands and "looks like…" requests are refused; licensed real-star art goes through the <a href="{{ url_for('admin_world.library') }}">World Library</a>.</p>
 <p class="small muted">Status: Meshy {{ 'ready' if provider_ready.meshy else 'not set up' }} · Tripo {{ 'ready' if provider_ready.tripo else 'not set up' }} · concept images {{ 'ready' if concept_ready else 'not set up (needed for characters)' }} · optimiser {{ 'installed' if optimizer else 'not installed (models kept as delivered)' }}. Jobs are advanced by <code>flask --app app ai3d-worker</code> or the Refresh button.</p>
 
+<section class="card-box" aria-labelledby="isl-sum-title"><h2 id="isl-sum-title">3D WORLD &amp; ISLAND MANAGEMENT</h2>
+<p class="small muted">See every island, choose the default world for all children, delete islands you no longer want (one, several or all) and restore them if you change your mind.</p>
+<p class="small"><b>{{ island_summary.total }}</b> island{{ '' if island_summary.total == 1 else 's' }}{% if island_summary.trash %} · {{ island_summary.trash }} recently deleted{% endif %} · Default: <b>{% if island_summary.state.island %}{{ island_summary.state.island.name or ('Island ' ~ island_summary.state.island.id) }}{% else %}none (built-in look){% endif %}</b></p>
+<a class="btn primary" href="{{ url_for('admin_ai3d.island_manager') }}">Manage islands</a></section>
+
 <section class="card-box"><h2>My World island for everyone</h2>
 <p class="small muted">Choose the 3D island that every child's My World stands on. The choice is saved on the server, so it appears on <b>every user's world and every device</b> the next time My World opens (open worlds update when the app is brought back to the screen). Tick the box to replace personal choices; leave it unticked to only set the default for people who have not picked an island.</p>
 {% if island_bases %}<form method="post" action="{{ url_for('admin_ai3d.set_island') }}" autocomplete="off">
