@@ -78,6 +78,70 @@ def api_world_stop(key):
     return jsonify(d)
 
 
+def _activity_args():
+    """Shared, validated query arguments for the stop activity panel."""
+    from datetime import date, timedelta
+    from services import activity_analytics_service as an, plan_service
+
+    def day(name):
+        try:
+            return date.fromisoformat(request.args.get(name, ""))
+        except ValueError:
+            return None
+    tz = an.clamp_tz(request.args.get("tz", 0))
+    start, end = day("start"), day("end")
+    earliest = an._local(an.utcnow(), tz).date() - timedelta(days=plan_service.history_days(g.user.id) - 1)
+    return an, tz, start, end, earliest
+
+
+def _caregiver_child_or_abort():
+    """Only a signed-in caregiver, and only for a child they are authorised for. Children and anyone else are refused."""
+    from services import child_scope
+    if g.auth_role != "caregiver":
+        abort(403)
+    if not child_scope.can_access(g.user.id, g.child.id):
+        abort(404)
+    return g.child
+
+
+@bp.route("/api/world/stop/<key>/activity")
+@subscribed_required
+def api_world_stop_activity(key):
+    """What this child actually watched / listened to / viewed at one stop (caregivers only)."""
+    child = _caregiver_child_or_abort()
+    scope = ws.activity_scope(key)
+    if scope is None:
+        abort(404)
+    an, tz, start, end, earliest = _activity_args()
+    if earliest is not None:                                             # never reveal more history than the caregiver's plan includes
+        start = max(start, earliest) if start else earliest
+    try:
+        page, per_page = int(request.args.get("page", 1)), int(request.args.get("per_page", 12))
+    except ValueError:
+        page, per_page = 1, 12
+    data = an.stop_activity(child.id, scope, request.args.get("type") or None, start, end, tz, page, per_page)
+    data["stop"] = {"key": key, "label": ws.STOP_DEFS[key]["label"]}
+    data["child"] = {"name": child.display_name}
+    data["history_start"] = earliest.isoformat() if earliest else None
+    return jsonify(data)
+
+
+@bp.route("/api/world/stop/<key>/activity/<int:content_id>")
+@subscribed_required
+def api_world_stop_activity_content(key, content_id):
+    child = _caregiver_child_or_abort()
+    scope = ws.activity_scope(key)
+    if scope is None:
+        abort(404)
+    an, tz, start, end, earliest = _activity_args()
+    if earliest is not None:
+        start = max(start, earliest) if start else earliest
+    data = an.stop_content_records(child.id, scope, content_id, start, end, tz)
+    if data is None:
+        abort(404)                                                       # not this child's, or not content that belongs at this stop
+    return jsonify(data)
+
+
 @bp.route("/api/world/settings", methods=["POST"])
 @subscribed_required
 def api_world_settings():
