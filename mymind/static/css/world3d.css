@@ -104,3 +104,14 @@
 .w3d-act__records li { display: flex; justify-content: space-between; gap: .6rem; padding: .3rem .5rem; border-radius: 8px; background: #fff; font-size: .8rem; }
 .w3d-act__records span { color: #5b6b7c; }
 @media (max-width: 480px) { .w3d-act__card { grid-template-columns: 68px 1fr; } .w3d-act__thumb { width: 68px; height: 54px; } }
+
+
+/* Watched (the child's own content) is highlighted and kept apart from recommendations */
+.w3d-watched, .w3d-act { border-left: 4px solid #ff9d45; }
+.w3d-watched { margin: .8rem 0; padding: .7rem .8rem; border-radius: 18px; background: #fff8ee; border: 1px solid rgba(255, 157, 69, .45); border-left-width: 4px; }
+.w3d-watched .w3d-sub { margin-top: 0; }
+.w3d-watched__none { margin: 0; color: #6b5a45; font-size: .9rem; }
+.w3d-watched__grid .is-watched { position: relative; outline: 2px solid #ff9d45; outline-offset: -2px; border-radius: 16px; }
+.w3d-watched__tag { position: absolute; top: 6px; left: 6px; z-index: 2; display: inline-flex; align-items: center; gap: .2rem; padding: .1rem .5rem; border-radius: 999px; background: #ff7a1a; color: #fff; font-size: .68rem; font-weight: 800; }
+.w3d-watched__note { display: block; padding: .2rem .4rem .4rem; color: #6b5a45; font-size: .72rem; }
+.w3d-rec-title { margin-top: 1rem; padding-top: .6rem; border-top: 1px dashed rgba(0, 0, 0, .18); }
