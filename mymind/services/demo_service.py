@@ -27,10 +27,10 @@ def _sfx(age):
 def _slice(items, page, n):
     return items[(page - 1) * n: page * n] if page > 0 else items[:n]
 
-def pictures(category, page=1, n=8, age=None):
+def pictures(category, page=1, n=8, age=None, offset=0):
     cat = category if category in CATEGORIES else "objects"
     out = []
-    for i in range((page - 1) * n, page * n):
+    for i in range((page - 1) * n + offset, page * n + offset):
         kw = _kw(cat, i, age)
         out.append(dict(provider="demo", provider_content_id=f"pic-{cat}-{i}{_sfx(age)}", content_type="picture",
                         title=f"{kw.title()} (demo picture)", description="Demo illustration",
