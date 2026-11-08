@@ -14,6 +14,8 @@
   endNote.insertAdjacentElement("afterend", sentinel);
 
   let page = 1, cat = "", loading = false, done = false, gen = 0, failures = 0;
+  const newSeed = () => Math.floor(Math.random() * 2147483647);     // new number each visit/topic change = different pictures
+  let seed = newSeed();
   const seen = new Set();                            // content ids already on screen, so nothing repeats
   const KIND = { picture: "Picture", video: "Video", short: "Short", song: "Song" };
   const VERB = { picture: "View", video: "Watch", short: "Watch", song: "Play" };
@@ -94,11 +96,11 @@
     showSpinner(true);
     if (!append) {
       host.replaceChildren(el("div", "skeleton fd-skel"), el("div", "skeleton fd-skel"));
-      page = 1; done = false; failures = 0; seen.clear(); endNote.hidden = true;
+      page = 1; done = false; failures = 0; seen.clear(); endNote.hidden = true; seed = newSeed();
     }
     let added = 0;
     try {
-      const d = await MM.api("/api/feed?page=" + page + (cat ? "&category=" + encodeURIComponent(cat) : ""));
+      const d = await MM.api("/api/feed?page=" + page + "&seed=" + seed + (cat ? "&category=" + encodeURIComponent(cat) : ""));
       if (my !== gen) return;
       if (!append) host.replaceChildren();
       MM.notice(host.parentElement, d.notice);
