@@ -127,3 +127,19 @@
 .ad-dl dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 520px) { .ad-row-btn { grid-template-columns: 44px 1fr; } .ad-when { grid-column: 2; } .ad-thumb { width: 44px; height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .ad *, .adc * { transition: none !important; } }
+
+
+/* Content: watched (highlighted) vs recommended */
+.ad-content { display: grid; gap: 1.2rem; margin-top: .8rem; }
+.ad-cgroup h3 { margin: 0 0 .6rem; font-size: .95rem; }
+.ad-cgroup--watched { padding: .8rem; border-radius: 18px; background: rgba(255, 157, 69, .1); border: 1px solid rgba(255, 157, 69, .5); border-left-width: 4px; }
+.ad-cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .7rem; }
+.ad-ccard { display: grid; gap: .25rem; align-content: start; text-align: left; padding: .4rem; border-radius: 16px; background: var(--ct-tile); border: 1px solid var(--ct-line); color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.ad-ccard:hover, .ad-ccard:focus-visible { border-color: var(--ct-orange); background: var(--ct-tile-hi); }
+.ad-ccard.is-watched { border: 2px solid var(--ct-orange); }
+.ad-ccard strong { font-size: .84rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ad-ccard small { color: var(--ct-mute); font-size: .72rem; }
+.ad-thumb--lg { position: relative; width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 12px; }
+.ad-badge { position: absolute; top: 6px; left: 6px; padding: .1rem .55rem; border-radius: 999px; font-size: .66rem; font-weight: 800; }
+.ad-badge--w { background: var(--ct-orange); color: var(--ct-on-orange); }
+.ad-badge--r { background: rgba(0, 0, 0, .6); color: #fff; }
