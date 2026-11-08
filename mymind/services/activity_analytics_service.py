@@ -22,7 +22,7 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import func, or_
 
 from database.db import Session
-from database.models import ActivityEvent, ContentItem, utcnow
+from database.models import ActivityEvent, ContentItem, Interaction, utcnow
 from services import activity_service
 from services.categories import CATEGORIES, label_for
 
@@ -762,3 +762,53 @@ def stop_content_records(child_id, scope, content_id, start=None, end=None, tz=0
                        "minutes": _minutes(sum(effective_seconds(sessions).values())), "replays": sum(r.replay_count or 0 for r in sessions),
                        "completion_pct": round(max(completions)) if completions else None},
             "records": [_history_row(r, item, tz) for r in rows]}
+
+
+# ------------------------------------------------------------------ "watched" lists: exactly what the child opened, newest first
+HISTORY_INTERACTIONS = ("selected", "watched", "like", "favorite")      # older reactions (before activity tracking) that also mean "the child chose this"
+
+
+def watched_cards(child_id, scope, content_type=None, limit=24, tz=0):
+    """The child's own content at a stop / of a type: [{content_id, last_event_id, views, minutes, seconds, completion_pct, replays,
+    last_iso, last_date, last_time}] newest first, plus the total. Built from recorded activity AND the older interaction history,
+    so a child who used the app before tracking existed still sees what they chose. Never anything that was only recommended."""
+    tz = clamp_tz(tz)
+    last = {}
+    last_event = {}
+    q = _stop_query(Session.query(ActivityEvent.content_id, func.max(ActivityEvent.created_at), func.max(ActivityEvent.id))
+                    .join(ContentItem, ContentItem.id == ActivityEvent.content_id), child_id, scope, None, None, tz)
+    if content_type in STOP_TYPES:
+        q = q.filter(ContentItem.content_type == STOP_TYPES[content_type])
+    for cid, at, eid in q.group_by(ActivityEvent.content_id).all():
+        last[cid], last_event[cid] = at, eid
+    h = (Session.query(Interaction.content_item_id, func.max(Interaction.occurred_at))
+         .join(ContentItem, ContentItem.id == Interaction.content_item_id)
+         .filter(Interaction.child_profile_id == child_id, Interaction.interaction_type.in_(HISTORY_INTERACTIONS)))
+    clause = _scope_clause(scope)
+    if clause is not None:
+        h = h.filter(clause)
+    if content_type in STOP_TYPES:
+        h = h.filter(ContentItem.content_type == STOP_TYPES[content_type])
+    for cid, at in h.group_by(Interaction.content_item_id).all():
+        if cid and (cid not in last or at > last[cid]):
+            last[cid] = at
+    order = sorted(last, key=lambda c: (last[c], c), reverse=True)
+    total, ids = len(order), order[:limit]
+    stats = defaultdict(list)
+    if ids:
+        for ev in Session.query(ActivityEvent).filter(ActivityEvent.child_id == child_id, ActivityEvent.content_id.in_(ids),
+                                                      ActivityEvent.event_type.in_(STOP_EVENTS)).order_by(ActivityEvent.created_at.asc()).all():
+            stats[ev.content_id].append(ev)
+    out = []
+    for cid in ids:
+        evs = stats.get(cid, [])
+        sessions = [e for e in evs if e.event_type in SESSIONS]
+        seconds = sum(effective_seconds(sessions).values())
+        opens = sum(1 for e in evs if e.event_type == "open")
+        pcts = [e.completion_pct for e in sessions if e.completion_pct is not None]
+        local = _local(last[cid], tz)
+        out.append({"content_id": cid, "last_event_id": last_event.get(cid), "views": max(len(sessions), opens, 1),
+                    "minutes": _minutes(seconds), "seconds": int(round(seconds)), "completion_pct": round(max(pcts)) if pcts else None,
+                    "replays": sum(e.replay_count or 0 for e in sessions), "last_iso": last[cid].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "last_date": local.date().isoformat(), "last_time": local.strftime("%H:%M")})
+    return out, total
