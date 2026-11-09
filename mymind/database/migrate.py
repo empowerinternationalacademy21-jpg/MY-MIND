@@ -233,6 +233,22 @@ def m0014_activity_engagement_detail(engine):
         c.execute(text("CREATE INDEX IF NOT EXISTS ix_activity_child_category_time ON activity_events (child_id, category, created_at)"))
 
 
+def m0015_sort_content_by_category(engine):
+    """File existing pictures/videos/shorts under the category their own title and description clearly place them in
+    (a dog saved under 'people' moves to 'animals'). Conservative: ties and weak hints stay where they are. Activity rows follow
+    their content so analytics and My World stay consistent. Demo items are left alone."""
+    from services import category_service
+    with engine.begin() as c:
+        rows = c.execute(text("SELECT id, title, description, tags_json, category, content_type FROM content_items "
+                              "WHERE provider != 'demo' AND content_type IN ('picture','video','short')")).fetchall()
+        moves = category_service.resort_rows([tuple(r) for r in rows])
+        for rid, _old, new in moves:
+            c.execute(text("UPDATE content_items SET category = :c WHERE id = :i"), {"c": new, "i": rid})
+            c.execute(text("UPDATE activity_events SET category = :c WHERE content_id = :i AND event_type != 'browse'"), {"c": new, "i": rid})
+    if moves:
+        print(f"sorted {len(moves)} of {len(rows)} saved items into their true category")
+
+
 MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_world_assets), (3, "ai 3d assets", m0003_assets3d),
               (4, "parent links", m0004_parent_links), (5, "id verification", m0005_id_verification),
               (6, "child age", m0006_child_age), (7, "activity events", m0007_activity_events),
@@ -241,7 +257,8 @@ MIGRATIONS = [(1, "initial schema", m0001_initial), (2, "world assets", m0002_wo
               (11, "recommendation states", m0011_recommendation_states),
               (12, "multi-child profiles", m0012_multi_child_profiles),
               (13, "independent child portfolios", m0013_independent_child_portfolios),
-              (14, "activity engagement detail", m0014_activity_engagement_detail)]
+              (14, "activity engagement detail", m0014_activity_engagement_detail),
+              (15, "sort content by category", m0015_sort_content_by_category)]
 
 def run_migrations():
     engine = db.get_engine()
