@@ -183,6 +183,26 @@ def create_app(test_config=None):
     def init_db_cmd():
         run_migrations(); settings_service.ensure_defaults(); click.echo("Database initialised.")
 
+    @app.cli.command("resort-content")
+    @click.option("--dry-run", is_flag=True, help="Only show what would move.")
+    def resort_content_cmd(dry_run):
+        """Re-check every saved picture/video/short against its own words and move clear mismatches to the right category."""
+        from collections import Counter
+        from database.db import Session
+        from database.models import ActivityEvent, ContentItem
+        from services import category_service
+        rows = [(i.id, i.title, i.description, i.tags_json, i.category, i.content_type) for i in
+                Session.query(ContentItem).filter(ContentItem.provider != "demo").all()]
+        moves = category_service.resort_rows(rows)
+        for kind, n in sorted(Counter(f"{old} -> {new}" for _, old, new in moves).items()):
+            click.echo(f"  {kind}: {n}")
+        if not dry_run:
+            for rid, _old, new in moves:
+                Session.query(ContentItem).filter_by(id=rid).update({"category": new})
+                Session.query(ActivityEvent).filter(ActivityEvent.content_id == rid, ActivityEvent.event_type != "browse").update({"category": new})
+            Session.commit()
+        click.echo(f"{'Would move' if dry_run else 'Moved'} {len(moves)} of {len(rows)} items.")
+
     @app.cli.command("purge-activity")
     @click.option("--days", default=None, type=int, help="Keep this many days of child activity (default: ACTIVITY_RETENTION_DAYS).")
     def purge_activity_cmd(days):
