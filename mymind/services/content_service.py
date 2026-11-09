@@ -13,8 +13,8 @@ from urllib.parse import parse_qs, urlparse
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
 from database.db import Session
-from database.models import ContentItem, Favorite, Interaction
-from services import (youtube_service, spotify_service, image_service, demo_service, safety, settings_service,
+from database.models import ActivityEvent, ContentItem, Favorite, Interaction
+from services import (category_service, youtube_service, spotify_service, image_service, demo_service, safety, settings_service,
                       age_service, recommendation_service as rec)
 from services.cache import cache_get, cache_set
 from services.categories import CATEGORIES
@@ -70,6 +70,12 @@ def upsert_many(dicts):
     added = False
     for d, k in zip(dicts, keys):
         if k in found:
+            existing = found[k]
+            if d.get("_resorted") and d.get("category") in CATEGORIES and existing.category != d["category"]:
+                existing.category = d["category"]                   # filed under what it really shows
+                Session.query(ActivityEvent).filter(ActivityEvent.content_id == existing.id).update(
+                    {ActivityEvent.category: d["category"]}, synchronize_session=False)
+                added = True
             continue
         item = _build(d)
         Session.add(item)
@@ -168,6 +174,8 @@ def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None, see
         if seed is not None and items == [] and rnd > 1 and not (q or "").strip():
             items = _provider_items(kind, topic, category, (page - 1) // max(1, len(age_service.keywords_for(
                 category if category in CATEGORIES else "objects", age) or [1])) + 1, n, age)   # started too deep: fall back to the first pages
+        if items:
+            items = _sorted_for_category(kind, topic, category, rnd, n, age, items, bool((q or "").strip()))
     except ServiceError as exc:
         current_app.logger.warning("provider failure (%s): %s", kind, exc)
         notice = exc.user_message
@@ -198,6 +206,30 @@ def fetch(kind, category="objects", q="", page=1, n=8, block=None, age=None, see
         items = list(items)
         random.Random(f"{seed}:{page}:mix").shuffle(items)
     return items, notice
+
+
+def _sorted_for_category(kind, topic, category, rnd, n, age, items, explicit):
+    """File every live item under what it really shows (see category_service).
+
+    Topic view: items that belong to another category are left out (they appear under their own topic). If that leaves the page
+    short although the provider page was full, up to two further provider pages are read so the child never gets a half-empty screen.
+    Free-text search: nothing is hidden; items are simply filed under their true category."""
+    if kind not in category_service.SORTED_KINDS:
+        return items
+    kept = category_service.sort_items(items, category, explicit)
+    extra = 0
+    while not explicit and len(kept) < n and len(items) >= n and extra < 2:
+        extra += 1
+        try:
+            more = _provider_items(kind, topic, category, rnd + extra, n, age)
+        except ServiceError:
+            break
+        if not more:
+            break
+        items = more
+        have = {d["provider_content_id"] for d in kept}
+        kept += [d for d in category_service.sort_items(more, category, explicit) if d["provider_content_id"] not in have]
+    return kept[:n]
 
 
 def _demo_offset(seed, n):
