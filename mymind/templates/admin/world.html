@@ -1,6 +1,9 @@
-{% extends "base.html" %}{% block title %}World Library{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}
-{% block content %}
+{% extends "admin_layout.html" %}
+{% set ct_active = 'world' %}
+{% block title %}World Library{% endblock %}
+{% block adm_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root"><div class="ct-main">
 <h1>World Library</h1>
 <p class="muted">Art for children's My World: island art, stop interiors, backgrounds, and characters or stars. Anything not uploaded falls back to MyMind's built-in art. Uploads are checked, re-encoded to WebP and stripped of metadata. <a href="{{ url_for('admin_ai3d.jobs') }}">AI 3D items</a> are managed separately.</p>
 
@@ -16,7 +19,7 @@
   <div class="field"><label for="{{ p }}-src">Source or licence note (required for real people)</label><input id="{{ p }}-src" name="source_note" type="text" maxlength="300"></div>
 {% endmacro %}
 
-<section class="card-box"><h2>Option 1: add one image</h2>
+<section class="ct-panel"><h2>Option 1: add one image</h2>
 <form method="post" action="{{ url_for('admin_world.upload') }}" enctype="multipart/form-data" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="field"><label for="w-img">Image (PNG, JPEG or WebP)</label><input id="w-img" name="image" type="file" accept="image/png,image/jpeg,image/webp" required></div>
@@ -27,7 +30,7 @@
   <button class="btn primary block" type="submit">Add to library</button>
 </form></section>
 
-<section class="card-box"><h2>Option 2: add a whole folder</h2>
+<section class="ct-panel"><h2>Option 2: add a whole folder</h2>
 <p class="muted">Choose a folder from your computer. Every PNG, JPEG or WebP image inside it (subfolders too) is added with the settings below, and each one is named after its file. Other files are skipped. Up to {{ folder_max_files }} images at a time; an image that cannot be read is skipped and the rest are still added.</p>
 <form method="post" action="{{ url_for('admin_world.upload_folder') }}" enctype="multipart/form-data" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -45,4 +48,5 @@
 <form method="post" action="{{ url_for('admin_world.change', asset_id=a.id, action='hide' if a.active else 'show') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small" type="submit">{{ 'Hide' if a.active else 'Show' }}</button></form>
 <form method="post" action="{{ url_for('admin_world.change', asset_id=a.id, action='delete') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn red small" type="submit" data-confirm="Delete this art permanently?">Delete</button></form></div>
 {% else %}<div class="row"><span class="grow muted">No art uploaded yet. Children see MyMind's built-in art.</span></div>{% endfor %}</div>
+</div></div>
 {% endblock %}
