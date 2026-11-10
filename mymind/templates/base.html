@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="csrf" content="{{ csrf_token() }}">
-  <meta name="theme-color" content="#1f78f0">
+  <meta name="theme-color" content="{{ '#5b2bbd' if auth_role == 'child' else '#1f78f0' }}">
   <title>{% block title %}{{ brand }}{% endblock %} · {{ brand }}</title>
   <link rel="icon" href="{{ url_for('static', filename='img/icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+  {% if auth_role == 'child' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/child.css') }}">{% endif %}
   {% block head_extra %}{% endblock %}
 </head>
 {% set in_app = active is defined and user and user.role == 'caregiver' and auth_role in ['caregiver', 'child'] %}
@@ -21,13 +22,24 @@
 {% set main_nav =
 [('home','feed.home','house','Home'),('pictures','pictures.page','image','Pictures'),('videos','videos.page','clapperboard','Videos'),('shots','shots.page','smartphone','Shots'),('music','music.page','music','Music')]
 %}
+{# The child's own, simpler navigation (Home, Favourites, My World, Profile). Caregivers and admins keep theirs. #}
+{% set child_nav =
+[('home','feed.home','house','Home'),('favourites','feed.favourites','heart','Favourites'),('world','profile.world','globe','My World'),('profile','profile.child_settings','user-round','Profile')]
+%}
+{# Which tab is lit for each page: every content page belongs to Home; settings belongs to Profile. #}
+{% set child_nav_active = {'favourites':'favourites','world':'world','settings':'profile'}.get(active|default(''), 'home') %}
+{% set child_icons = {'pictures':'image','videos':'clapperboard','shots':'zap','music':'music','world':'globe','favourites':'heart','settings':'user-round'} %}
+{# captured once, then shown by whichever header applies (a block name may only be defined once per template) #}
+{% set page_title %}{% block topbar_title %}{{ self.title() }}{% endblock %}{% endset %}
+{% set page_icon %}{% block topbar_icon %}{% endblock %}{% endset %}
+{% set page_icon_style %}{% block topbar_icon_style %}{% endblock %}{% endset %}
 
 <body
-  class="{{ 'reduced-motion ' if cg.reduced_motion }}{{ 'large-text ' if cg.large_text }}{{ 'high-contrast ' if cg.high_contrast }}{{ 'public' if not user }}{% block body_class %}{% endblock %}"
+  class="{{ 'child-ui ' if auth_role == 'child' }}{{ 'reduced-motion ' if cg.reduced_motion }}{{ 'large-text ' if cg.large_text }}{{ 'high-contrast ' if cg.high_contrast }}{{ 'public' if not user }}{% block body_class %}{% endblock %}"
   data-role="{{ auth_role or '' }}"
   data-read-only="{{ 1 if world_mode|default('') == 'preview' or read_only_child|default(false) else 0 }}"
   data-app="{{ 1 if in_app and auth_role == 'child' and active != 'settings' and not read_only_child|default(false) else 0 }}"
-  data-activity-stop="{{ {'home':'home','pictures':'pictures','videos':'videos','shots':'shorts','music':'music','world':'home'}.get(active|default(''), '') if in_app and auth_role == 'child' else '' }}"
+  data-activity-stop="{{ {'home':'home','pictures':'pictures','videos':'videos','shots':'shorts','music':'music','world':'home','favourites':'home'}.get(active|default(''), '') if in_app and auth_role == 'child' else '' }}"
   data-screen="{{ cg.screen_time_minutes if in_app else 0 }}" data-speak="{{ 1 if cg.sound_labels else 0 }}">
   {% include "_icons.html" %}
   {% macro brandmark() %}<a class="brandmark" href="{{ url_for('auth.index') }}"
@@ -35,7 +47,30 @@
   endmacro %}
   <a class="sr-only" href="#main">Skip to content</a>
   {% block page %}<div class="shell {{ 'wide' if is_admin or world_mode|default('') == 'preview' }} {{ 'public' if not user or world_mode|default('') == 'preview' }}">
-    {% if in_app %}
+    {% if in_app and auth_role == 'child' %}
+    <header class="topbar">
+      {% if request.endpoint == 'feed.home' %}
+      {# Home: cloud logo + wordmark on the left, settings on the right #}
+      <a class="ch-brand" href="{{ url_for('feed.home') }}" aria-label="{{ brand }} home">
+        <svg class="ch-cloud" viewBox="0 0 64 56" aria-hidden="true" focusable="false">
+          <path d="M18 48c-8.3 0-15-5.6-15-13 0-6 4.4-10.9 10.4-12.3C14.5 15 20.6 10 28 10c5.5 0 10.2 2.7 12.9 6.8 1-.5 2.1-.8 3.4-.8 4.2 0 7.7 3.1 8.3 7.1C58.9 24.6 61 28 61 32c0 8-6.7 16-16 16H18z" fill="#efe8ff" stroke="#3b1fa0" stroke-width="3.4" stroke-linejoin="round"/>
+          <path d="M22 33.5c1.8 2.6 5.3 4 8.6 3.2" fill="none" stroke="#3b1fa0" stroke-width="3" stroke-linecap="round" transform="translate(5 2)"/>
+          <circle cx="25" cy="31" r="2.6" fill="#3b1fa0"/><circle cx="38" cy="31" r="2.6" fill="#3b1fa0"/>
+          <circle cx="20.5" cy="37" r="2.8" fill="#ffb3d1" opacity=".8"/><circle cx="42.5" cy="37" r="2.8" fill="#ffb3d1" opacity=".8"/>
+        </svg>
+        <span class="ch-word"><b>My</b><i>Mind</i></span></a>
+      <span style="flex:1"></span>
+      <nav class="right" aria-label="Quick links">
+        <a class="iconbtn" href="{{ url_for('profile.child_settings') }}" aria-label="My settings">{{ icon('settings') }}</a>
+      </nav>
+      {% else %}
+      {# every other page: big back button, coloured icon + title, and a search button where the page has a search box #}
+      <a class="iconbtn" href="{{ url_for('feed.home') }}" aria-label="Back to Home">{{ icon('chevron-left') }}</a>
+      <h1 class="ch-title"><span class="ch-title-ic is-{{ active|default('') }}" style="{{ page_icon_style }}">{% if page_icon|trim %}{{ page_icon }}{% else %}{{ icon(child_icons.get(active|default(''), 'sparkles')) }}{% endif %}</span><span>{{ page_title }}</span></h1>
+      {% if active|default('') in ['pictures', 'videos', 'shots', 'music'] or search_button|default(false) %}<button class="ch-iconbtn" type="button" data-focus-search aria-label="Search" aria-expanded="false">{{ icon('search') }}</button>{% else %}<span class="ch-spacer"></span>{% endif %}
+      {% endif %}
+    </header>
+    {% elif in_app %}
     <header class="topbar">
       {% if active == 'home' %}{{ brandmark() }}{% block topbar_search %}{% endblock %}<span style="flex:1"></span>
       <nav class="right" aria-label="Quick links">
@@ -46,7 +81,7 @@
       </nav>
       {% else %}
       <a class="iconbtn" href="{{ url_for('feed.home') }}" aria-label="Back to Home">{{ icon('chevron-left') }}</a>
-      <div class="title">{% block topbar_title %}{{ self.title() }}{% endblock %}</div>
+      <div class="title">{{ page_title }}</div>
       {% if auth_role != 'child' %}<a class="iconbtn" href="{{ url_for('profile.settings') }}" aria-label="Settings">{{ icon('settings') }}</a>{% endif %}
       {% endif %}
     </header>
@@ -72,7 +107,12 @@
     <footer class="site-footer"><strong>{{ footer_text }}</strong><br><a href="{{ url_for('privacy') }}">Privacy
         notice</a></footer>
   </div>{% endblock %}
-  {% if in_app %}
+  {% if in_app and auth_role == 'child' %}
+  <nav class="bottomnav" aria-label="Main">
+    {% for key, ep, ic, label in child_nav %}<a href="{{ url_for(ep) }}" {% if child_nav_active==key %}aria-current="page" {% endif
+      %}>{{ icon(ic) }}<span>{{ label }}</span></a>{% endfor %}
+  </nav>
+  {% elif in_app %}
   <nav class="bottomnav" aria-label="Main">
     {% for key, ep, ic, label in main_nav %}<a href="{{ url_for(ep) }}" {% if active==key %}aria-current="page" {% endif
       %}>{{ icon(ic) }}<span>{{ label }}</span></a>{% endfor %}
@@ -110,6 +150,7 @@
     </div>
   </dialog>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% if auth_role == 'child' %}<script src="{{ url_for('static', filename='js/child.js') }}"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 
