@@ -1,16 +1,19 @@
-{% extends "base.html" %}{% block title %}AI 3D{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}
-{% block content %}
+{% extends "admin_layout.html" %}
+{% set ct_active = 'ai3d' %}
+{% block title %}AI 3D{% endblock %}
+{% block adm_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root"><div class="ct-main">
 <h1>AI 3D items and characters</h1>
 <p class="muted">Create <b>original</b> items and friendly characters from a fixed list of choices. Nothing reaches children until you review and publish it. Real people, teams, leagues, brands and "looks like…" requests are refused; licensed real-star art goes through the <a href="{{ url_for('admin_world.library') }}">World Library</a>.</p>
 <p class="small muted">Status: Meshy {{ 'ready' if provider_ready.meshy else 'not set up' }} · Tripo {{ 'ready' if provider_ready.tripo else 'not set up' }} · concept images {{ 'ready' if concept_ready else 'not set up (needed for characters)' }} · optimiser {{ 'installed' if optimizer else 'not installed (models kept as delivered)' }}. Jobs are advanced by <code>flask --app app ai3d-worker</code> or the Refresh button.</p>
 
-<section class="card-box" aria-labelledby="isl-sum-title"><h2 id="isl-sum-title">3D WORLD &amp; ISLAND MANAGEMENT</h2>
+<section class="ct-panel" aria-labelledby="isl-sum-title"><h2 id="isl-sum-title">3D WORLD &amp; ISLAND MANAGEMENT</h2>
 <p class="small muted">See every island, choose the default world for all children, delete islands you no longer want (one, several or all) and restore them if you change your mind.</p>
 <p class="small"><b>{{ island_summary.total }}</b> island{{ '' if island_summary.total == 1 else 's' }}{% if island_summary.trash %} · {{ island_summary.trash }} recently deleted{% endif %} · Default: <b>{% if island_summary.state.island %}{{ island_summary.state.island.name or ('Island ' ~ island_summary.state.island.id) }}{% else %}none (built-in look){% endif %}</b></p>
 <a class="btn primary" href="{{ url_for('admin_ai3d.island_manager') }}">Manage islands</a></section>
 
-<section class="card-box"><h2>My World island for everyone</h2>
+<section class="ct-panel"><h2>My World island for everyone</h2>
 <p class="small muted">Choose the 3D island that every child's My World stands on. The choice is saved on the server, so it appears on <b>every user's world and every device</b> the next time My World opens (open worlds update when the app is brought back to the screen). Tick the box to replace personal choices; leave it unticked to only set the default for people who have not picked an island.</p>
 {% if island_bases %}<form method="post" action="{{ url_for('admin_ai3d.set_island') }}" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -23,7 +26,7 @@
   <button class="btn primary block" type="submit">Save island for everyone</button>
 </form>{% else %}<p class="small">No island base is published yet. Upload or publish one below, then choose it here.</p>{% endif %}</section>
 
-<section class="card-box"><h2>Island kit</h2>
+<section class="ct-panel"><h2>Island kit</h2>
 <p class="small muted">Generate the models that make the <b>map itself</b> look professional: one island base plus one landmark for each place ({{ kit|length }} models). Until a model is published, the map keeps its built-in look, so you can do this piece by piece. Each piece goes to review first; publish the ones you like.</p>
 <form method="post" action="{{ url_for('admin_ai3d.kit') }}" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -32,7 +35,7 @@
   <button class="btn primary block" type="submit">Create the island kit</button>
 </form></section>
 
-<section class="card-box"><h2>Option 1: upload one model (free, from Blender)</h2>
+<section class="ct-panel"><h2>Option 1: upload one model (free, from Blender)</h2>
 <p class="small muted">Made an island or landmark in Blender? Export it as <b>glTF Binary (.glb)</b> and upload it here. No AI credits are used. It goes live in My World straight away (untick the first box below to keep it for review instead), and you can still preview, Unpublish or Delete it afterwards. Choose <b>Island piece: Island base</b> for the big island itself, or a place (Home, Pictures, Videos...) for the landmark that stands on it.</p>
 <form method="post" action="{{ url_for('admin_ai3d.upload') }}" enctype="multipart/form-data" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -47,7 +50,7 @@
   <button class="btn primary block" type="submit">Upload</button>
 </form></section>
 
-<section class="card-box"><h2>Option 2: upload a whole folder (free, from Blender)</h2>
+<section class="ct-panel"><h2>Option 2: upload a whole folder (free, from Blender)</h2>
 <p class="small muted">Export all your models as <b>glTF Binary (.glb)</b> into one folder, then choose that folder here. Every .glb inside it (subfolders too) is checked and added, up to {{ folder_max_files }} at a time. Each file is matched to its place by its <b>file name</b>: <code>island_base.glb</code> (or <code>island.glb</code>), <code>home.glb</code>, <code>pictures.glb</code>, <code>videos.glb</code>, <code>shorts.glb</code>, <code>music.glb</code>, <code>sports.glb</code>, <code>food.glb</code>, <code>colors.glb</code>, <code>nature.glb</code>, <code>animals.glb</code>, <code>vehicles.glb</code>, <code>art.glb</code>. Item names such as <code>cupcake.glb</code> work too. A file whose name does not match is skipped and listed, and the rest are still added. No AI credits are used.</p>
 <form method="post" action="{{ url_for('admin_ai3d.upload_folder') }}" enctype="multipart/form-data" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -61,7 +64,7 @@
   <button class="btn primary block" type="submit">Upload whole folder</button>
 </form></section>
 
-<section class="card-box"><h2>New model</h2>
+<section class="ct-panel"><h2>New model</h2>
 <form method="post" action="{{ url_for('admin_ai3d.create') }}" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="field"><label for="a-arch">What should it be?</label><select id="a-arch" name="archetype" required>
@@ -85,4 +88,5 @@
 <span class="sub">{{ j.kind }} · {{ j.category }} · {{ j.provider }} · step: {{ j.stage }}</span></span>
 <span class="pill {{ {'published':'approved','review':'pending','failed':'rejected','rejected':'rejected'}.get(j.status,'pending') }}">{{ j.status }}</span></a>
 {% else %}<div class="row"><span class="grow muted">No models yet.</span></div>{% endfor %}</div>
+</div></div>
 {% endblock %}
