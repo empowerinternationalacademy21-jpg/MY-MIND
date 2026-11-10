@@ -15,11 +15,20 @@
     };
 
     var $ = function (id) { return document.getElementById(id); };
+
+    /* Is there another page? Trust the server's own flag ("more", or "has_more"). Only when the server says nothing do we
+       guess. The API returns 12 videos a page, so comparing with pageSize (24) wrongly hid the Show more button. */
+    function hasMoreFrom(data, list) {
+        if (data && typeof data.more === 'boolean') return data.more;
+        if (data && typeof data.has_more === 'boolean') return data.has_more;
+        return list.length > 0;
+    }
     var stage = $('stage'), side = $('side'), grid = $('grid'), emptyMsg = $('empty'),
         moreBtn = $('more'), searchForm = $('search'), searchInput = $('q'),
         vTitle = $('v-title'), vMeta = $('v-meta'), vFav = $('v-fav'), vFavText = $('v-fav-text'),
         vReason = $('v-reason'), vReasonText = $('v-reason-text');
     if (!stage) { classicMode(); return; }   // old videos.html: no player area, just #grid
+    var moreLabel = moreBtn ? moreBtn.textContent : 'Show more';   // the button's own words (e.g. "Show More Videos")
 
     var state = {
         cat: '', q: '', page: 1, loading: false, hasMore: true,
@@ -194,7 +203,7 @@
                     });
                     grid.appendChild(frag);
                     if (data && data.notice) toast(data.notice);
-                    var m = (data && typeof data.has_more === 'boolean') ? data.has_more : list.length >= CONFIG.pageSize;
+                    var m = hasMoreFrom(data, list);
                     st.hasMore = m && list.length > 0; st.page++;
                     if (more && more.parentNode) more.parentNode.style.setProperty('display', st.hasMore ? '' : 'none');
                 })
@@ -338,10 +347,10 @@
     function setLoading(on) {
         state.loading = on;
         moreBtn.disabled = on;
-        moreBtn.textContent = on ? 'Loading\u2026' : 'Show more';
+        moreBtn.textContent = on ? 'Loading\u2026' : moreLabel;
     }
 
-    function load(reset) {
+    function load(reset, tries) {
         if (state.loading) return;
         if (reset) {
             if (window.MyMind.activity) window.MyMind.activity.endWatch();
@@ -350,7 +359,7 @@
             emptyMsg.classList.add('hidden'); skeletons();
             vTitle.textContent = 'Loading\u2026'; vMeta.textContent = ''; vReason.classList.add('hidden');
         }
-        var token = state.token;
+        var token = state.token, before = state.count;
         setLoading(true);
         var p = new URLSearchParams();
         if (state.q) p.set('q', state.q);
@@ -377,7 +386,7 @@
                 side.appendChild(sideFrag); grid.appendChild(gridFrag);
                 if (reset && state.featured) select(state.featured, false);
                 if (data && data.notice) toast(data.notice);
-                var more = (data && typeof data.has_more === 'boolean') ? data.has_more : list.length >= CONFIG.pageSize;
+                var more = hasMoreFrom(data, list);
                 state.hasMore = more && list.length > 0; state.page++;
                 moreBtn.parentNode.classList.toggle('hidden', !state.hasMore);
                 if (state.count === 0) {
@@ -390,7 +399,12 @@
                 if (reset) { clearSkeletons(); stage.textContent = ''; stage.classList.remove('sk'); vTitle.textContent = 'Could not load videos'; }
                 toast('Could not load videos. Check your connection and try again.');
             })
-            .then(function () { if (token === state.token) setLoading(false); });
+            .then(function () {
+                if (token !== state.token) return;
+                setLoading(false);
+                // nothing new on this page (all repeats) but the server has more: try the next page, a few times at most
+                if (state.count === before && state.hasMore && (tries || 0) < 3) load(false, (tries || 0) + 1);
+            });
     }
 
     /* ---------- wiring ---------- */
@@ -411,7 +425,7 @@
     }
     searchForm.addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(debounce); runSearch(); });
     searchInput.addEventListener('input', function () { clearTimeout(debounce); debounce = setTimeout(runSearch, 400); });
-    moreBtn.addEventListener('click', function () { load(false); });
+    moreBtn.addEventListener('click', function () { load(false, 0); });
 
     var initial = new URLSearchParams(location.search).get('q');
     if (initial) { searchInput.value = initial; state.q = initial.trim(); }
