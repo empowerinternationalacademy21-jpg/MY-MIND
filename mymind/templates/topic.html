@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}{{ cat.label }}{% endblock %}
+{# One topic (Sports, Food, Colors & Shapes, Nature, Animals, Vehicles ...). pictures.js loads the pictures for data-cat. #}
+{% set search_button = true %}
+{% block topbar_icon %}{{ icon(cat.icon) }}{% endblock %}
+{% block topbar_icon_style %}color:{{ cat.color }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pictures.css') }}">
+{% set cta = {'animals': 'Meet Animals', 'nature': 'Explore Nature', 'vehicles': 'See Vehicles', 'food': 'Enjoy Food!', 'colors': 'Learn More', 'sports': 'See More Sports'}.get(key, 'See More') %}
+
+<form id="search" class="pg-search" role="search">
+    <label class="sr-only" for="q">Search {{ cat.label }}</label>
+    {{ icon('search') }}
+    <input id="q" type="search" maxlength="60" placeholder="Search {{ cat.label }}" autocomplete="off">
+</form>
+
+<section id="recent-wrap" class="hidden" aria-labelledby="recent-h">
+    <h2 id="recent-h" class="pg-label">Your favourites</h2>
+    <div id="recent" class="recent"></div>
+</section>
+
+<div id="grid" class="tiles" data-cat="{{ key }}" aria-live="polite"></div>
+
+<div id="skeleton" class="tiles skeleton" aria-hidden="true">
+    <div class="tile sk h1"></div>
+    <div class="tile sk h2"></div>
+    <div class="tile sk h3"></div>
+    <div class="tile sk h2"></div>
+</div>
+
+<p id="empty" class="center muted hidden">No pictures found. Try another topic.</p>
+<p class="center pg-more"><button id="more" class="pg-btn" type="button">{{ cta }}</button></p>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pictures.js') }}"></script>{% endblock %}

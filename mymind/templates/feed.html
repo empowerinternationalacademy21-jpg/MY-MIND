@@ -1,5 +1,6 @@
 {% extends "base.html" %}{% block title %}Home{% endblock %}
-{% block body_class %} feed-page{% endblock %}
+{# The caregiver keeps the original feed layout (feed-page); the child gets the simple, friendly home below. #}
+{% block body_class %}{% if auth_role != 'child' %} feed-page{% endif %}{% endblock %}
 {% block topbar_search %}
 <form id="search" class="fd-top-search" role="search">
   <label class="sr-only" for="q">Search pictures</label>
@@ -11,6 +12,55 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/feed.css') }}">
 {% set kid = child_profile.display_name if child_profile and child_profile.display_name else 'friend' %}
 
+{% if auth_role == 'child' %}
+{# =================== CHILD HOME =================== #}
+{% macro topic_tile(k, c) %}
+<a class="ch-topic" href="{{ url_for('feed.topic', key=k) }}" style="--c:{{ c.color }}">
+  <span class="ch-topic-ic">{{ icon(c.icon) }}</span><span>{{ c.label }}</span>
+</a>
+{% endmacro %}
+{% set first_topics = ['sports', 'food', 'colors', 'nature', 'animals', 'vehicles'] %}
+
+<div class="ch-home">
+  <section class="ch-hello" aria-label="Welcome">
+    <div>
+      <h1>Hello, {{ kid if kid != 'friend' else 'Welcome' }}!</h1>
+      <p>What would you like to do?</p>
+    </div>
+    <span class="ch-avatar" aria-hidden="true">{% if child_profile and child_profile.avatar %}{{ icon(child_profile.avatar) }}{% else %}<span>{{ (kid[:1] or 'F')|upper }}</span>{% endif %}</span>
+  </section>
+
+  <nav class="ch-big" aria-label="What would you like to do?">
+    <a class="ch-bigbtn ch-videos" href="{{ url_for('videos.page') }}"><span class="ch-bigic">{{ icon('play') }}</span><span><strong>Videos</strong><small>Watch &amp; enjoy</small></span></a>
+    <a class="ch-bigbtn ch-music" href="{{ url_for('music.page') }}"><span class="ch-bigic">{{ icon('music') }}</span><span><strong>Music</strong><small>Listen &amp; dance!</small></span></a>
+    <a class="ch-bigbtn ch-pictures" href="{{ url_for('pictures.page') }}"><span class="ch-bigic">{{ icon('image') }}</span><span><strong>Pictures</strong><small>Look &amp; explore</small></span></a>
+    {% if cg.shots_enabled %}<a class="ch-bigbtn ch-shots" href="{{ url_for('shots.page') }}"><span class="ch-bigic">{{ icon('zap') }}</span><span><strong>Shorts</strong><small>Quick fun clips</small></span></a>{% endif %}
+  </nav>
+
+  <div class="ch-sec"><span class="sec-bubble">{{ icon('sparkles','sm') }}</span><h2>Things I like</h2></div>
+  <nav class="ch-topics" aria-label="Pick something to explore">
+    {% for k in first_topics if k in categories %}{{ topic_tile(k, categories[k]) }}{% endfor %}
+    {% for k, c in categories.items() if k not in first_topics %}{{ topic_tile(k, c) }}{% endfor %}
+  </nav>
+
+  <section id="favs-wrap" class="fd-strip" hidden>
+    <div class="ch-sec"><span class="sec-bubble">{{ icon('heart','sm') }}</span><h2>My favourites</h2></div>
+    <div id="favs" class="hrow"></div>
+  </section>
+  <section id="recent-wrap" class="fd-strip" hidden>
+    <div class="ch-sec"><span class="sec-bubble">{{ icon('clock','sm') }}</span><h2>Recently explored</h2></div>
+    <div id="recent" class="hrow"></div>
+  </section>
+
+  <div class="ch-sec"><span class="sec-bubble">{{ icon('star','sm') }}</span><h2>Picked for you</h2></div>
+  {# endless feed: feed.js fills #sections and loads more automatically while scrolling #}
+  <div id="sections"></div>
+
+  <p class="ch-safe">{{ icon('shield-check') }}<span>A safe space to explore. No ads, no chat. Your caregiver stays in control.</span></p>
+</div>
+
+{% else %}
+{# =================== CAREGIVER VIEW (unchanged) =================== #}
 <div class="fd">
   <div class="fd-workspace">
     <aside class="fd-left" aria-label="Main navigation">
@@ -125,6 +175,7 @@
     </aside>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/feed.js') }}"></script>{% endblock %}

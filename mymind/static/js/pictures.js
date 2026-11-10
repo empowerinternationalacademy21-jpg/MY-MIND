@@ -21,6 +21,9 @@
 
   function newSeed() { return Math.floor(Math.random() * 2147483647); }   // a new number every visit = different pictures every visit
   var state = { seed: newSeed(), cat: '', q: '', page: 1, loading: false, hasMore: true, seen: {}, favs: {}, token: 0 };
+  var presetCat = grid.getAttribute('data-cat');       // topic pages (Animals, Food ...) start on their own category
+  if (presetCat) state.cat = presetCat;
+  var moreLabel = moreBtn.textContent;                 // remember the button's own words (e.g. "Meet Animals")
 
   /* ---------- helpers ---------- */
   function csrfToken() {
@@ -211,7 +214,7 @@
     state.loading = on;
     skeleton.classList.toggle('hidden', !on);
     moreBtn.disabled = on;
-    moreBtn.textContent = on ? 'Loading…' : 'Show more';
+    moreBtn.textContent = on ? 'Loading…' : moreLabel;
   }
 
   function load(reset) {

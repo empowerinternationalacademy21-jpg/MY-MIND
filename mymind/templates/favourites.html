@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Favourites{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pictures.css') }}">
+
+<div class="chips" role="group" aria-label="What to show">
+    <button class="chip" type="button" data-type="" aria-pressed="true">All</button>
+    <button class="chip" type="button" data-type="picture" aria-pressed="false">{{ icon('image','sm') }} Pictures</button>
+    <button class="chip" type="button" data-type="video" aria-pressed="false">{{ icon('clapperboard','sm') }} Videos</button>
+    <button class="chip" type="button" data-type="song" aria-pressed="false">{{ icon('music','sm') }} Songs</button>
+</div>
+
+<div id="grid" class="tiles" aria-live="polite"></div>
+
+<div id="empty" class="ch-empty" hidden>
+    {{ icon('heart') }}
+    <h2>No favourites yet</h2>
+    <p>Tap the heart on anything you love and it will live here.</p>
+    <a class="ch-cta" href="{{ url_for('feed.home') }}">{{ icon('house') }} Find something to love</a>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/favourites.js') }}"></script>{% endblock %}
