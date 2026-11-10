@@ -78,7 +78,7 @@ def login_required(f):
 
 
 CHILD_ENDPOINTS = {
-    "feed.home", "feed.explore", "pictures.page", "videos.page", "shots.page", "music.page",
+    "feed.home", "feed.explore", "feed.topic", "feed.favourites", "pictures.page", "videos.page", "shots.page", "music.page",
     "api.pictures", "api.videos", "api.shots", "api.music", "api.feed", "api.favorites", "api.recent",
     "api.related", "api.react", "api.favorite", "api.activity_events",
     "world_share.create_child_link",
