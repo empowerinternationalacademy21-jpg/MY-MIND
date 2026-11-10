@@ -237,6 +237,13 @@ body.child-ui .ch-topic-head .ch-topic-ic .ic { width: 2rem; height: 2rem; strok
 body.child-ui .ch-topic-head h2 { margin: 0; font-size: 1.5rem; font-weight: 900; }
 body.child-ui .ch-topic-head p { margin: 0; font-weight: 700; color: var(--muted); }
 
+/* topic pages: quick-jump chips and one block per kind of content */
+body.child-ui .ch-jump { display: flex; gap: .55rem; overflow-x: auto; padding: .1rem .1rem .8rem; scrollbar-width: none; }
+body.child-ui .ch-jump::-webkit-scrollbar { display: none; }
+body.child-ui .ch-jump .chip { text-decoration: none; }
+body.child-ui .ch-tsec { margin-bottom: 1.8rem; scroll-margin-top: 92px; }
+body.child-ui .ch-tsec .tiles .song { grid-column: 1 / -1; }
+
 /* ---------- VIDEOS ---------- */
 body.child-ui .vp-top { display: block; background: transparent; border: 0; padding: 0; position: static; }
 body.child-ui .vp-layout { display: block; }
