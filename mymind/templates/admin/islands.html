@@ -1,12 +1,15 @@
-{% extends "base.html" %}{% block title %}3D World &amp; Island Management{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/asset3d.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin-islands.css') }}">{% endblock %}
-{% block content %}
+{% extends "admin_layout.html" %}
+{% set ct_active = 'islands' %}
+{% block title %}3D World &amp; Island Management{% endblock %}
+{% block adm_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/family.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/asset3d.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin-islands.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root"><div class="ct-main">
 <a href="{{ url_for('admin_ai3d.jobs') }}">{{ icon('chevron-left','sm') }} AI 3D</a>
 <div id="isl-root" data-csrf="{{ csrf_token() }}">
 <h1>3D WORLD &amp; ISLAND MANAGEMENT</h1>
 <p class="muted">Every child's My World stands on one shared island that <b>you</b> control. Choose the default world, remove islands you no longer want, or start fresh. Children's activity, accounts and other 3D models are never touched here.</p>
 
-<section class="card-box isl-default" aria-labelledby="isl-default-title">
+<section class="ct-panel isl-default" aria-labelledby="isl-default-title">
   <h2 id="isl-default-title">Default world</h2>
   {% if state.island %}
     <p><span class="isl-badge">DEFAULT</span> <b>{{ state.island.name or ('Island ' ~ state.island.id) }}</b>
@@ -17,7 +20,7 @@
   {% endif %}
 </section>
 
-<section class="card-box" aria-labelledby="isl-list-title">
+<section class="ct-panel" aria-labelledby="isl-list-title">
   <div class="isl-toolbar">
     <h2 id="isl-list-title">Islands <span class="small muted">({{ islands|length }})</span></h2>
     {% if islands %}<div class="isl-tools">
@@ -52,7 +55,7 @@
   {% else %}<p class="muted">There are no islands. Upload one on the <a href="{{ url_for('admin_ai3d.jobs') }}">AI 3D page</a> (choose “Island piece: Island base”).</p>{% endif %}
 </section>
 
-{% if trash %}<section class="card-box" aria-labelledby="isl-trash-title">
+{% if trash %}<section class="ct-panel" aria-labelledby="isl-trash-title">
   <div class="isl-toolbar"><h2 id="isl-trash-title">Recently deleted <span class="small muted">({{ trash|length }})</span></h2>
     <button class="btn red small" type="button" id="isl-purgeall">Remove all permanently</button></div>
   <p class="small muted">Deleted islands are not available to anyone, but they can be brought back until you remove them permanently. Files that another model still uses are never erased.</p>
@@ -74,5 +77,6 @@
 </dialog>
 <script type="application/json" id="isl-urls">{{ {'default': url_for('admin_ai3d.island_set_default'), 'delete': url_for('admin_ai3d.island_delete'), 'deleteAll': url_for('admin_ai3d.island_delete_all'), 'purge': url_for('admin_ai3d.island_purge'), 'phrase': confirm_phrase}|tojson }}</script>
 </div>
+</div></div>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='vendor/three-gltf.min.js') }}"></script><script src="{{ url_for('static', filename='js/asset3d.js') }}"></script><script src="{{ url_for('static', filename='js/admin_islands.js') }}"></script>{% endblock %}
