@@ -45,7 +45,7 @@
 </div>
 
 <p id="empty" class="center muted hidden">No pictures found. Try another topic.</p>
-<p class="center pg-more"><button id="more" class="pg-btn" type="button">Show more</button></p>
+<p class="center pg-more"><button id="more" class="pg-btn" type="button">{{ 'View More Photos' if auth_role == 'child' else 'Show more' }}</button></p>
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pictures.js') }}"></script>{% endblock %}
