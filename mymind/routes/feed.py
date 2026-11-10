@@ -17,6 +17,24 @@ def home():
                            age=age, age_band=age_service.band_for(age))
 
 
+@bp.route("/topic/<key>")
+@subscribed_required
+def topic(key):
+    """A friendly page for one topic (Sports, Food, Animals ...): a grid of big pictures for the child to tap.
+    Only topics allowed for the child's age exist; anything else is a plain 404."""
+    cats = age_service.categories_for(g.child.age_years)
+    if key not in cats:
+        abort(404)
+    return render_template("topic.html", key=key, cat=cats[key], active="home")
+
+
+@bp.route("/favourites")
+@subscribed_required
+def favourites():
+    """Everything the child has saved with the heart button (data comes from /api/favorites)."""
+    return render_template("favourites.html", active="favourites")
+
+
 @bp.route("/explore/<int:content_id>")
 @subscribed_required
 def explore(content_id):
