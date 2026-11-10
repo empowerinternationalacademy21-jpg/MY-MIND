@@ -1,0 +1,117 @@
+/* Administrator pages: the caretaker glass look (ct-glass.css + caretaker.css) applied to admin screens.
+   Everything is scoped to body.ct-theme so no other page is touched. Charts are plain SVG/CSS (no scripts). */
+
+/* ---------- headline numbers ---------- */
+body.ct-theme .adm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+body.ct-theme .adm-stats .ct-stat { padding: 14px; background: var(--ct-tile); border: 1px solid var(--ct-line); border-radius: 20px; border-left: 1px solid var(--ct-line); border-top: 1px solid var(--ct-line); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+body.ct-theme .adm-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 .4rem; border-radius: 999px; background: var(--ct-orange); color: var(--ct-on-orange); font-size: .75rem; font-weight: 800; }
+body.ct-theme .adm-total { font-size: 1.2rem; font-weight: 800; }
+body.ct-theme .adm-total small { font-size: .72rem; font-weight: 600; color: var(--ct-mute); }
+body.ct-theme .adm-foot { margin: .7rem 0 0; }
+
+/* ---------- revenue bars ---------- */
+body.ct-theme .adm-bars { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); align-items: end; gap: clamp(2px, 1%, 6px); height: 170px; padding: 8px 2px 0; border-bottom: 1px solid var(--ct-line);
+  background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), rgba(255, 255, 255, .08) calc(25% - 1px) 25%); }
+body.ct-theme .adm-bars i { display: block; height: max(var(--h), 2px); border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--ct-orange-2), var(--ct-orange)); opacity: .92; outline: none; transition: filter .15s, transform .15s; transform-origin: bottom; }
+body.ct-theme .adm-bars i:hover, body.ct-theme .adm-bars i:focus-visible { filter: brightness(1.2); transform: scaleY(1.03); }
+body.ct-theme .adm-bar-labels { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: clamp(2px, 1%, 6px); margin-top: 6px; font-size: .68rem; color: var(--ct-faint); }
+body.ct-theme .adm-bar-labels span { white-space: nowrap; overflow: visible; }
+
+/* ---------- lists and link cards ---------- */
+body.ct-theme .adm-list, body.ct-theme .adm-links { display: grid; gap: 8px; }
+body.ct-theme .adm-links { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+body.ct-theme .adm-item, body.ct-theme .adm-link { display: flex; align-items: center; gap: .8rem; padding: .7rem .85rem; border-radius: 16px; background: var(--ct-field); border: 1px solid var(--ct-line); color: var(--ct-ink); text-decoration: none !important; }
+body.ct-theme .adm-item:hover, body.ct-theme .adm-link:hover { background: var(--ct-tile-hi); }
+body.ct-theme .adm-bub { flex: none; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: var(--ct-tile-hi); color: var(--ct-orange-2); }
+body.ct-theme .adm-grow { flex: 1; min-width: 0; display: grid; gap: 2px; }
+body.ct-theme .adm-sub { color: var(--ct-mute); font-size: .8rem; }
+body.ct-theme .adm-actions-row { margin: .9rem 0 0; }
+body.ct-theme .adm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+body.ct-theme .adm-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+body.ct-theme .adm-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+
+/* ---------- forms ---------- */
+body.ct-theme .ct-main label { color: var(--ct-mute); font-weight: 600; font-size: .85rem; }
+body.ct-theme .ct-main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),
+body.ct-theme .ct-main select, body.ct-theme .ct-main textarea { width: 100%; background: var(--ct-field); color: var(--ct-ink); border: 1px solid var(--ct-line); border-radius: 14px; padding: .6rem .8rem; font: inherit; }
+body.ct-theme .ct-main input[type="file"] { width: 100%; color: var(--ct-mute); background: var(--ct-field); border: 1px dashed var(--ct-line); border-radius: 14px; padding: .55rem .7rem; }
+body.ct-theme .ct-main input:focus, body.ct-theme .ct-main select:focus, body.ct-theme .ct-main textarea:focus { outline: 2px solid var(--ct-orange); outline-offset: 1px; }
+body.ct-theme .ct-main ::placeholder { color: var(--ct-faint); }
+body.ct-theme .ct-main select option { background: #2a1409; color: #f6f2ec; }
+body.ct-theme .field { display: grid; gap: .3rem; }
+body.ct-theme .choice { display: flex; align-items: center; gap: .6rem; padding: .6rem .8rem; border-radius: 14px; background: var(--ct-field); border: 1px solid var(--ct-line); color: var(--ct-ink); }
+body.ct-theme .choice input { width: auto; accent-color: var(--ct-orange); }
+body.ct-theme .ct-main hr { border: 0; border-top: 1px solid var(--ct-line); margin: 1rem 0; }
+body.ct-theme .ct-main details { background: var(--ct-field); border: 1px solid var(--ct-line); border-radius: 14px; padding: .6rem .8rem; }
+body.ct-theme .ct-main summary { cursor: pointer; font-weight: 700; }
+
+/* ---------- buttons, pills and notices on glass ---------- */
+body.ct-theme .ct-main .btn { border-radius: 999px; }
+body.ct-theme .ct-main .btn.primary, body.ct-theme .ct-main button.primary { background: linear-gradient(170deg, var(--ct-orange-2), var(--ct-orange)); color: var(--ct-on-orange); border: 0; font-weight: 800; box-shadow: 0 10px 22px -10px rgba(255, 122, 26, .9); }
+body.ct-theme .ct-main .btn.ghost, body.ct-theme .ct-main .btn.secondary { background: var(--ct-tile-hi); color: var(--ct-ink); border: 1px solid var(--ct-line); }
+body.ct-theme .ct-main .btn.danger, body.ct-theme .ct-main button.danger { background: rgba(255, 116, 130, .16); color: var(--ct-bad); border: 1px solid rgba(255, 116, 130, .5); }
+body.ct-theme .ct-main .btn.good, body.ct-theme .ct-main .btn.success { background: rgba(98, 227, 148, .16); color: var(--ct-good); border: 1px solid rgba(98, 227, 148, .5); }
+body.ct-theme .ct-main .pill, body.ct-theme .ct-main .badge { display: inline-flex; align-items: center; padding: .18rem .65rem; border-radius: 999px; font-size: .75rem; font-weight: 800; background: var(--ct-tile-hi); color: var(--ct-ink); border: 1px solid var(--ct-line); }
+body.ct-theme .ct-main .pill.pending, body.ct-theme .ct-main .pill.warn { color: #ffc36b; background: rgba(255, 195, 107, .14); border-color: rgba(255, 195, 107, .45); }
+body.ct-theme .ct-main .pill.approved, body.ct-theme .ct-main .pill.active, body.ct-theme .ct-main .pill.ok, body.ct-theme .ct-main .pill.good { color: var(--ct-good); background: rgba(98, 227, 148, .14); border-color: rgba(98, 227, 148, .45); }
+body.ct-theme .ct-main .pill.rejected, body.ct-theme .ct-main .pill.suspended, body.ct-theme .ct-main .pill.expired, body.ct-theme .ct-main .pill.bad { color: var(--ct-bad); background: rgba(255, 116, 130, .14); border-color: rgba(255, 116, 130, .45); }
+body.ct-theme .ct-main .notice, body.ct-theme .ct-main .alert { background: var(--ct-tile-hi); border: 1px solid var(--ct-line); border-radius: 14px; color: var(--ct-ink); }
+body.ct-theme .ct-main code { background: var(--ct-field); color: var(--ct-orange-2); padding: .1rem .4rem; border-radius: 8px; }
+body.ct-theme .ct-main a:not(.btn):not(.adm-item):not(.adm-link):not(.ct-range) { color: var(--ct-orange-2); }
+
+/* ---------- tables ---------- */
+body.ct-theme .tablewrap { overflow-x: auto; border: 1px solid var(--ct-line); border-radius: 18px; background: var(--ct-field); }
+body.ct-theme .ct-main table { width: 100%; border-collapse: collapse; background: transparent; color: var(--ct-ink); font-size: .9rem; }
+body.ct-theme .ct-main th { text-align: left; padding: .7rem .85rem; font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; color: var(--ct-mute); background: var(--ct-tile); border-bottom: 1px solid var(--ct-line); white-space: nowrap; }
+body.ct-theme .ct-main td { padding: .7rem .85rem; border-bottom: 1px solid var(--ct-line); vertical-align: middle; }
+body.ct-theme .ct-main tr:last-child td { border-bottom: 0; }
+body.ct-theme .ct-main tbody tr:hover td { background: rgba(255, 255, 255, .04); }
+body.ct-theme .ct-main td form { display: inline-block; margin: 0 .2rem .2rem 0; }
+
+/* ---------- pay cards, generic rows, old stat tiles ---------- */
+body.ct-theme .ct-main .paycard { background: var(--ct-field); border: 1px solid var(--ct-line); border-radius: 18px; color: var(--ct-ink); padding: 1rem; }
+body.ct-theme .ct-main .paycards, body.ct-theme .ct-main .stack { display: grid; gap: 12px; }
+body.ct-theme .ct-main .rows { display: grid; gap: 8px; background: transparent; border: 0; }
+body.ct-theme .ct-main .row { display: flex; align-items: center; gap: .8rem; padding: .7rem .85rem; border-radius: 16px; background: var(--ct-field); border: 1px solid var(--ct-line); color: var(--ct-ink); }
+body.ct-theme .ct-main .row .grow { flex: 1; min-width: 0; }
+body.ct-theme .ct-main .row img, body.ct-theme .ct-main .lib-thumb { border-radius: 12px; background: var(--ct-tile); object-fit: cover; }
+body.ct-theme .ct-main .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+body.ct-theme .ct-main .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+body.ct-theme .ct-main .stat { background: var(--ct-tile); border: 1px solid var(--ct-line); border-radius: 18px; padding: 1rem; color: var(--ct-ink); }
+body.ct-theme .ct-main .card { background: var(--ct-tile); border: 1px solid var(--ct-line); border-radius: 20px; color: var(--ct-ink); }
+body.ct-theme .ct-main .muted, body.ct-theme .ct-main .small.muted { color: var(--ct-mute); }
+
+/* ---------- 3D / island manager (dark overrides for the light component CSS) ---------- */
+body.ct-theme .isl-setup { background: rgba(255, 195, 107, .12); border: 1px solid rgba(255, 195, 107, .4); color: var(--ct-ink); }
+body.ct-theme .isl-card { background: var(--ct-field); border: 1px solid var(--ct-line); color: var(--ct-ink); }
+body.ct-theme .isl-dialog, body.ct-theme dialog { background: #2a1409; color: var(--ct-ink); border: 1px solid var(--ct-line); border-radius: 22px; }
+body.ct-theme dialog::backdrop { background: rgba(0, 0, 0, .6); }
+body.ct-theme .ct-main [data-asset3d], body.ct-theme .ct-main .viewer3d { border-radius: 18px; background: var(--ct-field); border: 1px solid var(--ct-line); }
+
+@media (max-width: 720px) {
+  body.ct-theme .adm-bars { height: 140px; }
+  body.ct-theme .adm-bar-labels { font-size: .62rem; }
+  body.ct-theme .adm-links { grid-template-columns: 1fr; }
+}
+
+/* ---------- small fixes ---------- */
+body.ct-theme .ct-curve-labels span { position: absolute; left: var(--x); transform: translateX(-50%); white-space: nowrap; }
+body.ct-theme .ct-main .searchbar { margin: 0; max-width: 360px; }
+body.ct-theme .ct-main .searchbar input { padding-left: 2.7rem; border-radius: 999px; box-shadow: none; }
+body.ct-theme .ct-main .searchbar .ic { color: var(--ct-orange-2); z-index: 1; }
+body.ct-theme .adm-grow code { justify-self: start; }
+body.ct-theme .isl-preview, body.ct-theme .isl-none { background: var(--ct-tile); color: var(--ct-mute); }
+body.ct-theme .isl-tools .choice { background: var(--ct-field); color: var(--ct-ink); }
+body.ct-theme .isl-tools .choice span { color: var(--ct-ink); }
+body.ct-theme .isl-trash li { border-color: var(--ct-line); color: var(--ct-ink); }
+
+/* .choice: a visible checkbox in a glass row (components.css hides the input for the chip style) */
+body.ct-theme .ct-main .choice { position: relative; margin: 0; }
+body.ct-theme .ct-main .choice input { position: static; opacity: 1; inset: auto; width: 20px; height: 20px; flex: none; margin: 0; cursor: pointer; accent-color: var(--ct-orange); }
+body.ct-theme .ct-main .choice span { display: inline; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; font-weight: 600; font-size: inherit; color: var(--ct-ink); }
+body.ct-theme .ct-main .choice input:checked + span { background: none; color: var(--ct-ink); }
+body.ct-theme .ct-main .field + .choice, body.ct-theme .ct-main .choice + .choice { margin-top: .5rem; }
+body.ct-theme .ct-main form .field { margin-bottom: .75rem; }
+body.ct-theme .ct-main .isl-pick { background: rgba(255,255,255,.92); }
+body.ct-theme .ct-main .isl-pick input { accent-color: var(--ct-orange); }
+body.ct-theme .ct-main .lib-thumb, body.ct-theme .ct-main .row img { background: var(--ct-tile) !important; }
