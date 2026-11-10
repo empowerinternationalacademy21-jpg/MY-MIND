@@ -57,7 +57,7 @@
             <h2 id="rec-h" class="vp-h">Recommended videos</h2>
             <div id="grid" class="vp-grid"></div>
             <p id="empty" class="center muted hidden">No videos found. Try another topic.</p>
-            <p class="center vp-more"><button id="more" class="vp-btn" type="button">Show more</button></p>
+            <p class="center vp-more"><button id="more" class="vp-btn" type="button">{{ 'Show More Videos' if auth_role == 'child' else 'Show more' }}</button></p>
         </section>
 
     </div>
