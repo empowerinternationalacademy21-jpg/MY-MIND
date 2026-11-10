@@ -134,7 +134,8 @@
     stories.forEach((x) => x.setAttribute("aria-pressed", "false")); c.setAttribute("aria-pressed", "true");
     cat = c.dataset.cat; load(false);
   }));
-  document.getElementById("search").addEventListener("submit", (e) => { e.preventDefault(); const q = document.getElementById("q").value.trim(); if (q) location.href = "/pictures?q=" + encodeURIComponent(q); });
+  const searchForm = document.getElementById("search");   // the caregiver view has a search box; the child's home does not (search lives on each page)
+  if (searchForm) searchForm.addEventListener("submit", (e) => { e.preventDefault(); const q = document.getElementById("q").value.trim(); if (q) location.href = "/pictures?q=" + encodeURIComponent(q); });
 
   async function strip(id, url) {                    // favourites / recent: shown only when there is something in them
     const g = document.getElementById(id), wrap = document.getElementById(id + "-wrap");
