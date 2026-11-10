@@ -1,34 +1,37 @@
 {% extends "base.html" %}{% block title %}{{ cat.label }}{% endblock %}
-{# One topic (Sports, Food, Colors & Shapes, Nature, Animals, Vehicles ...). pictures.js loads the pictures for data-cat. #}
-{% set search_button = true %}
+{# One page per topic (Sports, Food, Nature, Animals, Vehicles, Music, Friends & Family, Places, Art, Stories, Dancing,
+   Cartoons, Learning, Science, Technology, Social Skills, Calm & Wellbeing, Careers & Life Skills ...).
+   Shows pictures, music, videos and shorts for that topic. topic.js loads each section from the existing /api/* endpoints. #}
 {% block topbar_icon %}{{ icon(cat.icon) }}{% endblock %}
 {% block topbar_icon_style %}color:{{ cat.color }}{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pictures.css') }}">
-{% set cta = {'animals': 'Meet Animals', 'nature': 'Explore Nature', 'vehicles': 'See Vehicles', 'food': 'Enjoy Food!', 'colors': 'Learn More', 'sports': 'See More Sports'}.get(key, 'See More') %}
+{% set kinds = [('pictures', 'Pictures', 'image', 'More Pictures'), ('music', 'Music', 'music', 'More Music'),
+                ('videos', 'Videos', 'clapperboard', 'More Videos'), ('shots', 'Shorts', 'zap', 'More Shorts')] %}
 
-<form id="search" class="pg-search" role="search">
-    <label class="sr-only" for="q">Search {{ cat.label }}</label>
-    {{ icon('search') }}
-    <input id="q" type="search" maxlength="60" placeholder="Search {{ cat.label }}" autocomplete="off">
-</form>
+<div id="topic" data-cat="{{ key }}">
+    <section class="ch-topic-head" style="--c:{{ cat.color }}" aria-label="{{ cat.label }}">
+        <span class="ch-topic-ic">{{ icon(cat.icon) }}</span>
+        <div>
+            <h2>All about {{ cat.label }}</h2>
+            <p>Pictures, music, videos and shorts to enjoy.</p>
+        </div>
+    </section>
 
-<section id="recent-wrap" class="hidden" aria-labelledby="recent-h">
-    <h2 id="recent-h" class="pg-label">Your favourites</h2>
-    <div id="recent" class="recent"></div>
-</section>
+    <nav class="ch-jump" aria-label="Jump to">
+        {% for k, label, ic, more in kinds %}{% if k != 'shots' or cg.shots_enabled %}<a class="chip" href="#sec-{{ k }}">{{ icon(ic, 'sm') }} {{ label }}</a>{% endif %}{% endfor %}
+    </nav>
 
-<div id="grid" class="tiles" data-cat="{{ key }}" aria-live="polite"></div>
-
-<div id="skeleton" class="tiles skeleton" aria-hidden="true">
-    <div class="tile sk h1"></div>
-    <div class="tile sk h2"></div>
-    <div class="tile sk h3"></div>
-    <div class="tile sk h2"></div>
+    {% for k, label, ic, more in kinds %}
+    <section id="sec-{{ k }}" class="ch-tsec" data-kind="{{ k }}" aria-labelledby="h-{{ k }}" {% if k == 'shots' and not cg.shots_enabled %}hidden{% endif %}>
+        <div class="ch-sec"><span class="sec-bubble">{{ icon(ic, 'sm') }}</span>
+            <h2 id="h-{{ k }}">{{ label }}</h2>
+        </div>
+        <div id="grid-{{ k }}" class="tiles" aria-live="polite"></div>
+        <p id="empty-{{ k }}" class="center muted" hidden>Nothing here right now. Please try again in a little while.</p>
+        <p class="center pg-more"><button id="more-{{ k }}" class="pg-btn" type="button" hidden>{{ more }}</button></p>
+    </section>
+    {% endfor %}
 </div>
-
-<p id="empty" class="center muted hidden">No pictures found. Try another topic.</p>
-<p class="center pg-more"><button id="more" class="pg-btn" type="button">{{ cta }}</button></p>
 {% endblock %}
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/pictures.js') }}"></script>{% endblock %}
+<script src="{{ url_for('static', filename='js/topic.js') }}"></script>{% endblock %}
