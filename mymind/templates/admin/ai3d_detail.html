@@ -1,6 +1,9 @@
-{% extends "base.html" %}{% block title %}{{ job.name }}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/asset3d.css') }}">{% endblock %}
-{% block content %}
+{% extends "admin_layout.html" %}
+{% set ct_active = 'ai3d' %}
+{% block title %}{{ job.name }}{% endblock %}
+{% block adm_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/asset3d.css') }}">{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root"><div class="ct-main">
 <a href="{{ url_for('admin_ai3d.jobs') }}">{{ icon('chevron-left','sm') }} All jobs</a>
 <h1>{{ job.name }} <span class="pill {{ {'published':'approved','review':'pending','failed':'rejected','rejected':'rejected'}.get(job.status,'pending') }}">{{ job.status }}</span></h1>
 <p class="muted">{{ job.kind|capitalize }} · {{ job.category }} · {{ job.provider }} · step: <b>{{ job.stage }}</b></p>
@@ -8,7 +11,7 @@
 
 {% if job.glb_filename %}
 <div class="a3d big" data-asset3d data-autostart data-glb="{{ url_for('world.asset3d_file', asset_id=job.id, which='glb') }}" data-clips='{{ clip_names|tojson }}' data-name="{{ job.name }}"><div class="a3d-stage" hidden></div></div>
-<div class="card-box"><h2>Check before publishing</h2>
+<div class="ct-panel"><h2>Check before publishing</h2>
 <ul class="fam-list">
 <li>{{ '{:,}'.format(stats.triangles or 0) }} triangles · {{ ((stats.bytes or 0) / 1048576)|round(2) }} MB · {{ stats.textures or 0 }} textures · {{ stats.animations or 0 }} built-in animations{% if job.rigged %} · rigged{% endif %}{% if clip_names %} · clips: {{ clip_names|join(', ') }}{% endif %}</li>
 <li>Optimiser: {{ stats.optimizer or 'none' }}</li>
@@ -16,7 +19,7 @@
 <li>Look at it from every side. It must be an <b>original</b> design: no logos, text, real person or recognisable character.</li></ul></div>
 {% elif job.status in ('queued','running') %}<p>Not ready yet. Press Refresh, or let the worker run.</p>{% endif %}
 
-<div class="card-box"><h2>How it was made</h2><p class="small"><b>Prompt (built from allow-listed choices):</b> {{ job.prompt }}</p>
+<div class="ct-panel"><h2>How it was made</h2><p class="small"><b>Prompt (built from allow-listed choices):</b> {{ job.prompt }}</p>
 <p class="small muted">Choices: {% for k, v in options.items() %}{{ k }}={{ v }}{{ ', ' if not loop.last }}{% endfor %}</p>
 {% if job.caption %}<p class="small">Caption: {{ job.caption }}</p>{% endif %}</div>
 
@@ -28,5 +31,6 @@
 {% if job.status == 'published' and job.kind == 'landmark' and job.category == 'island' %}<form method="post" action="{{ url_for('admin_ai3d.island_for_everyone', job_id=job.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn primary" type="submit" data-confirm="Use this island for every user's My World on every device?">Use this island for everyone</button></form>{% endif %}
 {% if job.status == 'failed' %}{{ btn('retry','Retry','primary') }}{{ btn('reject','Reject') }}{% endif %}
 <form method="post" action="{{ url_for('admin_ai3d.act', job_id=job.id, action='delete') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn red" type="submit" data-confirm="Delete this model and its files?">Delete</button></form></div>
+</div></div>
 {% endblock %}
 {% block scripts %}{% if job.glb_filename %}<script src="{{ url_for('static', filename='vendor/three-gltf.min.js') }}"></script><script src="{{ url_for('static', filename='js/asset3d.js') }}"></script>{% endif %}{% endblock %}
