@@ -1,15 +1,22 @@
-{% extends "base.html" %}{% block title %}Payments{% endblock %}
-{% block content %}
-<div class="sec-title"><h1 style="margin:0">Pending Payments</h1>{% if pending %}<span class="badge-count">{{ pending|length }}</span>{% endif %}</div>
-{% for req, sub, u in pending %}<div class="paycard"><div class="actions" style="justify-content:space-between;align-items:center"><b>{{ u.username }}</b><span class="pill pending">Pending</span></div>
-<p class="small" style="margin:.4rem 0">{{ sub.plan_code|title }} · expected <b>${{ '%g'|format(sub.amount) }} {{ sub.currency }}</b> · {{ sub.duration_days }} days<br>Reference <code>{{ req.payment_reference }}</code> · paid {{ req.payment_date }} · submitted {{ req.created_at.strftime('%d %b %Y %H:%M') }}</p>
-{% if req.caregiver_note %}<p class="small muted">Caregiver note: {{ req.caregiver_note }}</p>{% endif %}
-<p class="hint">Check your bank statement for this reference and amount before approving.</p>
-<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field" style="margin-top:.5rem"><label for="n{{ req.id }}">Internal note</label><input id="n{{ req.id }}" name="note" type="text" maxlength="500"></div>
-<button class="btn green block" type="submit" formaction="{{ url_for('admin.decide', req_id=req.id, action='approve') }}" data-confirm="Approve this payment and activate the subscription?">Approve</button><p style="margin:.4rem 0 0"></p>
-<button class="btn red block" type="submit" formaction="{{ url_for('admin.decide', req_id=req.id, action='reject') }}" data-confirm="Reject this payment?">Reject</button></form></div>
-{% else %}<div class="empty">No pending requests.</div>{% endfor %}
-<h2 style="margin-top:1.2rem">History</h2><div class="card-box tablewrap"><table><thead><tr><th>User</th><th>Plan</th><th>Amount</th><th>Reference</th><th>Status</th><th>Period</th><th>Note</th></tr></thead><tbody>
-{% for req, sub, u in history %}<tr><td>{{ u.username }}</td><td>{{ sub.plan_code|title }}</td><td>${{ '%g'|format(sub.amount) }}</td><td><code>{{ req.payment_reference }}</code></td><td><span class="pill {{ req.status }}">{{ req.status }}</span></td>
-<td>{% if sub.starts_at %}{{ sub.starts_at.strftime('%d %b %Y') }} → {{ sub.expires_at.strftime('%d %b %Y') }}{% else %}—{% endif %}</td><td>{{ req.administrator_note or '' }}</td></tr>{% else %}<tr><td colspan="7" class="muted">No decisions yet.</td></tr>{% endfor %}</tbody></table></div>
+{% extends "admin_layout.html" %}
+{% set ct_active = 'payments' %}
+{% block title %}Payments{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root"><div class="ct-main">
+  <header class="ct-heading"><div><p class="ct-kicker">Administrator</p><h1>Pending Payments</h1><p class="muted">Check the bank statement before approving.</p></div>{% if pending %}<div class="ct-heading-actions"><span class="adm-count">{{ pending|length }}</span></div>{% endif %}</header>
+  <section class="adm-grid" aria-label="Pending payments">
+  {% for req, sub, u in pending %}<div class="paycard"><div class="actions" style="justify-content:space-between;align-items:center"><b>{{ u.username }}</b><span class="pill pending">Pending</span></div>
+  <p class="small" style="margin:.4rem 0">{{ sub.plan_code|title }} · expected <b>${{ '%g'|format(sub.amount) }} {{ sub.currency }}</b> · {{ sub.duration_days }} days<br>Reference <code>{{ req.payment_reference }}</code> · paid {{ req.payment_date }} · submitted {{ req.created_at.strftime('%d %b %Y %H:%M') }}</p>
+  {% if req.caregiver_note %}<p class="small muted">Caregiver note: {{ req.caregiver_note }}</p>{% endif %}
+  <p class="hint">Check your bank statement for this reference and amount before approving.</p>
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field" style="margin-top:.5rem"><label for="n{{ req.id }}">Internal note</label><input id="n{{ req.id }}" name="note" type="text" maxlength="500"></div>
+  <button class="btn green block" type="submit" formaction="{{ url_for('admin.decide', req_id=req.id, action='approve') }}" data-confirm="Approve this payment and activate the subscription?">Approve</button><p style="margin:.4rem 0 0"></p>
+  <button class="btn red block" type="submit" formaction="{{ url_for('admin.decide', req_id=req.id, action='reject') }}" data-confirm="Reject this payment?">Reject</button></form></div>
+  {% else %}<p class="ct-empty">No pending requests.</p>{% endfor %}
+  </section>
+  <section class="ct-panel"><div class="ct-panel-heading"><h2>History</h2></div>
+  <div class="tablewrap"><table><thead><tr><th>User</th><th>Plan</th><th>Amount</th><th>Reference</th><th>Status</th><th>Period</th><th>Note</th></tr></thead><tbody>
+  {% for req, sub, u in history %}<tr><td>{{ u.username }}</td><td>{{ sub.plan_code|title }}</td><td>${{ '%g'|format(sub.amount) }}</td><td><code>{{ req.payment_reference }}</code></td><td><span class="pill {{ req.status }}">{{ req.status }}</span></td>
+  <td>{% if sub.starts_at %}{{ sub.starts_at.strftime('%d %b %Y') }} → {{ sub.expires_at.strftime('%d %b %Y') }}{% else %}—{% endif %}</td><td>{{ req.administrator_note or '' }}</td></tr>{% else %}<tr><td colspan="7" class="muted">No decisions yet.</td></tr>{% endfor %}</tbody></table></div></section>
+</div></div>
 {% endblock %}

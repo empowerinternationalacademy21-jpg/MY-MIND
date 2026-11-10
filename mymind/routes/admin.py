@@ -1,14 +1,16 @@
 import json
+import logging
 import re
 import secrets
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort
 from database.db import Session
 from database.models import User, Subscription, PaymentVerificationRequest, AuditLog, ChildProfile
-from services import payment_service, settings_service, auth_service, account_service, safety
+from services import payment_service, settings_service, auth_service, account_service, safety, admin_analytics
 from services.auth_service import audit
 from routes.helpers import admin_required
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
+log = logging.getLogger(__name__)
 PHONE_RE = re.compile(r"^\+?[0-9 ()\-]{7,20}$")
 
 
@@ -17,7 +19,18 @@ PHONE_RE = re.compile(r"^\+?[0-9 ()\-]{7,20}$")
 def dashboard():
     pending = (Session.query(PaymentVerificationRequest).filter_by(status="pending_verification")
                .order_by(PaymentVerificationRequest.created_at).limit(5).all())
-    return render_template("admin/dashboard.html", stats=payment_service.stats(), pending=pending, nav="dashboard")
+    try:
+        days = int(request.args.get("range", 30))
+    except ValueError:
+        days = 30
+    try:
+        analytics = admin_analytics.collect(days)
+    except Exception:                       # the charts are a bonus: a problem here must never block the admin tools
+        log.exception("admin dashboard charts failed")
+        Session.rollback()
+        analytics = None
+    return render_template("admin/dashboard.html", stats=payment_service.stats(), pending=pending, analytics=analytics,
+                           ranges=admin_analytics.RANGES, nav="dashboard")
 
 
 @bp.route("/payments")

@@ -1,0 +1,15 @@
+{# Shared layout for every administrator page. It is the caretaker glass layout (ct_layout.html) with the admin icon rail,
+   so the admin screens look and behave exactly like the caretaker screens. Page templates set `ct_active` (the lit rail icon)
+   and fill: title, adm_head (optional extra stylesheets), ct_body, and scripts (optional). #}
+{% extends "ct_layout.html" %}
+{% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">{% block adm_head %}{% endblock %}{% endblock %}
+{% block ct_rail %}
+<nav class="ctx-rail" aria-label="Administrator">
+  {% for key, ep, ic, label in [('dashboard','admin.dashboard','layout-dashboard','Dashboard'),('payments','admin.payments','credit-card','Payments'),('users','admin.users','users','Users'),('world','admin_world.library','image','World Library'),('ai3d','admin_ai3d.jobs','box','AI 3D items'),('islands','admin_ai3d.island_manager','globe','3D World & Islands'),('audit','admin.audit_log','receipt-text','Audit log')] %}
+  <a href="{{ url_for(ep) }}" aria-label="{{ label }}" title="{{ label }}" {% if ct_active == key %}aria-current="page"{% endif %}>{{ icon(ic) }}</a>
+  {% endfor %}
+  <span class="ctx-sep" aria-hidden="true"></span>
+  <a href="{{ url_for('admin.settings') }}" aria-label="Settings" title="Settings" {% if ct_active == 'settings' %}aria-current="page"{% endif %}>{{ icon('settings') }}</a>
+  <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" aria-label="Log out" title="Log out">{{ icon('log-out') }}</button></form>
+</nav>
+{% endblock %}
