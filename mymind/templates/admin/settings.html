@@ -1,15 +1,22 @@
-{% extends "base.html" %}{% block title %}Admin Settings{% endblock %}
-{% block content %}<h1>Settings</h1>
-<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<div class="card-box"><h2>Payment details shown to caregivers</h2>
-{% for key, lab in [('whatsapp_number','WhatsApp number (with country code)'),('contact_phone','Contact phone number'),('bank_name','Bank name'),('bank_account_name','Bank account name'),('bank_account_number','Bank account number')] %}
-<div class="field"><label for="{{ key }}">{{ lab }}</label><input id="{{ key }}" name="{{ key }}" type="text" maxlength="60" value="{{ s[key] }}"></div>{% endfor %}
-<div class="field"><label for="pi">Payment instructions</label><textarea id="pi" name="payment_instructions" rows="3" maxlength="800">{{ s.payment_instructions }}</textarea></div></div>
-<div class="card-box"><h2>Plans (USD)</h2><div class="tiles">{% for code, p in plans.items() %}<div class="field"><label for="{{ code }}_price">{{ p.name }} price</label><input id="{{ code }}_price" name="{{ code }}_price" type="number" step="0.01" min="1" value="{{ '%g'|format(p.price) }}"><label for="{{ code }}_days" style="margin-top:.5rem">{{ p.name }} days</label><input id="{{ code }}_days" name="{{ code }}_days" type="number" min="1" value="{{ p.days }}"></div>{% endfor %}</div></div>
-<div class="card-box"><h2>Free trial</h2><div class="field"><label for="trial_days">Free trial for new accounts (days, 0 = no trial)</label><input id="trial_days" name="trial_days" type="number" min="0" max="365" value="{{ s.trial_days }}"></div></div>
-<div class="card-box"><h2>Branding &amp; moderation</h2>
-<div class="field"><label for="tg">Tagline</label><input id="tg" name="brand_tagline" type="text" maxlength="80" value="{{ s.brand_tagline }}"></div>
-<div class="field"><label for="bk">Extra blocked words (comma separated)</label><textarea id="bk" name="blocked_keywords" rows="2">{{ s.blocked_keywords }}</textarea><p class="hint">Always blocked by default: {{ default_blocklist|join(', ') }}.</p></div>
-<label class="check" style="color:var(--text)"><input type="checkbox" name="shots_enabled" {{ 'checked' if s.shots_enabled == '1' }}> Enable Shorts for all users</label></div>
-<button class="btn primary block" type="submit">Save settings</button></form>
+{% extends "admin_layout.html" %}
+{% set ct_active = 'settings' %}
+{% block title %}Admin Settings{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root"><div class="ct-main">
+  <header class="ct-heading"><div><p class="ct-kicker">Administrator</p><h1>Settings</h1><p class="muted">Payment details, plans, trial, branding and moderation.</p></div></header>
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="ct-main">
+  <section class="ct-panel"><div class="ct-panel-heading"><h2>Payment details shown to caregivers</h2></div>
+  <div class="adm-form-grid">{% for key, lab in [('whatsapp_number','WhatsApp number (with country code)'),('contact_phone','Contact phone number'),('bank_name','Bank name'),('bank_account_name','Bank account name'),('bank_account_number','Bank account number')] %}
+  <div class="field"><label for="{{ key }}">{{ lab }}</label><input id="{{ key }}" name="{{ key }}" type="text" maxlength="60" value="{{ s[key] }}"></div>{% endfor %}</div>
+  <div class="field" style="margin-top:.8rem"><label for="pi">Payment instructions</label><textarea id="pi" name="payment_instructions" rows="3" maxlength="800">{{ s.payment_instructions }}</textarea></div></section>
+  <section class="ct-panel"><div class="ct-panel-heading"><h2>Plans (USD)</h2></div><div class="tiles">{% for code, p in plans.items() %}<div class="field"><label for="{{ code }}_price">{{ p.name }} price</label><input id="{{ code }}_price" name="{{ code }}_price" type="number" step="0.01" min="1" value="{{ '%g'|format(p.price) }}"><label for="{{ code }}_days" style="margin-top:.5rem">{{ p.name }} days</label><input id="{{ code }}_days" name="{{ code }}_days" type="number" min="1" value="{{ p.days }}"></div>{% endfor %}</div></section>
+  <section class="ct-panel"><div class="ct-panel-heading"><h2>Free trial</h2></div><div class="field"><label for="trial_days">Free trial for new accounts (days, 0 = no trial)</label><input id="trial_days" name="trial_days" type="number" min="0" max="365" value="{{ s.trial_days }}"></div></section>
+  <section class="ct-panel"><div class="ct-panel-heading"><h2>Branding &amp; moderation</h2></div>
+  <div class="field"><label for="tg">Tagline</label><input id="tg" name="brand_tagline" type="text" maxlength="80" value="{{ s.brand_tagline }}"></div>
+  <div class="field" style="margin-top:.8rem"><label for="bk">Extra blocked words (comma separated)</label><textarea id="bk" name="blocked_keywords" rows="2">{{ s.blocked_keywords }}</textarea><p class="hint">Always blocked by default: {{ default_blocklist|join(', ') }}.</p></div>
+  <label class="choice" style="margin-top:.8rem"><input type="checkbox" name="shots_enabled" {{ 'checked' if s.shots_enabled == '1' }}> Enable Shorts for all users</label></section>
+  <button class="btn primary block" type="submit">Save settings</button>
+  </div></form>
+</div></div>
 {% endblock %}
