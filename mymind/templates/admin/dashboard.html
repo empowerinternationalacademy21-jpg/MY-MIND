@@ -1,12 +1,91 @@
-{% extends "base.html" %}{% block title %}Admin Dashboard{% endblock %}
-{% block content %}
-<h1>Admin Dashboard</h1>
-<div class="stats">{% for label, key in [('Caregivers','caregivers'),('Child profiles','children'),('Active subscriptions','active'),('Pending payments','pending'),('Approved','approved'),('Rejected','rejected'),('Expired','expired')] %}<div class="stat"><b>{{ stats[key] }}</b><span class="small muted">{{ label }}</span></div>{% endfor %}</div>
-<div class="sec-title"><h2>Pending Payments</h2>{% if stats.pending %}<span class="badge-count">{{ stats.pending }}</span>{% endif %}</div>
-<div class="rows">{% for r in pending %}<a class="row" href="{{ url_for('admin.payments') }}"><span class="bub">{{ icon('credit-card') }}</span><span class="grow"><code>{{ r.payment_reference }}</code><span class="sub">{{ r.created_at.strftime('%d %b %H:%M') }}</span></span><span class="pill pending">Pending</span></a>{% else %}<div class="row"><span class="grow muted">Nothing waiting.</span></div>{% endfor %}</div>
-<p style="margin-top:1rem"><a class="btn primary block" href="{{ url_for('admin.payments') }}">Open payment queue</a></p>
-<div class="sec-title" style="margin-top:1.4rem"><h2>Content library</h2></div>
-<div class="rows"><a class="row" href="{{ url_for('admin_world.library') }}"><span class="bub">{{ icon('image') }}</span><span class="grow">World Library<span class="sub">Island art, interiors, characters</span></span><span class="go">{{ icon('chevron-right') }}</span></a>
-<a class="row" href="{{ url_for('admin_ai3d.jobs') }}"><span class="bub">{{ icon('box') }}</span><span class="grow">AI 3D items<span class="sub">Create, review and publish 3D characters</span></span><span class="go">{{ icon('chevron-right') }}</span></a>
-<a class="row" href="{{ url_for('admin_ai3d.island_manager') }}"><span class="bub">{{ icon('box') }}</span><span class="grow">3D World &amp; Islands<span class="sub">Default world, delete and restore islands</span></span><span class="go">{{ icon('chevron-right') }}</span></a></div>
+{% extends "admin_layout.html" %}
+{% set ct_active = 'dashboard' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root" aria-labelledby="adm-title">
+  <div class="ct-main">
+    <header class="ct-heading">
+      <div><p class="ct-kicker">Administrator</p><h1 id="adm-title">Admin Dashboard</h1><p class="muted">Accounts, payments and content at a glance.</p></div>
+      <div class="ct-heading-actions"><a class="btn primary" href="{{ url_for('admin.payments') }}">{{ icon('credit-card','sm') }} Open payment queue{% if stats.pending %} <span class="adm-count">{{ stats.pending }}</span>{% endif %}</a></div>
+    </header>
+
+    <section class="adm-stats" aria-label="Summary">
+      {% for label, key, symbol in [('Caregivers','caregivers','users'),('Child profiles','children','smile'),('Active subscriptions','active','badge-check'),('Pending payments','pending','clock'),('Approved','approved','circle-check'),('Rejected','rejected','circle-x'),('Expired','expired','timer')] %}
+      <article class="ct-stat"><span class="ct-stat-icon">{{ icon(symbol) }}</span><span class="ct-stat-label">{{ label }}</span><strong>{{ stats[key] }}</strong></article>
+      {% endfor %}
+    </section>
+
+    {% if analytics %}
+    {% set sg = analytics.signups %}
+    <section class="ct-panel ct-statistic" aria-label="Sign-ups chart">
+      <div class="ct-panel-heading">
+        <div><h2>Sign-ups</h2></div>
+        <div class="ct-ranges" role="group" aria-label="Date range">
+          {% for n in ranges %}<a class="ct-range {{ 'is-active' if analytics.days == n }}" href="{{ url_for('admin.dashboard', range=n) }}" {% if analytics.days == n %}aria-current="true"{% endif %}>Last {{ n }} days</a>{% endfor %}
+        </div>
+      </div>
+      <div class="ct-hero-head"><div><h3>New caregiver accounts per day</h3><p class="muted small">{{ analytics.start.strftime('%b %-d') }} to {{ analytics.end.strftime('%b %-d') }} · {{ sg.total }} new account{{ '' if sg.total == 1 else 's' }}</p></div>
+        <ul class="ct-hero-legend" aria-hidden="true"><li><i style="--legend-color:#ff7a1a"></i>New accounts</li><li><i style="--legend-color:#f6f2ec"></i>Busiest day</li></ul></div>
+      {% if sg.total > 0 %}
+      <div class="ct-curve {{ 'is-dense' if sg.dense }}" role="img" aria-label="New caregiver accounts per day, {{ sg.total }} in total">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <defs><linearGradient id="ct-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a1a" stop-opacity=".5"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></linearGradient></defs>
+          <line class="ct-grid-line" x1="0" y1="25" x2="100" y2="25"/><line class="ct-grid-line" x1="0" y1="50" x2="100" y2="50"/><line class="ct-grid-line" x1="0" y1="75" x2="100" y2="75"/>
+          <path class="ct-curve-area" d="{{ sg.area }}"/><path class="ct-curve-line" d="{{ sg.path }}"/>
+        </svg>
+        {% for d in sg.dots %}<span class="ct-dot{{ ' is-peak' if d.peak }}{{ ' is-right' if d.right }}{{ ' is-left' if d.left }}" tabindex="0" style="--x:{{ d.x }}%;--y:{{ d.y }}%" title="{{ d.label }}: {{ d.value }} new account{{ '' if d.value == 1 else 's' }}" aria-label="{{ d.label }}: {{ d.value }} new account{{ '' if d.value == 1 else 's' }}"><span>{{ d.label }}<b>{{ d.value }}</b></span></span>{% endfor %}
+      </div>
+      <div class="ct-curve-labels" aria-hidden="true">{% for l in sg.labels %}<span style="--x:{{ l.x }}%">{{ l.text }}</span>{% endfor %}</div>
+      {% else %}<p class="ct-empty">No new accounts in this date range.</p>{% endif %}
+    </section>
+
+    <section class="ct-duo" aria-label="Subscriptions and revenue">
+      <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Subscriptions</h2><p class="muted small">Right now, all accounts</p></div></div>
+        {% if analytics.donut.total %}
+        <div class="ct-donut-layout"><div class="ct-donut-wrap"><div class="ct-donut" style="--donut:{{ analytics.donut.css }}" role="img" aria-label="Subscriptions by state"></div><div class="ct-donut-centre">{{ analytics.donut.total }}<small>plans</small></div></div>
+          <ul class="ct-legend">{% for p in analytics.donut.parts %}<li><i style="--legend-color:{{ p.color }}"></i><span>{{ p.label }}</span><b>{{ p.count }}</b></li>{% endfor %}</ul></div>
+        {% else %}<p class="ct-empty">No subscriptions yet.</p>{% endif %}
+      </article>
+      <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Revenue</h2><p class="muted small">Approved payments, per {{ analytics.revenue.per }}</p></div>
+        <strong class="adm-total">{{ '{:,.2f}'.format(analytics.revenue.total) }} <small>{{ analytics.revenue.currency }}</small></strong></div>
+        {% if analytics.revenue.total > 0 %}
+        <div class="adm-bars" style="--n:{{ analytics.revenue.bars|length }}" role="img" aria-label="Approved payment revenue, {{ '{:,.2f}'.format(analytics.revenue.total) }} {{ analytics.revenue.currency }} in total">
+          {% for b in analytics.revenue.bars %}<i tabindex="0" style="--h:{{ b.pct }}%" title="{{ b.label }}: {{ '{:,.2f}'.format(b.value) }} {{ analytics.revenue.currency }}" aria-label="{{ b.label }}: {{ '{:,.2f}'.format(b.value) }} {{ analytics.revenue.currency }}"></i>{% endfor %}
+        </div>
+        <div class="adm-bar-labels" style="--n:{{ analytics.revenue.bars|length }}" aria-hidden="true">{% for b in analytics.revenue.bars %}<span>{{ b.label if b.show }}</span>{% endfor %}</div>
+        <p class="muted small adm-foot">{{ analytics.revenue.payments }} approved payment{{ '' if analytics.revenue.payments == 1 else 's' }} in this date range</p>
+        {% else %}<p class="ct-empty">No approved payments in this date range.</p>{% endif %}
+      </article>
+    </section>
+
+    <section class="ct-duo" aria-label="Payments and plans">
+      <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Payment decisions</h2><p class="muted small">All time</p></div></div>
+        {% if analytics.decisions %}<div class="ct-mini-bars">{% for r in analytics.decisions %}<div><span>{{ r.label }}</span><i style="--w:{{ r.pct }}%;--bar:{{ r.color }}"></i><b>{{ r.count }}</b></div>{% endfor %}</div>
+        {% else %}<p class="ct-empty">No payment requests yet.</p>{% endif %}
+      </article>
+      <article class="ct-panel"><div class="ct-panel-heading"><div><h2>Active plans</h2><p class="muted small">Which plan people are on</p></div></div>
+        {% if analytics.plans %}<div class="ct-mini-bars">{% for r in analytics.plans %}<div><span>{{ r.label }}</span><i style="--w:{{ r.pct }}%;--bar:{{ r.color }}"></i><b>{{ r.count }}</b></div>{% endfor %}</div>
+        {% else %}<p class="ct-empty">No active subscriptions yet.</p>{% endif %}
+      </article>
+    </section>
+    {% else %}
+    <section class="ct-panel"><p class="ct-empty">The charts could not be loaded just now. The admin tools below still work. Reload the page to try again.</p></section>
+    {% endif %}
+
+    <section class="ct-panel" aria-labelledby="adm-pending-title">
+      <div class="ct-panel-heading"><div><h2 id="adm-pending-title">Pending payments</h2><p class="muted small">Oldest first. Open the queue to approve or reject.</p></div>{% if stats.pending %}<span class="adm-count">{{ stats.pending }}</span>{% endif %}</div>
+      <div class="adm-list">{% for r in pending %}<a class="adm-item" href="{{ url_for('admin.payments') }}"><span class="adm-bub">{{ icon('credit-card') }}</span><span class="adm-grow"><code>{{ r.payment_reference }}</code><span class="adm-sub">{{ r.created_at.strftime('%d %b %H:%M') }}</span></span><span class="pill pending">Pending</span></a>{% else %}<p class="ct-empty">Nothing waiting.</p>{% endfor %}</div>
+      <p class="adm-actions-row"><a class="btn primary" href="{{ url_for('admin.payments') }}">Open payment queue</a></p>
+    </section>
+
+    <section class="ct-panel" aria-labelledby="adm-lib-title">
+      <div class="ct-panel-heading"><div><h2 id="adm-lib-title">Content library</h2><p class="muted small">Art and 3D items children see in My World.</p></div></div>
+      <div class="adm-links">
+        <a class="adm-link" href="{{ url_for('admin_world.library') }}"><span class="adm-bub">{{ icon('image') }}</span><span class="adm-grow"><strong>World Library</strong><span class="adm-sub">Island art, interiors, characters</span></span>{{ icon('chevron-right','sm') }}</a>
+        <a class="adm-link" href="{{ url_for('admin_ai3d.jobs') }}"><span class="adm-bub">{{ icon('box') }}</span><span class="adm-grow"><strong>AI 3D items</strong><span class="adm-sub">Create, review and publish 3D characters</span></span>{{ icon('chevron-right','sm') }}</a>
+        <a class="adm-link" href="{{ url_for('admin_ai3d.island_manager') }}"><span class="adm-bub">{{ icon('globe') }}</span><span class="adm-grow"><strong>3D World &amp; Islands</strong><span class="adm-sub">Default world, delete and restore islands</span></span>{{ icon('chevron-right','sm') }}</a>
+      </div>
+    </section>
+  </div>
+</div>
 {% endblock %}
