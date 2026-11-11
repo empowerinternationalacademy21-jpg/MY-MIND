@@ -45,6 +45,10 @@ def world_extras():
 @bp.route("/world")
 @subscribed_required
 def world():
+    if g.auth_role == "child":                    # children get the flat 2D island; caregivers keep the full world view below
+        from services import world2d_service
+        return render_template("my_world_2d.html", scene=world2d_service.scene(g.user, g.child), active="world",
+                               share_url=session.pop("new_world_share_url", None))
     interests = rec.get_interests(g.child.id)
     now = utcnow()
     enjoy = [i for i in interests if i["score"] >= 3 and i["evidence"] >= 3]

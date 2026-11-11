@@ -1,0 +1,81 @@
+/* MyMind — the child's flat 2D My World (map + rooms). Soft pastel scenery, big labelled stops, gentle motion only.
+   Motion is switched off by: the caregiver's "Reduced motion" / animation settings (data-motion="off", body.reduced-motion)
+   and the device's own reduced-motion preference. Nothing flashes, nothing makes a sound. */
+.mw, .mwr { max-width: 560px; margin: 0 auto; padding: 0 0 1.5rem; --ink: #2a2140; }
+.mwr { max-width: 760px; }
+
+/* ---------- the island ---------- */
+.mw-welcome { text-align: center; padding: .4rem 0 .9rem; }
+.mw-welcome h2 { margin: 0; font-size: 1.7rem; color: var(--ink); }
+.mw-welcome p { margin: .3rem 0 0; font-size: 1.05rem; color: #5b5470; }
+.mw-theme { display: inline-block; margin-left: .3rem; padding: .15rem .7rem; border-radius: 999px; background: #fff; color: var(--ink); font-weight: 700; font-size: .9rem; box-shadow: 0 2px 8px rgba(60, 40, 120, .15); }
+
+.mw-map { position: relative; width: 100%; aspect-ratio: var(--ratio); border-radius: 30px; overflow: hidden; background: var(--sea2); box-shadow: 0 14px 30px -14px rgba(60, 40, 120, .45), inset 0 0 0 3px rgba(255, 255, 255, .55); }
+.mw-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.mw-sand { filter: drop-shadow(0 .6px 1px rgba(0, 0, 0, .18)); }
+
+.mw-stop { position: absolute; left: var(--x); top: var(--y); width: 42%; transform: translate(-50%, -50%); display: block; text-align: center; text-decoration: none; color: var(--ink);
+  -webkit-tap-highlight-color: transparent; border-radius: 22px; outline: none; transition: transform .2s ease; }
+.mw-stop:hover, .mw-stop:focus-visible { transform: translate(-50%, -50%) scale(1.05); }
+.mw-stop:active { transform: translate(-50%, -50%) scale(.98); }
+.mw-stop:focus-visible { box-shadow: 0 0 0 4px #fff, 0 0 0 8px var(--c); }
+.mw-art { display: block; width: 100%; height: auto; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .18)); }
+.mw-stop-label { display: flex; align-items: center; justify-content: center; gap: .4rem; margin: -.25rem auto 0; padding: .3rem .8rem .3rem .3rem; width: max-content; max-width: 100%;
+  background: #fff; border: 3px solid var(--c); border-radius: 999px; font-weight: 800; font-size: 1rem; line-height: 1.1; color: var(--ink); box-shadow: 0 4px 10px -4px rgba(0, 0, 0, .35); }
+.mw-stop-ic { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--c); color: #fff; }
+.mw-stop-ic .ic { width: 18px; height: 18px; }
+.mw-star { position: absolute; top: 0; right: 6%; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #ffd34d; color: #7a4a00; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
+
+.mw-extras { display: flex; justify-content: center; margin: 1.1rem 0 .6rem; }
+.mw .mw-big-btn, .mwr .mw-big-btn { color: #fff; }
+.mw-big-btn { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; min-height: 56px; padding: .6rem 1.6rem; border-radius: 999px; background: var(--accent, #6b4de0); color: #fff; font-weight: 800; font-size: 1.1rem; text-decoration: none; box-shadow: 0 8px 18px -8px rgba(60, 40, 120, .6); }
+.mw-big-btn .ic { width: 24px; height: 24px; }
+.mw-big-btn:hover { filter: brightness(1.06); }
+.mw-share { margin-top: 1rem; }
+
+/* gentle entrance and drifting scenery (off when motion is off) */
+@keyframes mw-pop { from { opacity: 0; transform: translate(-50%, -46%) scale(.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes mw-drift { from { transform: translateX(-6px); } to { transform: translateX(10px); } }
+@keyframes mw-bob { from { transform: translateY(-.6px); } to { transform: translateY(.9px); } }
+.mw[data-motion="on"] .mw-stop { animation: mw-pop .55s ease both; animation-delay: calc(var(--i) * 70ms); }
+.mw[data-motion="on"] .mw-cloud { animation: mw-drift 18s ease-in-out infinite alternate; }
+.mw[data-motion="on"] .mw-float { animation: mw-bob 5s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.7s); }
+.mw-float { transform-box: fill-box; }
+
+/* ---------- rooms ---------- */
+.mw-back { display: inline-flex; align-items: center; gap: .55rem; min-height: 56px; padding: .5rem 1.3rem .5rem 1rem; margin: .2rem 0 .8rem; border-radius: 999px; background: #fff; color: var(--ink); border: 3px solid var(--c); font-weight: 800; font-size: 1.1rem; text-decoration: none; box-shadow: 0 6px 14px -8px rgba(60, 40, 120, .5); }
+.mw-back .ic { width: 26px; height: 26px; color: var(--c); }
+.mw-back:hover, .mw-back:focus-visible { background: #fffaf0; }
+.mwr-hero { position: relative; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1.2rem; border-radius: 28px; overflow: hidden; background: linear-gradient(180deg, var(--sky1), var(--sky2)); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .6); }
+.mwr-hero::after { content: ""; position: absolute; left: -10%; right: -10%; bottom: -34px; height: 70px; border-radius: 50%; background: var(--grass); opacity: .55; z-index: 0; }
+.mwr-hero > * { position: relative; z-index: 1; }
+.mwr-bubble { flex: none; width: 76px; height: 76px; display: grid; place-items: center; border-radius: 50%; background: var(--c); color: #fff; box-shadow: 0 8px 16px -8px rgba(0, 0, 0, .45); }
+.mwr-bubble .ic { width: 40px; height: 40px; }
+.mwr-hero-text { flex: 1; min-width: 12rem; }
+.mwr-hero-text h2 { margin: 0; font-size: 1.7rem; color: var(--ink); }
+.mwr-hero-text p { margin: .25rem 0 0; font-size: 1.05rem; color: #3d3556; }
+.mwr-friends { display: flex; gap: .4rem; }
+.mwr-friends img { width: 64px; height: 64px; object-fit: contain; border-radius: 16px; background: rgba(255, 255, 255, .6); }
+.mwr-interior { width: 100%; max-height: 180px; object-fit: cover; border-radius: 18px; }
+.mwr-sec { margin-top: 1.4rem; }
+.mwr-sec .tiles { margin-top: .6rem; }
+.mwr-miles { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; margin-top: 1rem; }
+.mwr-mile { display: grid; justify-items: center; gap: .2rem; padding: .9rem .4rem; text-align: center; border-radius: 22px; background: #fff; box-shadow: 0 6px 14px -8px rgba(60, 40, 120, .4); color: var(--ink); }
+.mwr-mile strong { font-size: 2rem; line-height: 1; }
+.mwr-mile span:last-child { font-size: .95rem; font-weight: 700; }
+.mwr-mile-ic { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--c); color: #fff; }
+.is-watched { position: relative; }
+.mwr-watched-tag { position: absolute; top: 8px; left: 8px; z-index: 2; display: inline-flex; align-items: center; gap: .25rem; padding: .2rem .6rem; border-radius: 999px; background: #2e9d57; color: #fff; font-size: .82rem; font-weight: 800; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
+.mwr-foot { margin-top: 1.6rem; }
+[aria-pressed="true"].chip { background: var(--c, #6b4de0); color: #fff; border-color: var(--c, #6b4de0); }
+
+/* ---------- accessibility ---------- */
+body.reduced-motion .mw-stop, body.reduced-motion .mw-cloud, body.reduced-motion .mw-float { animation: none !important; }
+body.reduced-motion .mw-stop { transition: none; }
+@media (prefers-reduced-motion: reduce) { .mw .mw-stop, .mw .mw-cloud, .mw .mw-float { animation: none !important; } .mw-stop { transition: none; } }
+body.large-text .mw-stop-label { font-size: 1.2rem; }
+body.large-text .mw-back, body.large-text .mw-big-btn { font-size: 1.3rem; }
+body.high-contrast .mw-stop-label, body.high-contrast .mw-back { border-color: #000; border-width: 4px; }
+body.high-contrast .mwr-hero-text p, body.high-contrast .mw-welcome p { color: #000; }
+@media (max-width: 420px) { .mw-stop-label { font-size: .95rem; padding-right: .6rem; } .mwr-miles strong { font-size: 1.6rem; } }
+@media (min-width: 900px) { .mw { max-width: 600px; } }

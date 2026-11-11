@@ -1,0 +1,48 @@
+{# One original, flat illustration per stop (120 x 90). Each stop looks different: its own shape, props and colours.
+   Usage: {{ stop_art('music') }}. Pure SVG, no images to load, nothing copyrighted. #}
+{% macro stop_art(key) -%}
+<svg class="mw-art" viewBox="0 0 120 90" aria-hidden="true" focusable="false">
+  <ellipse cx="60" cy="85" rx="48" ry="5" fill="#000" opacity=".13"/>
+  {% if key == 'music' %}
+  <rect x="20" y="36" width="80" height="46" rx="10" fill="#b88cf0"/><path d="M10 40 L60 8 L110 40 Z" fill="#7c4dd1" stroke="#7c4dd1" stroke-width="6" stroke-linejoin="round"/>
+  <rect x="50" y="54" width="20" height="28" rx="10" fill="#fff4d6"/><rect x="28" y="46" width="14" height="14" rx="4" fill="#fff4d6"/><rect x="78" y="46" width="14" height="14" rx="4" fill="#fff4d6"/>
+  <g fill="#ffd34d" stroke="#ffd34d" stroke-width="2.4" stroke-linecap="round"><circle cx="98" cy="22" r="4.6" stroke="none"/><path d="M102 22V8l8 3" fill="none"/><circle cx="14" cy="26" r="4" stroke="none"/><path d="M18 26V14l7 3" fill="none"/></g>
+  {% elif key == 'sports' %}
+  <path d="M14 82 V46 Q14 22 60 22 Q106 22 106 46 V82 Z" fill="#3fc7b4"/><path d="M14 46 Q14 22 60 22 Q106 22 106 46" fill="none" stroke="#1d8f80" stroke-width="5"/>
+  <rect x="30" y="50" width="60" height="32" rx="4" fill="#5bd96a"/><g stroke="#fff" stroke-width="3" fill="none"><rect x="40" y="56" width="40" height="22" rx="2"/><path d="M60 56 V78"/></g>
+  <g transform="translate(92 22)"><circle r="12" fill="#fff" stroke="#2a2a3a" stroke-width="2.4"/><path d="M0 -5 L5 -1.6 L3 4.5 H-3 L-5 -1.6 Z" fill="#2a2a3a"/></g>
+  {% elif key == 'animals' %}
+  <path d="M16 82 V44 L30 22 H90 L104 44 V82 Z" fill="#f0645a"/><path d="M10 46 L32 16 H88 L110 46" fill="none" stroke="#b83d36" stroke-width="6" stroke-linejoin="round"/>
+  <rect x="42" y="46" width="36" height="36" rx="3" fill="#fff4e0"/><path d="M42 46 L78 82 M78 46 L42 82" stroke="#f0645a" stroke-width="4"/>
+  <g fill="#fff4e0"><ellipse cx="60" cy="33" rx="6" ry="5"/><circle cx="50" cy="26" r="2.8"/><circle cx="56" cy="22" r="2.8"/><circle cx="64" cy="22" r="2.8"/><circle cx="70" cy="26" r="2.8"/></g>
+  {% elif key == 'nature' %}
+  <rect x="52" y="48" width="16" height="34" rx="5" fill="#9a6a3a"/><circle cx="60" cy="30" r="22" fill="#4caf3f"/><circle cx="38" cy="42" r="15" fill="#5fc450"/><circle cx="82" cy="42" r="15" fill="#5fc450"/>
+  <rect x="20" y="62" width="24" height="20" rx="4" fill="#d9a35c"/><path d="M16 64 L32 50 L48 64 Z" fill="#c0532f"/><rect x="29" y="70" width="7" height="12" rx="2" fill="#7b4a22"/>
+  <g><circle cx="86" cy="76" r="4" fill="#ff7aa8"/><circle cx="98" cy="80" r="4" fill="#ffd34d"/><circle cx="76" cy="81" r="3.4" fill="#fff"/></g>
+  {% elif key == 'food' %}
+  <rect x="20" y="40" width="80" height="42" rx="8" fill="#ffd0dc"/><g><path d="M14 40 H106 V52 Q100 60 94 52 Q88 60 82 52 Q76 60 70 52 Q64 60 58 52 Q52 60 46 52 Q40 60 34 52 Q28 60 22 52 Q16 60 14 52 Z" fill="#f9566a"/><path d="M14 40 H34 V52 H14 Z M50 40 H70 V52 H50 Z M86 40 H106 V52 H86 Z" fill="#fff"/></g>
+  <rect x="48" y="62" width="24" height="20" rx="4" fill="#fff4d6"/>
+  <path d="M52 22 L60 42 L68 22 Z" fill="#e8b25e"/><circle cx="60" cy="16" r="11" fill="#ff9bb8"/><circle cx="60" cy="6" r="5" fill="#f9566a"/>
+  {% elif key == 'colors' %}
+  <g fill="none" stroke-width="7" stroke-linecap="round"><path d="M14 70 A46 46 0 0 1 106 70" stroke="#ff5a5a"/><path d="M21 70 A39 39 0 0 1 99 70" stroke="#ff9f43"/><path d="M28 70 A32 32 0 0 1 92 70" stroke="#ffd34d"/><path d="M35 70 A25 25 0 0 1 85 70" stroke="#4cd36b"/><path d="M42 70 A18 18 0 0 1 78 70" stroke="#4aa3ff"/></g>
+  <circle cx="30" cy="78" r="8" fill="#7c4dff"/><path d="M50 86 L60 68 L70 86 Z" fill="#ff7aa8"/><rect x="78" y="70" width="16" height="16" rx="3" fill="#2bb3a6"/>
+  {% elif key == 'pictures' %}
+  <rect x="16" y="26" width="88" height="56" rx="8" fill="#43c3b4"/><rect x="26" y="34" width="68" height="40" rx="5" fill="#fff"/>
+  <rect x="30" y="38" width="60" height="32" rx="3" fill="#bfe9ff"/><circle cx="76" cy="48" r="6" fill="#ffd34d"/><path d="M30 70 L46 52 L58 64 L68 56 L90 70 Z" fill="#5bd96a"/>
+  <rect x="50" y="76" width="20" height="6" rx="2" fill="#1d8f80"/><path d="M10 28 L60 8 L110 28" fill="none" stroke="#1d8f80" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+  {% elif key == 'videos' %}
+  <rect x="14" y="30" width="92" height="52" rx="8" fill="#ef6f9a"/><rect x="10" y="18" width="100" height="16" rx="6" fill="#b83d68"/>
+  <g fill="#ffe27a"><circle cx="22" cy="26" r="3"/><circle cx="38" cy="26" r="3"/><circle cx="54" cy="26" r="3"/><circle cx="70" cy="26" r="3"/><circle cx="86" cy="26" r="3"/><circle cx="100" cy="26" r="3"/></g>
+  <rect x="26" y="40" width="68" height="34" rx="5" fill="#2a2140"/><path d="M52 47 L52 67 L70 57 Z" fill="#fff"/>
+  {% elif key == 'shots' %}
+  <rect x="38" y="6" width="44" height="72" rx="10" fill="#9a5bd9"/><rect x="43" y="14" width="34" height="52" rx="5" fill="#2a2140"/>
+  <path d="M55 32 L55 50 L70 41 Z" fill="#fff"/><path d="M68 18 L61 28 H67 L62 36" fill="none" stroke="#ffd34d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="60" cy="72" r="3" fill="#d9bdf5"/><rect x="52" y="78" width="16" height="6" rx="3" fill="#7a3fb8"/>
+  {% else %}
+  <path d="M46 82 L52 28 H68 L74 82 Z" fill="#fff"/><path d="M48.6 62 H71.4 L72.6 72 H47.4 Z M51 40 H69 L69.8 48 H50.2 Z" fill="#ff8a3d"/>
+  <rect x="48" y="16" width="24" height="14" rx="3" fill="#ffd34d"/><path d="M44 16 H76 L60 4 Z" fill="#e8590c"/>
+  <path d="M60 4 V-4" stroke="#7a4a22" stroke-width="2.4" transform="translate(0 6)"/><path d="M60 2 L74 6 L60 10 Z" fill="#ff5a7a"/>
+  <path d="M10 82 Q36 60 52 82 Z" fill="#5bd96a"/><path d="M70 82 Q92 64 112 82 Z" fill="#4cc15a"/>
+  {% endif %}
+</svg>
+{%- endmacro %}

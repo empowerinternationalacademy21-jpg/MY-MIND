@@ -344,12 +344,19 @@ def _rotation_seconds():
     return current_app.config.get("WORLD_ROTATION_SECONDS", 300)
 
 
-def stop_detail(user, child, key):
+def stop_detail(user, child, key, force=False):
+    """force=True (the 2D My World rooms) skips the "appears once the interest is learned" rule, but still honours stops the caregiver hid
+    and Shorts being switched off."""
     w = get_settings(user.id)
     interests, _ = activity_interests(child.id)
     cats = _by_category(interests)
     shots_ok = settings_service.get("shots_enabled") == "1" and settings_service.caregiver_settings(user.id)["shots_enabled"]
-    if key not in STOP_DEFS or not _unlocked(key, cats, w, shots_ok):
+    if key not in STOP_DEFS:
+        return None
+    if force:
+        if (key in w["hidden_stops"] and key != "home") or (key == "shots" and not shots_ok):
+            return None
+    elif not _unlocked(key, cats, w, shots_ok):
         return None
     theme, _, _ = resolve_theme(interests, w)
     d = STOP_DEFS[key]

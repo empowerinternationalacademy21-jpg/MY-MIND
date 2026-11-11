@@ -1,0 +1,54 @@
+{% extends "base.html" %}{% block title %}{{ room.label }}{% endblock %}
+{# One themed room per My World stop. Top: Back to My World. Middle: a welcome. Bottom: Watched (what the child opened) and
+   Recommended (new things, loaded from the existing safety-filtered content endpoints) by world_room.js. #}
+{% block topbar_icon %}{{ icon(room.icon) }}{% endblock %}
+{% block topbar_icon_style %}color:{{ room.color }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/world2d.css') }}">
+<div class="mwr" id="mwr" data-key="{{ key }}" data-motion="{{ 'on' if room.motion else 'off' }}"
+     style="--c:{{ room.color }};--sky1:{{ room.palette.sky[0] }};--sky2:{{ room.palette.sky[1] }};--grass:{{ room.palette.grass }}">
+  <a class="mw-back" href="{{ url_for('profile.world') }}">{{ icon('arrow-left') }} <span>Back to My World</span></a>
+
+  <section class="mwr-hero" aria-labelledby="mwr-title">
+    <span class="mwr-bubble">{{ icon(room.icon, 'lg') }}</span>
+    <div class="mwr-hero-text">
+      <h2 id="mwr-title">{{ room.label }}</h2>
+      <p>{{ 'Welcome! Here is what you did.' if key == 'journey' else 'Welcome! ' ~ room.blurb }}</p>
+    </div>
+    {% if room.characters %}<div class="mwr-friends">{% for url in room.characters %}<img src="{{ url }}" alt="" loading="lazy">{% endfor %}</div>{% endif %}
+    {% if room.interior %}<img class="mwr-interior" src="{{ room.interior }}" alt="" loading="lazy">{% endif %}
+  </section>
+
+  {% if room.milestones %}
+  <section class="mwr-miles" aria-label="Your journey so far">
+    {% for m in room.milestones %}<div class="mwr-mile"><span class="mwr-mile-ic">{{ icon(m.icon) }}</span><strong>{{ m.value }}</strong><span>{{ m.label }}</span></div>{% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="mwr-sec" aria-labelledby="mwr-watched-h">
+    <div class="ch-sec"><span class="sec-bubble">{{ icon('check', 'sm') }}</span><h2 id="mwr-watched-h">{{ 'Things I did' if key == 'journey' else 'You watched' }}</h2></div>
+    <div id="mwr-watched" class="tiles" aria-live="polite"></div>
+    <p id="mwr-watched-empty" class="center muted" hidden>Nothing here yet. {{ 'Go and explore a stop!' if key == 'journey' else 'Pick something below whenever you like.' }}</p>
+  </section>
+
+  {% if room.kinds %}
+  <section class="mwr-sec" aria-labelledby="mwr-rec-h">
+    <div class="ch-sec"><span class="sec-bubble">{{ icon('sparkles', 'sm') }}</span><h2 id="mwr-rec-h">Try something new</h2></div>
+    {% if room.kinds|length > 1 %}<div class="ch-jump" id="mwr-kinds" role="group" aria-label="What would you like?">
+      {% for k in room.kinds %}<button class="chip" type="button" data-kind="{{ k.key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ icon(k.icon, 'sm') }} {{ k.label }}</button>{% endfor %}
+    </div>{% endif %}
+    {% if room.zones or room.flavors %}<div class="ch-jump" id="mwr-topics" role="group" aria-label="Pick a favourite">
+      <button class="chip" type="button" data-q="" aria-pressed="true">All</button>
+      {% for z in room.zones + room.flavors %}<button class="chip" type="button" data-q="{{ z.q }}" aria-pressed="false">{{ z.key|capitalize }}</button>{% endfor %}
+    </div>{% endif %}
+    <div id="mwr-grid" class="tiles" aria-live="polite"></div>
+    <p id="mwr-empty" class="center muted" hidden>Nothing here right now. Please try again in a little while.</p>
+    <p class="center pg-more"><button id="mwr-more" class="pg-btn" type="button" hidden>Show more</button></p>
+  </section>
+  {% endif %}
+
+  <p class="center mwr-foot"><a class="mw-big-btn" href="{{ url_for('profile.world') }}">{{ icon('globe') }} Back to My World</a></p>
+  <script type="application/json" id="mwr-data">{{ {'cat': room.cat, 'kinds': room.kinds|map(attribute='key')|list, 'watched': room.watched['items']}|tojson }}</script>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/world_room.js') }}"></script>{% endblock %}

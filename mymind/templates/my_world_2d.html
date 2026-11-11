@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% block title %}My World{% endblock %}
+{# The child's My World: a flat, friendly 2D island. Ten big stops, each a real link to its own room page (no JavaScript needed to use it). #}
+{% from "_world_art.html" import stop_art %}
+{% block topbar_icon %}{{ icon('globe') }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/world2d.css') }}">
+{% set p = scene.palette %}
+<div class="mw" style="--sky1:{{ p.sky[0] }};--sky2:{{ p.sky[1] }};--sea1:{{ p.water[0] }};--sea2:{{ p.water[1] }};--grass:{{ p.grass }};--sand:{{ p.sand }};--accent:{{ p.accent }}" data-motion="{{ 'on' if scene.motion else 'off' }}">
+  <header class="mw-welcome">
+    <h2>{{ scene.child.name }}'s World</h2>
+    <p>Tap a place to go in.{% if scene.theme_label %} <span class="mw-theme">{{ scene.theme_label }} today</span>{% endif %}</p>
+  </header>
+
+  <nav class="mw-map" aria-label="Places in your world" style="--ratio:{{ scene.w }} / {{ scene.h }}">
+    <svg class="mw-scene" viewBox="0 0 {{ scene.w }} {{ scene.h }}" aria-hidden="true" focusable="false">
+      <defs><linearGradient id="mw-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sky2)"/><stop offset="1" stop-color="var(--sea2)"/></linearGradient></defs>
+      <rect width="{{ scene.w }}" height="{{ scene.h }}" fill="url(#mw-sea)"/>
+      <path class="mw-sand" d="M14 14 Q50 -4 86 14 Q104 46 98 92 Q108 138 98 184 Q104 224 80 240 Q50 254 20 240 Q-4 224 2 184 Q-8 138 2 92 Q-4 46 14 14 Z" fill="var(--sand)"/>
+      <path class="mw-grass" d="M18 20 Q50 4 82 20 Q98 50 93 92 Q102 138 93 182 Q98 220 78 234 Q50 246 22 234 Q2 220 7 182 Q-2 138 7 92 Q2 50 18 20 Z" fill="var(--grass)"/>
+      <path class="mw-road-edge" d="{{ scene.path }}" fill="none" stroke="#e7c98a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="mw-road" d="{{ scene.path }}" fill="none" stroke="#fff1c9" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 9"/>
+      {% for x, y in scene.trees %}<g transform="translate({{ x }} {{ y }})"><rect x="-1.2" y="3" width="2.4" height="6" rx="1" fill="#9a6a3a"/><circle r="6.5" cy="0" fill="#3fa447"/><circle r="4" cx="-3" cy="2" fill="#56bd5d"/></g>{% endfor %}
+      {% for x, y in scene.flowers %}<g transform="translate({{ x }} {{ y }})"><circle r="2.2" fill="#ff7aa8"/><circle r=".9" fill="#ffd34d"/></g>{% endfor %}
+      {% for d in scene.decor %}<g class="mw-float" style="--i:{{ d.i }}" transform="translate({{ d.x }} {{ d.y }})"><use href="#i-{{ d.icon }}" x="-4" y="-4" width="8" height="8" color="#ffffff" opacity=".85"/></g>{% endfor %}
+      {% for x, y, s in scene.clouds %}<g class="mw-cloud" style="--s:{{ s }}"><g transform="translate({{ x }} {{ y }}) scale({{ s }})"><ellipse rx="9" ry="3.6" fill="#fff" opacity=".9"/><ellipse cx="-4" cy="-2.4" rx="4.5" ry="3.2" fill="#fff" opacity=".9"/><ellipse cx="3" cy="-3" rx="5" ry="3.6" fill="#fff" opacity=".9"/></g></g>{% endfor %}
+    </svg>
+
+    {% for s in scene.stops %}
+    <a class="mw-stop" href="{{ url_for('my_world.room', key=s.key) }}" style="--x:{{ s.pct_x }}%;--y:{{ s.pct_y }}%;--c:{{ s.color }};--i:{{ loop.index0 }}" aria-label="{{ s.label }}. {{ s.blurb }}">
+      {{ stop_art(s.key) }}
+      <span class="mw-stop-label"><span class="mw-stop-ic">{{ icon(s.icon) }}</span><span>{{ s.label }}</span></span>
+      {% if s.star %}<span class="mw-star" title="You love this place" aria-hidden="true">{{ icon('star','sm') }}</span>{% endif %}
+    </a>
+    {% endfor %}
+  </nav>
+
+  <section class="mw-extras">
+    <a class="mw-big-btn" href="{{ url_for('feed.favourites') }}">{{ icon('heart') }} My favourites</a>
+  </section>
+
+  <section class="card-box mw-share" aria-labelledby="world-share-title"><h2 id="world-share-title">Share my world</h2><p class="muted small">Anyone with this private link can see your world and activity. Share it only with someone you trust.</p>
+    {% if share_url %}<div class="field"><label for="world-share-url">Your private link</label><input id="world-share-url" type="text" readonly value="{{ share_url }}"><button class="btn small" type="button" data-copy-target="world-share-url">{{ icon('copy') }} Copy link</button></div>{% endif %}
+    <form method="post" action="{{ url_for('world_share.create_child_link') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field"><label for="world-share-expiry">Link expires</label><select id="world-share-expiry" name="expiry"><option value="24h">After 24 hours</option><option value="7d" selected>After 7 days</option><option value="30d">After 30 days</option><option value="never">Until your caretaker revokes it</option></select></div><button class="btn" type="submit">{{ icon('share-2') }} Create a private link</button></form>
+  </section>
+</div>
+{% endblock %}
