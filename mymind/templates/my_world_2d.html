@@ -53,11 +53,11 @@
     <div class="mw-hud mw-hud-logo" aria-hidden="true"><span class="mw-logo-word"><b>My</b><i>Mind</i></span><span class="mw-logo-tag">Your thoughts. Your world.</span></div>
     <div class="mw-hud mw-banner"><span>{{ icon('star','sm') }}</span><b>My World</b><span>{{ icon('star','sm') }}</span></div>
     <div class="mw-hud mw-hello"><span class="mw-hello-av">{{ icon('smile') }}</span><span><b>Hello, {{ scene.child.name }}!</b><small>Explore. Discover. Be You!</small></span><span class="mw-hello-star">{{ icon('star') }}</span></div>
-    <div class="mw-hud mw-hud-btns"><a class="mw-round" href="{{ url_for('profile.child_settings') }}">{{ icon('settings') }}<span>Settings</span></a><a class="mw-round" href="{{ url_for('profile.world') }}">{{ icon('house') }}<span>Map</span></a></div>
+    {% if not preview %}<div class="mw-hud mw-hud-btns"><a class="mw-round" href="{{ url_for('profile.child_settings') }}">{{ icon('settings') }}<span>Settings</span></a><a class="mw-round" href="{{ url_for('profile.world') }}">{{ icon('house') }}<span>Map</span></a></div>{% endif %}
 
     {# ---- the stops ---- #}
     {% for s in scene.stops %}
-    <a class="mw-stop{{ ' mw-stop--sign' if s.sign }}" href="{{ url_for('my_world.room', key=s.key) }}" style="--tx:{{ s.x }};--ty:{{ s.y }};--lx:{{ s.lx }};--ly:{{ s.ly }};--c:{{ s.color }};--i:{{ loop.index0 }}" aria-label="{{ s.label }}. {{ s.blurb }}">
+    <a class="mw-stop{{ ' mw-stop--sign' if s.sign }}" href="{{ s.url }}" style="--tx:{{ s.x }};--ty:{{ s.y }};--lx:{{ s.lx }};--ly:{{ s.ly }};--c:{{ s.color }};--i:{{ loop.index0 }}" aria-label="{{ s.label }}. {{ s.blurb }}">
       {% if s.sign %}<span class="mw-sign"><span class="mw-sign-ic">{{ icon(s.icon) }}</span><b>{{ s.label }}</b></span>
       {% else %}
       {% if s.sprite %}<img class="mw-art" src="{{ s.sprite }}" alt="" loading="lazy">{% else %}{{ stop_art(s.key) }}{% endif %}
@@ -68,13 +68,14 @@
     {% endfor %}
   </nav>
 
-  <section class="mw-extras">
+  {% if not preview %}<section class="mw-extras">
     <a class="mw-big-btn" href="{{ url_for('feed.favourites') }}">{{ icon('heart') }} My favourites</a>
+    {% if can_3d %}<a class="mw-big-btn" href="{{ url_for('profile.world_3d') }}">{{ icon('globe') }} Open the 3D world</a>{% endif %}
   </section>
 
   <section class="card-box mw-share" aria-labelledby="world-share-title"><h2 id="world-share-title">Share my world</h2><p class="muted small">Anyone with this private link can see your world and activity. Share it only with someone you trust.</p>
     {% if share_url %}<div class="field"><label for="world-share-url">Your private link</label><input id="world-share-url" type="text" readonly value="{{ share_url }}"><button class="btn small" type="button" data-copy-target="world-share-url">{{ icon('copy') }} Copy link</button></div>{% endif %}
     <form method="post" action="{{ url_for('world_share.create_child_link') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field"><label for="world-share-expiry">Link expires</label><select id="world-share-expiry" name="expiry"><option value="24h">After 24 hours</option><option value="7d" selected>After 7 days</option><option value="30d">After 30 days</option><option value="never">Until your caretaker revokes it</option></select></div><button class="btn" type="submit">{{ icon('share-2') }} Create a private link</button></form>
-  </section>
+  </section>{% endif %}
 </div>
 {% endblock %}
