@@ -294,10 +294,18 @@ def room(user, child, key):
            "motion": bool(w["animation"]) and not w["reduced_motion"]}
     out["watched_title"] = {"music": "Your Watched Songs", "journey": "Things I did"}.get(key, "You watched")
     if key == "journey":
-        out["watched"] = watched_service.watched(user, child, ws.activity_scope("home"), limit=24)
-        out["milestones"] = _milestones(child, out["watched"]["total"], interests)
+        try:
+            out["watched"] = watched_service.watched(user, child, ws.activity_scope("home"), limit=24)
+            out["milestones"] = _milestones(child, out["watched"]["total"], interests)
+        except Exception:
+            current_app.logger.exception("My World journey: could not load")
+            out["milestones"] = [{"icon": "play", "label": "Things I watched", "value": 0}]
         return out
-    detail = ws.stop_detail(user, child, d["scope"], force=True) or {}
+    try:
+        detail = ws.stop_detail(user, child, d["scope"], force=True) or {}
+    except Exception:                      # a hiccup in the optional lists (watched, friends, art) must not blank the whole room
+        current_app.logger.exception("My World room %s: could not load its lists", key)
+        detail = {}
     out["watched"] = detail.get("watched") or out["watched"]
     out["characters"] = [c["url"] for c in (detail.get("characters") or [])[:3]]
     out["interior"] = detail.get("interior")
