@@ -1,0 +1,52 @@
+{% extends "admin_layout.html" %}
+{% set ct_active = 'world2d' %}
+{% block title %}2D World{% endblock %}
+{% block ct_body %}
+<div class="ct-page-root" aria-labelledby="adm-title">
+  <div class="ct-main">
+    <header class="ct-heading">
+      <div><p class="ct-kicker">Administrator</p><h1 id="adm-title">2D World</h1><p class="muted">The island map every child sees. Add your own artwork, switch places on or off, and set their order on the phone map.</p></div>
+      <div class="ct-heading-actions"><a class="btn primary" href="{{ url_for('admin_world2d.preview') }}" target="_blank" rel="noopener">{{ icon('globe','sm') }} Preview the map</a></div>
+    </header>
+
+    <section class="ct-panel" aria-labelledby="w2-lay">
+      <div class="ct-panel-heading"><div><h2 id="w2-lay">Places and order</h2><p class="muted small">Off means no child sees that place, whatever their caregiver chose. The wide map keeps its fixed island positions; the position number sets the order on phones.</p></div></div>
+      <form method="post" action="{{ url_for('admin_world2d.layout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="adm-list">
+          {% for r in rows if not r.sign %}
+          <div class="adm-item"><span class="adm-bub">{{ icon(r.icon) }}</span>
+            <span class="adm-grow"><strong>{{ r.label }}</strong> <a class="adm-sub" href="{{ url_for('admin_world2d.preview_room', key=r.key) }}" target="_blank" rel="noopener">Preview room</a></span>
+            <label class="choice"><input type="checkbox" name="on" value="{{ r.key }}" {{ 'checked' if r.on }}> On</label>
+            <label class="adm-sub" for="pos-{{ r.key }}">Position</label><input id="pos-{{ r.key }}" name="pos_{{ r.key }}" type="number" min="1" max="30" value="{{ r.pos }}" style="width:4.5rem">
+          </div>
+          {% endfor %}
+        </div>
+        <p class="adm-actions-row"><button class="btn primary" type="submit">Save places and order</button></p>
+      </form>
+    </section>
+
+    <section class="ct-panel" aria-labelledby="w2-art">
+      <div class="ct-panel-heading"><div><h2 id="w2-art">Artwork</h2><p class="muted small">Upload a PNG, JPEG or WebP (a transparent PNG works best for a building). It is checked, re-encoded and stored safely, and it stays after every update. Reset returns the built-in drawing.</p></div></div>
+      <div class="adm-list">
+        {% for r in rows %}
+        {% for kind, label, url in (([('stop2d', 'Building on the map' if not r.sign else 'Sign on the map', r.stop_art)] + ([('room2d', 'Room scene', r.room_art)]))) %}
+        <div class="adm-item" style="flex-wrap:wrap;align-items:center;gap:.6rem">
+          <span class="adm-bub">{{ icon(r.icon) }}</span>
+          <span class="adm-grow"><strong>{{ r.label }}</strong><span class="adm-sub">{{ label }} · {{ 'your artwork' if url else 'built-in drawing' }}</span></span>
+          {% if url %}<img src="{{ url }}" alt="" width="56" height="56" style="object-fit:contain;border-radius:10px;background:#fff">{% endif %}
+          <form method="post" action="{{ url_for('admin_world2d.art', kind=kind, key=r.key) }}" enctype="multipart/form-data" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" name="image" accept="image/png,image/jpeg,image/webp" required aria-label="{{ r.label }} {{ label }} image">
+            <label class="choice"><input type="checkbox" name="rights_confirmed" required> I have the right to use it</label>
+            <button class="btn" type="submit">Upload</button>
+          </form>
+          {% if url %}<form method="post" action="{{ url_for('admin_world2d.art', kind=kind, key=r.key) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="reset"><button class="btn" type="submit" data-confirm="Go back to the built-in drawing?">Reset</button></form>{% endif %}
+        </div>
+        {% endfor %}
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
