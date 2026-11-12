@@ -39,3 +39,17 @@ def test_wide_map_has_an_island_per_building_and_connected_paths():
 def test_path_is_a_smooth_curve():
     d = w2d._tall_path([(50, 6), (26, 24), (74, 40)])
     assert d.startswith("M50.0,6.0") and d.count("C") == 2 and w2d._tall_path([]) == ""
+
+
+def test_admin_order_puts_listed_stops_first_and_journey_last(monkeypatch):
+    monkeypatch.setattr(w2d.settings_service, "get", lambda k: "videos,pictures,bogus" if k == "world2d_order" else "")
+    keys = w2d.ordered_keys()
+    assert keys[:2] == ("videos", "pictures") and keys[-1] == "journey"
+    assert set(keys) == set(w2d.STOPS) and len(keys) == len(w2d.STOPS)
+
+
+def test_admin_hidden_never_includes_the_journey_sign(monkeypatch):
+    monkeypatch.setattr(w2d.settings_service, "get", lambda k: "food,journey,bogus" if k == "world2d_hidden" else "")
+    assert w2d.admin_hidden() == {"food"}
+    assert w2d._shown("food", {"hidden_stops": []}, True) is False
+    assert w2d._shown("music", {"hidden_stops": []}, True) is True
