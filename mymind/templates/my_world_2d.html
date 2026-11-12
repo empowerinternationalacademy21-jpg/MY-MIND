@@ -1,0 +1,80 @@
+{% extends "base.html" %}{% block title %}My World{% endblock %}
+{# The child's My World. A colourful island map: on a wide screen the islands lie side by side (like the design), on a phone they wind down the page.
+   Every stop is a real link to its own room page, so nothing here needs JavaScript. #}
+{% from "_world_art.html" import stop_art %}
+{% block body_class %}mw-page{% endblock %}
+{% block topbar_icon %}{{ icon('globe') }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/world2d.css') }}">
+{% set p = scene.palette %}{% set wd = scene.wide %}
+<div class="mw" style="--sky1:{{ p.sky[0] }};--sky2:{{ p.sky[1] }};--sea1:{{ p.water[0] }};--sea2:{{ p.water[1] }};--grass:{{ p.grass }};--sand:{{ p.sand }};--accent:{{ p.accent }};--ratio-tall:{{ scene.w }} / {{ scene.h }};--ratio-wide:{{ scene.ww }} / {{ scene.wh }}" data-motion="{{ 'on' if scene.motion else 'off' }}">
+  <header class="mw-welcome">
+    <h2>{{ scene.child.name }}'s World</h2>
+    <p>Tap a place to go in.{% if scene.theme_label %} <span class="mw-theme">{{ scene.theme_label }} today</span>{% endif %}</p>
+  </header>
+
+  <nav class="mw-map" aria-label="Places in your world">
+    <svg class="mw-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>
+        <linearGradient id="mw-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sky2)"/><stop offset=".55" stop-color="#7fd0f5"/><stop offset="1" stop-color="var(--sea1)"/></linearGradient>
+        <radialGradient id="mw-sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3a0"/><stop offset="1" stop-color="#ffc83d"/></radialGradient>
+        <linearGradient id="mw-fall" x1="0" x2="1"><stop offset="0" stop-color="#8fd8ff"/><stop offset=".5" stop-color="#e9f9ff"/><stop offset="1" stop-color="#8fd8ff"/></linearGradient>
+    </defs></svg>
+    {# ---- phone map: one island, a winding road ---- #}
+    <svg class="mw-scene mw-scene--tall" viewBox="0 0 {{ scene.w }} {{ scene.h }}" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <rect width="{{ scene.w }}" height="{{ scene.h }}" fill="url(#mw-sea)"/>
+      <g transform="scale(1 {{ (scene.h / 250)|round(3) }})">
+        <path d="M14 14 Q50 -4 86 14 Q104 46 98 92 Q108 138 98 184 Q104 224 80 240 Q50 254 20 240 Q-4 224 2 184 Q-8 138 2 92 Q-4 46 14 14 Z" fill="var(--sand)"/>
+        <path d="M18 20 Q50 4 82 20 Q98 50 93 92 Q102 138 93 182 Q98 220 78 234 Q50 246 22 234 Q2 220 7 182 Q-2 138 7 92 Q2 50 18 20 Z" fill="var(--grass)"/>
+      </g>
+      <path d="{{ scene.path }}" fill="none" stroke="#e7c98a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="{{ scene.path }}" fill="none" stroke="#fff1c9" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 9"/>
+      {% for x, y in scene.trees %}<g transform="translate({{ x }} {{ y }})"><rect x="-1.2" y="3" width="2.4" height="6" rx="1" fill="#9a6a3a"/><circle r="6.5" fill="#3fa447"/><circle r="4" cx="-3" cy="2" fill="#56bd5d"/></g>{% endfor %}
+    </svg>
+
+    {# ---- wide map: floating islands, paths, bridges ---- #}
+    <svg class="mw-scene mw-scene--wide" viewBox="0 0 {{ scene.ww }} {{ scene.wh }}" aria-hidden="true" focusable="false">
+      <rect width="{{ scene.ww }}" height="{{ scene.wh }}" fill="url(#mw-sea)"/>
+      <g fill="#fff" opacity=".18"><ellipse cx="120" cy="330" rx="90" ry="10"/><ellipse cx="1560" cy="270" rx="100" ry="10"/><ellipse cx="860" cy="520" rx="120" ry="10"/><ellipse cx="1180" cy="545" rx="90" ry="9"/></g>
+      <g class="mw-cloud-wide" fill="#fff" opacity=".92"><g transform="translate(70 120)"><ellipse rx="70" ry="22"/><ellipse cx="-30" cy="-16" rx="34" ry="22"/><ellipse cx="22" cy="-22" rx="40" ry="26"/></g><g transform="translate(1180 56)"><ellipse rx="60" ry="18"/><ellipse cx="-22" cy="-14" rx="28" ry="18"/><ellipse cx="22" cy="-18" rx="32" ry="20"/></g><g transform="translate(1590 230)"><ellipse rx="60" ry="18"/><ellipse cx="-22" cy="-14" rx="28" ry="18"/></g></g>
+      <g transform="translate(505 70)"><g stroke="#ffc83d" stroke-width="7" stroke-linecap="round"><path d="M0 -62 V-48M0 62 V48M-62 0 H-48M62 0 H48M44 -44 L34 -34M-44 -44 L-34 -34M44 44 L34 34M-44 44 L-34 34"/></g><circle r="40" fill="url(#mw-sun)"/><circle cx="-14" cy="-6" r="4.2" fill="#6a3a12"/><circle cx="14" cy="-6" r="4.2" fill="#6a3a12"/><path d="M-16 8 Q0 24 16 8" fill="none" stroke="#6a3a12" stroke-width="4" stroke-linecap="round"/><circle cx="-24" cy="6" r="6" fill="#ff9a7a" opacity=".6"/><circle cx="24" cy="6" r="6" fill="#ff9a7a" opacity=".6"/></g>
+      {% for i in wd.islands %}
+      <path d="{{ i.cliff }}" fill="#8b7a66"/><path d="{{ i.cliff }}" fill="none" stroke="#6e5f4e" stroke-width="3" transform="translate(0 6)"/>
+      <path d="{{ i.d }}" fill="#fff" opacity=".55" transform="translate(0 -1) scale(1.0)"/>
+      <path d="{{ i.d }}" fill="var(--grass)"/><path d="{{ i.d }}" fill="#fff" opacity=".1" transform="translate({{ i.x }} {{ i.y }}) scale(.86) translate({{ -i.x }} {{ -i.y }})"/>
+      {% endfor %}
+      {% for d in wd.paths %}<path d="{{ d }}" fill="none" stroke="#b98547" stroke-width="26" stroke-linecap="round"/><path d="{{ d }}" fill="none" stroke="#f0d29a" stroke-width="19" stroke-linecap="round"/>{% endfor %}
+      {% for b in wd.bridges %}<g transform="translate({{ b.x }} {{ b.y }}) rotate({{ b.r }})"><rect x="-46" y="-17" width="92" height="34" rx="5" fill="#c98a4a" stroke="#7a4a22" stroke-width="3"/><path d="M-30 -17 V17 M-14 -17 V17 M2 -17 V17 M18 -17 V17 M34 -17 V17" stroke="#7a4a22" stroke-width="2.4"/></g>{% endfor %}
+      {% for t in wd.trees %}<g transform="translate({{ t.x }} {{ t.y }}) scale({{ t.s }})"><ellipse cy="26" rx="20" ry="6" fill="#000" opacity=".12"/><rect x="-4" y="6" width="8" height="20" rx="3" fill="#9a6a3a"/><circle cy="-6" r="22" fill="#2f8f3c"/><circle cx="-9" cy="-3" r="14" fill="#4fb855"/><circle cx="8" cy="-14" r="11" fill="#6ed06a"/></g>{% endfor %}
+      {% for f in wd.flowers %}<g transform="translate({{ f.x }} {{ f.y }})"><circle r="5" fill="#ff7aa8"/><circle r="2" fill="#ffd34d"/></g>{% endfor %}
+      <g transform="translate(470 470)"><rect width="46" height="86" fill="url(#mw-fall)" opacity=".95"/><path d="M10 0 V86 M24 0 V86 M36 0 V86" stroke="#fff" stroke-width="2" opacity=".7"/><ellipse cx="23" cy="88" rx="34" ry="8" fill="#fff" opacity=".7"/></g>
+    </svg>
+
+    {# ---- the heads-up display (wide screens) ---- #}
+    <div class="mw-hud mw-hud-logo" aria-hidden="true"><span class="mw-logo-word"><b>My</b><i>Mind</i></span><span class="mw-logo-tag">Your thoughts. Your world.</span></div>
+    <div class="mw-hud mw-banner"><span>{{ icon('star','sm') }}</span><b>My World</b><span>{{ icon('star','sm') }}</span></div>
+    <div class="mw-hud mw-hello"><span class="mw-hello-av">{{ icon('smile') }}</span><span><b>Hello, {{ scene.child.name }}!</b><small>Explore. Discover. Be You!</small></span><span class="mw-hello-star">{{ icon('star') }}</span></div>
+    <div class="mw-hud mw-hud-btns"><a class="mw-round" href="{{ url_for('profile.child_settings') }}">{{ icon('settings') }}<span>Settings</span></a><a class="mw-round" href="{{ url_for('profile.world') }}">{{ icon('house') }}<span>Map</span></a></div>
+
+    {# ---- the stops ---- #}
+    {% for s in scene.stops %}
+    <a class="mw-stop{{ ' mw-stop--sign' if s.sign }}" href="{{ url_for('my_world.room', key=s.key) }}" style="--tx:{{ s.x }};--ty:{{ s.y }};--lx:{{ s.lx }};--ly:{{ s.ly }};--c:{{ s.color }};--i:{{ loop.index0 }}" aria-label="{{ s.label }}. {{ s.blurb }}">
+      {% if s.sign %}<span class="mw-sign"><span class="mw-sign-ic">{{ icon(s.icon) }}</span><b>{{ s.label }}</b></span>
+      {% else %}
+      {% if s.sprite %}<img class="mw-art" src="{{ s.sprite }}" alt="" loading="lazy">{% else %}{{ stop_art(s.key) }}{% endif %}
+      <span class="mw-stop-label"><span class="mw-stop-ic">{{ icon(s.icon) }}</span><span>{{ s.label }}</span></span>
+      {% if s.star %}<span class="mw-star" title="You love this place" aria-hidden="true">{{ icon('star','sm') }}</span>{% endif %}
+      {% endif %}
+    </a>
+    {% endfor %}
+  </nav>
+
+  <section class="mw-extras">
+    <a class="mw-big-btn" href="{{ url_for('feed.favourites') }}">{{ icon('heart') }} My favourites</a>
+  </section>
+
+  <section class="card-box mw-share" aria-labelledby="world-share-title"><h2 id="world-share-title">Share my world</h2><p class="muted small">Anyone with this private link can see your world and activity. Share it only with someone you trust.</p>
+    {% if share_url %}<div class="field"><label for="world-share-url">Your private link</label><input id="world-share-url" type="text" readonly value="{{ share_url }}"><button class="btn small" type="button" data-copy-target="world-share-url">{{ icon('copy') }} Copy link</button></div>{% endif %}
+    <form method="post" action="{{ url_for('world_share.create_child_link') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field"><label for="world-share-expiry">Link expires</label><select id="world-share-expiry" name="expiry"><option value="24h">After 24 hours</option><option value="7d" selected>After 7 days</option><option value="30d">After 30 days</option><option value="never">Until your caretaker revokes it</option></select></div><button class="btn" type="submit">{{ icon('share-2') }} Create a private link</button></form>
+  </section>
+</div>
+{% endblock %}
