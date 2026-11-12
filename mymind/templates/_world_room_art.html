@@ -1,0 +1,41 @@
+{# The picture at the left of a room: a friendly cartoon child in the stop's own place. Original SVG (560 x 420), no images to load.
+   The Music room is the full recording-studio scene; every other room shows its building behind the child. #}
+{% from "_world_art.html" import stop_art %}
+{% macro boy(headphones=False, note=False) -%}
+<g class="mwr-boy">
+  <path d="M30 300 C30 222 62 192 110 192 C158 192 190 222 190 300 Z" fill="#2f6fe8"/><ellipse cx="110" cy="198" rx="34" ry="12" fill="#2559c4"/>
+  <path d="M54 226 Q16 206 26 150" fill="none" stroke="#2f6fe8" stroke-width="28" stroke-linecap="round"/><path d="M166 226 Q204 206 194 150" fill="none" stroke="#2f6fe8" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="26" cy="142" r="15" fill="#f6b98a"/><circle cx="194" cy="142" r="15" fill="#f6b98a"/>
+  <circle cx="54" cy="124" r="11" fill="#f6b98a"/><circle cx="166" cy="124" r="11" fill="#f6b98a"/>
+  <circle cx="110" cy="122" r="56" fill="#f6b98a"/>
+  <path d="M52 116 C48 50 172 50 168 116 C152 86 128 80 110 82 C92 80 68 88 52 116 Z" fill="#4a2a14"/><path d="M96 70 q14 -16 30 0 q-14 -4 -30 0z" fill="#4a2a14"/>
+  <path d="M80 120 Q91 106 102 120 M118 120 Q129 106 140 120" fill="none" stroke="#4a2a14" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="78" cy="136" r="9" fill="#ff9a8a" opacity=".55"/><circle cx="142" cy="136" r="9" fill="#ff9a8a" opacity=".55"/>
+  <path d="M84 138 Q110 180 136 138 Z" fill="#8a2a2a"/><path d="M88 139 Q110 148 132 139 L130 146 Q110 154 90 146 Z" fill="#fff"/><ellipse cx="110" cy="164" rx="12" ry="6" fill="#ff7a8a"/>
+  {% if headphones %}<path d="M50 112 C46 38 174 38 170 112" fill="none" stroke="#3b5bdb" stroke-width="12" stroke-linecap="round"/><rect x="34" y="100" width="28" height="46" rx="12" fill="#3b5bdb"/><rect x="158" y="100" width="28" height="46" rx="12" fill="#3b5bdb"/><rect x="40" y="108" width="14" height="30" rx="7" fill="#7f96f5"/><rect x="166" y="108" width="14" height="30" rx="7" fill="#7f96f5"/>{% endif %}
+  {% if note %}<g fill="#fff" stroke="#fff" stroke-width="3" stroke-linecap="round"><ellipse cx="100" cy="262" rx="8" ry="6" stroke="none"/><path d="M107 262 V234 l14 6" fill="none"/></g>{% endif %}
+</g>
+{%- endmacro %}
+
+{% macro room_scene(key) -%}
+<svg class="mwr-scene" viewBox="0 0 560 420" role="img" aria-label="A happy child enjoying the {{ key }} room" focusable="false">
+  <defs><linearGradient id="rw-wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--wall1)"/><stop offset="1" stop-color="var(--wall2)"/></linearGradient>
+  <linearGradient id="rw-floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--floor1)"/><stop offset="1" stop-color="var(--floor2)"/></linearGradient></defs>
+  <rect width="560" height="420" fill="url(#rw-wall)"/><rect y="300" width="560" height="120" fill="url(#rw-floor)"/><path d="M0 300 H560" stroke="#fff" stroke-opacity=".25" stroke-width="4"/>
+  {% if key == 'music' %}
+  <g><rect x="34" y="46" width="92" height="120" rx="6" fill="#d9822b"/><rect x="42" y="54" width="76" height="104" rx="3" fill="#ffd9a0"/><circle cx="80" cy="96" r="18" fill="#e8642e"/><path d="M42 158 L70 120 L96 148 L118 128 V158 Z" fill="#4cb36b"/></g>
+  <g><rect x="372" y="40" width="96" height="76" rx="6" fill="#d9822b"/><rect x="380" y="48" width="80" height="60" rx="3" fill="#bfe9ff"/><path d="M380 108 L408 76 L430 98 L460 70 V108 Z" fill="#5a7ae0"/></g>
+  <path d="M330 0 V56" stroke="#2a2140" stroke-width="4"/><path d="M308 70 L330 52 L352 70 Z" fill="#2a2140"/><path d="M312 74 H348 L370 150 H290 Z" fill="#ffe9a0" opacity=".28"/>
+  <g><rect x="22" y="196" width="70" height="120" rx="8" fill="#241a3a"/><circle cx="57" cy="232" r="14" fill="#4a3a6a"/><circle cx="57" cy="278" r="22" fill="#4a3a6a"/><circle cx="57" cy="278" r="10" fill="#241a3a"/></g>
+  <g><rect x="470" y="204" width="70" height="112" rx="8" fill="#241a3a"/><circle cx="505" cy="236" r="12" fill="#4a3a6a"/><circle cx="505" cy="280" r="20" fill="#4a3a6a"/><circle cx="505" cy="280" r="9" fill="#241a3a"/></g>
+  <g><rect x="316" y="178" width="130" height="84" rx="8" fill="#241a3a"/><rect x="324" y="186" width="114" height="66" rx="4" fill="#1b1030"/><g><rect x="332" y="228" width="10" height="18" fill="#ff5a7a"/><rect x="348" y="214" width="10" height="32" fill="#ffd34d"/><rect x="364" y="200" width="10" height="46" fill="#4cd36b"/><rect x="380" y="222" width="10" height="24" fill="#4aa3ff"/><rect x="396" y="208" width="10" height="38" fill="#c46bff"/><rect x="412" y="230" width="10" height="16" fill="#ff9f43"/></g></g>
+  <g><rect x="270" y="272" width="190" height="16" rx="4" fill="#fff"/><g fill="#2a2140"><rect x="290" y="272" width="8" height="10"/><rect x="310" y="272" width="8" height="10"/><rect x="342" y="272" width="8" height="10"/><rect x="362" y="272" width="8" height="10"/><rect x="382" y="272" width="8" height="10"/><rect x="414" y="272" width="8" height="10"/><rect x="434" y="272" width="8" height="10"/></g><g stroke="#d9d2ea" stroke-width="1.4"><path d="M286 272 V288 M302 272 V288 M318 272 V288 M334 272 V288 M350 272 V288 M366 272 V288 M382 272 V288 M398 272 V288 M414 272 V288 M430 272 V288 M446 272 V288"/></g><rect x="278" y="288" width="10" height="50" fill="#241a3a"/><rect x="440" y="288" width="10" height="50" fill="#241a3a"/></g>
+  <g transform="rotate(-14 500 330)"><ellipse cx="500" cy="320" rx="30" ry="38" fill="#c46a2a"/><ellipse cx="500" cy="320" rx="9" ry="9" fill="#3a1a0a"/><rect x="494" y="262" width="12" height="60" fill="#7a4a22"/><rect x="490" y="246" width="20" height="20" rx="3" fill="#3a1a0a"/></g>
+  <g stroke-linecap="round" stroke-width="5" fill="none"><g stroke="#3fd98a" fill="#3fd98a"><circle cx="72" cy="196" r="9" stroke="none"/><path d="M80 196 V166 l16 6" /></g><g stroke="#ff7aa8" fill="#ff7aa8"><circle cx="255" cy="70" r="8" stroke="none"/><path d="M262 70 V42 l14 6"/></g><g stroke="#ffd34d" fill="#ffd34d"><circle cx="500" cy="150" r="8" stroke="none"/><path d="M507 150 V122 l14 6"/></g></g>
+  <g transform="translate(86 112) scale(1.1)">{{ boy(True, True) }}</g>
+  {% else %}
+  <svg class="mw-art" x="276" y="64" width="264" height="198" viewBox="0 0 120 90" aria-hidden="true">{{ stop_art(key, true) }}</svg>
+  <g transform="translate(60 112) scale(1.0)">{{ boy(False, False) }}</g>
+  {% endif %}
+</svg>
+{%- endmacro %}

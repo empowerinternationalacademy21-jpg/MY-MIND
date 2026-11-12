@@ -1,13 +1,28 @@
 {# One original, flat illustration per stop (120 x 90). Each stop looks different: its own shape, props and colours.
    Usage: {{ stop_art('music') }}. Pure SVG, no images to load, nothing copyrighted. #}
-{% macro stop_art(key) -%}
-<svg class="mw-art" viewBox="0 0 120 90" aria-hidden="true" focusable="false">
+{% macro stop_art(key, bare=False) -%}
+{% if not bare %}<svg class="mw-art" viewBox="0 0 120 90" aria-hidden="true" focusable="false">{% endif %}
   <ellipse cx="60" cy="85" rx="48" ry="5" fill="#000" opacity=".13"/>
-  {% if key == 'music' %}
+  {% if key == 'soccer' %}
+  <ellipse cx="60" cy="58" rx="54" ry="22" fill="#2f55b8"/><ellipse cx="60" cy="52" rx="54" ry="22" fill="#4a78e0"/><ellipse cx="60" cy="52" rx="42" ry="15" fill="#3fbf5a"/>
+  <g fill="none" stroke="#fff" stroke-width="2"><ellipse cx="60" cy="52" rx="42" ry="15"/><path d="M60 37 V67"/><ellipse cx="60" cy="52" rx="9" ry="4"/></g>
+  <g fill="#ffd34d"><path d="M14 40 V20 L26 26 Z"/><path d="M106 40 V20 L94 26 Z"/></g><g stroke="#8a6a3a" stroke-width="2"><path d="M14 42 V18"/><path d="M106 42 V18"/></g>
+  <g transform="translate(76 24)"><circle r="17" fill="#fff" stroke="#2a2a3a" stroke-width="2.6"/><path d="M0 -8 L8 -2.6 L5 7 H-5 L-8 -2.6 Z" fill="#2a2a3a"/><path d="M0 -8 V-16 M8 -2.6 L16 -5 M5 7 L10 14 M-5 7 L-10 14 M-8 -2.6 L-16 -5" stroke="#2a2a3a" stroke-width="2.2" fill="none"/></g>
+  {% elif key == 'basketball' %}
+  <rect x="12" y="46" width="96" height="36" rx="8" fill="#5a3fb0"/><rect x="12" y="46" width="96" height="10" rx="5" fill="#7a5fd6"/>
+  <rect x="22" y="58" width="76" height="20" rx="3" fill="#ff9a3d"/><g fill="none" stroke="#fff" stroke-width="2"><rect x="22" y="58" width="76" height="20" rx="3"/><path d="M60 58 V78"/><circle cx="60" cy="68" r="6"/></g>
+  <g><rect x="24" y="16" width="30" height="22" rx="3" fill="#fff" stroke="#c9b3f5" stroke-width="3"/><circle cx="39" cy="40" r="6" fill="none" stroke="#f05a28" stroke-width="3"/><rect x="66" y="12" width="30" height="22" rx="3" fill="#fff" stroke="#c9b3f5" stroke-width="3"/><circle cx="81" cy="36" r="6" fill="none" stroke="#f05a28" stroke-width="3"/></g>
+  <g transform="translate(60 22)"><circle r="16" fill="#f0801f" stroke="#7a3a0a" stroke-width="2.4"/><path d="M-16 0 H16 M0 -16 V16" stroke="#7a3a0a" stroke-width="2.2"/><path d="M-11 -11 Q-4 0 -11 11 M11 -11 Q4 0 11 11" fill="none" stroke="#7a3a0a" stroke-width="2.2"/></g>
+  {% elif key == 'home' %}
+  <rect x="22" y="40" width="76" height="42" rx="6" fill="#ffd9a0"/><path d="M12 44 L60 10 L108 44 Z" fill="#e8642e" stroke="#e8642e" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M20 40 H100" stroke="#c94a1a" stroke-width="3"/><rect x="50" y="56" width="20" height="26" rx="9" fill="#2b7de0"/><circle cx="66" cy="70" r="1.8" fill="#ffd34d"/>
+  <g fill="#bfe9ff" stroke="#fff" stroke-width="2.4"><rect x="28" y="50" width="16" height="16" rx="3"/><rect x="76" y="50" width="16" height="16" rx="3"/></g>
+  <rect x="82" y="14" width="10" height="18" rx="2" fill="#b0603a"/><path d="M60 -2 l3 6 6 1 -4.6 4.2 1.2 6.4 -5.6 -3.2 -5.6 3.2 1.2 -6.4 -4.6 -4.2 6 -1z" fill="#ffd34d" stroke="#e8a21a" stroke-width="1" transform="translate(0 6) scale(.9)"/>
+  {% elif key == 'music' %}
   <rect x="20" y="36" width="80" height="46" rx="10" fill="#b88cf0"/><path d="M10 40 L60 8 L110 40 Z" fill="#7c4dd1" stroke="#7c4dd1" stroke-width="6" stroke-linejoin="round"/>
   <rect x="50" y="54" width="20" height="28" rx="10" fill="#fff4d6"/><rect x="28" y="46" width="14" height="14" rx="4" fill="#fff4d6"/><rect x="78" y="46" width="14" height="14" rx="4" fill="#fff4d6"/>
   <g fill="#ffd34d" stroke="#ffd34d" stroke-width="2.4" stroke-linecap="round"><circle cx="98" cy="22" r="4.6" stroke="none"/><path d="M102 22V8l8 3" fill="none"/><circle cx="14" cy="26" r="4" stroke="none"/><path d="M18 26V14l7 3" fill="none"/></g>
-  {% elif key == 'sports' %}
+  {% elif key == 'sports_old' %}
   <path d="M14 82 V46 Q14 22 60 22 Q106 22 106 46 V82 Z" fill="#3fc7b4"/><path d="M14 46 Q14 22 60 22 Q106 22 106 46" fill="none" stroke="#1d8f80" stroke-width="5"/>
   <rect x="30" y="50" width="60" height="32" rx="4" fill="#5bd96a"/><g stroke="#fff" stroke-width="3" fill="none"><rect x="40" y="56" width="40" height="22" rx="2"/><path d="M60 56 V78"/></g>
   <g transform="translate(92 22)"><circle r="12" fill="#fff" stroke="#2a2a3a" stroke-width="2.4"/><path d="M0 -5 L5 -1.6 L3 4.5 H-3 L-5 -1.6 Z" fill="#2a2a3a"/></g>
@@ -44,5 +59,5 @@
   <path d="M60 4 V-4" stroke="#7a4a22" stroke-width="2.4" transform="translate(0 6)"/><path d="M60 2 L74 6 L60 10 Z" fill="#ff5a7a"/>
   <path d="M10 82 Q36 60 52 82 Z" fill="#5bd96a"/><path d="M70 82 Q92 64 112 82 Z" fill="#4cc15a"/>
   {% endif %}
-</svg>
+{% if not bare %}</svg>{% endif %}
 {%- endmacro %}
