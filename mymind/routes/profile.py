@@ -45,6 +45,18 @@ def world_extras():
 @bp.route("/world")
 @subscribed_required
 def world():
+    """The 2D island is the base world for everyone (children and caregivers)."""
+    from services import world2d_service
+    return render_template("my_world_2d.html", scene=world2d_service.scene(g.user, g.child), active="world",
+                           share_url=session.pop("new_world_share_url", None), can_3d=(g.auth_role != "child"))
+
+
+@bp.route("/world/3d")
+@subscribed_required
+def world_3d():
+    """The full 3D world view, kept for caregivers."""
+    if g.auth_role == "child":
+        return redirect(url_for("profile.world"))
     interests = rec.get_interests(g.child.id)
     now = utcnow()
     enjoy = [i for i in interests if i["score"] >= 3 and i["evidence"] >= 3]
@@ -79,13 +91,13 @@ def world_interest(category):
     mode = request.form.get("mode")
     if category not in CATEGORIES or mode not in ("more", "less", "remove"):
         flash("Invalid choice.", "error")
-        return redirect(url_for("profile.world"))
+        return redirect(url_for("profile.world_3d"))
     if mode == "more":
         rec.record_interaction(g.child.id, None, "like", category)
     else:
         rec.caregiver_adjust(g.child.id, category, "avoid" if mode == "less" else "remove")
     flash("Updated. Recommendations will change.", "success")
-    return redirect(url_for("profile.world"))
+    return redirect(url_for("profile.world_3d"))
 
 
 @bp.route("/world/reset", methods=["POST"])
