@@ -34,7 +34,7 @@ def create_app(test_config=None):
     verification_service.check_startup(app)
 
     from routes import auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_world2d, admin_ai3d, world_share, caretaker, activity_dashboard, my_world
-    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker, activity_dashboard, my_world):
+    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_world2d, admin_ai3d, world_share, caretaker, activity_dashboard, my_world):
         app.register_blueprint(mod.bp)
     app.register_blueprint(parent_view.manage)
 
