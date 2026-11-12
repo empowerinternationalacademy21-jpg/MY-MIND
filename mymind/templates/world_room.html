@@ -11,7 +11,7 @@
 <div class="mwr" id="mwr" data-key="{{ key }}" data-motion="{{ 'on' if room.motion else 'off' }}"
      style="--c:{{ room.color }};--sky1:{{ pal.sky[0] }};--sky2:{{ pal.sky[1] }};--wall1:{{ pal.sky[0] }};--wall2:{{ pal.sky[1] }};--floor1:{{ pal.grass }};--floor2:{{ pal.grass }}">
   <div class="mwr-top">
-    <a class="mw-back" href="{{ url_for('profile.world') }}">{{ icon('arrow-left') }} <span>Back to My World</span></a>
+    <a class="mw-back" href="{{ back_url or url_for('profile.world') }}">{{ icon('arrow-left') }} <span>Back to My World</span></a>
     <h2 class="mwr-banner" id="mwr-title"><span class="mwr-banner-ic">{{ icon(room.icon) }}</span><span>{{ room.label }}</span></h2>
   </div>
 
@@ -56,16 +56,16 @@
       </section>
     </div>
 
-    <nav class="mwr-side" aria-label="Quick places">
+    {% if not preview %}<nav class="mwr-side" aria-label="Quick places">
       <a href="{{ url_for('my_world.room', key='home') }}"><span class="mwr-side-ic">{{ icon('house') }}</span>My Home</a>
       <a href="{{ url_for('feed.favourites') }}"><span class="mwr-side-ic is-star">{{ icon('star') }}</span>Favorites</a>
       <a href="{{ url_for('feed.explore') }}"><span class="mwr-side-ic">{{ icon('search') }}</span>Search</a>
       <a href="{{ url_for('profile.child_settings') }}"><span class="mwr-side-ic">{{ icon('settings') }}</span>Settings</a>
-    </nav>
+    </nav>{% endif %}
   </div>
 
-  <p class="center mwr-foot"><a class="mw-big-btn" href="{{ url_for('profile.world') }}">{{ icon('globe') }} Back to My World</a></p>
+  <p class="center mwr-foot"><a class="mw-big-btn" href="{{ back_url or url_for('profile.world') }}">{{ icon('globe') }} Back to My World</a></p>
   <script type="application/json" id="mwr-data">{{ {'cat': room.cat, 'q': room.q, 'kinds': room.kinds|map(attribute='key')|list, 'watched': room.watched['items'], 'favorites': room.favorites}|tojson }}</script>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/world_room.js') }}"></script>{% endblock %}
+{% block scripts %}{% if not preview %}<script src="{{ url_for('static', filename='js/world_room.js') }}"></script>{% endif %}{% endblock %}
