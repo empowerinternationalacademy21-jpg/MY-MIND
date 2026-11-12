@@ -59,7 +59,7 @@
     {% if not preview %}<nav class="mwr-side" aria-label="Quick places">
       <a href="{{ url_for('my_world.room', key='home') }}"><span class="mwr-side-ic">{{ icon('house') }}</span>My Home</a>
       <a href="{{ url_for('feed.favourites') }}"><span class="mwr-side-ic is-star">{{ icon('star') }}</span>Favorites</a>
-      <a href="{{ url_for('feed.explore') }}"><span class="mwr-side-ic">{{ icon('search') }}</span>Search</a>
+      <a href="{{ url_for('pictures.page') }}"><span class="mwr-side-ic">{{ icon('image') }}</span>Pictures</a>
       <a href="{{ url_for('profile.child_settings') }}"><span class="mwr-side-ic">{{ icon('settings') }}</span>Settings</a>
     </nav>{% endif %}
   </div>
