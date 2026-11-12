@@ -173,7 +173,7 @@ def delete(admin, asset_id):
 
 
 def all_assets():
-    return Session.query(WorldAsset).order_by(WorldAsset.kind, WorldAsset.stop, WorldAsset.sort_order, WorldAsset.id).all()
+    return Session.query(WorldAsset).filter(WorldAsset.kind.notin_(("stop2d", "room2d"))).order_by(WorldAsset.kind, WorldAsset.stop, WorldAsset.sort_order, WorldAsset.id).all()
 
 
 def visible(show_real_people=False, kind=None, stop=None, zone=None, theme=None):
