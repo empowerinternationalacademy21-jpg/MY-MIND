@@ -33,8 +33,8 @@ def create_app(test_config=None):
         settings_service.ensure_defaults()
     verification_service.check_startup(app)
 
-    from routes import auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker, activity_dashboard
-    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker, activity_dashboard):
+    from routes import auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_world2d, admin_ai3d, world_share, caretaker, activity_dashboard, my_world
+    for mod in (auth, subscriptions, onboarding, feed, pictures, videos, shots, music, journey, profile, admin, api, verification, parent_view, world, admin_world, admin_ai3d, world_share, caretaker, activity_dashboard, my_world):
         app.register_blueprint(mod.bp)
     app.register_blueprint(parent_view.manage)
 
@@ -59,6 +59,8 @@ def create_app(test_config=None):
         if request.path == "/verify/webhook":        # server-to-server call from Sumsub: authenticated by its HMAC signature instead of CSRF
             return
         if request.method == "POST" and request.path == "/admin/world/upload":      # admin art uploads need a larger body than other forms
+            request.max_content_length = app.config["WORLD_UPLOAD_MAX_BYTES"] + 64 * 1024
+        if request.method == "POST" and request.path.startswith("/admin/world2d/art/"):      # 2D map/room artwork
             request.max_content_length = app.config["WORLD_UPLOAD_MAX_BYTES"] + 64 * 1024
         if request.method == "POST" and request.path == "/admin/world/upload-folder":      # a whole folder of art in one request
             request.max_content_length = app.config["WORLD_FOLDER_MAX_BYTES"] + 64 * 1024
