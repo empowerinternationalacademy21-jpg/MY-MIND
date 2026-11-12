@@ -48,6 +48,33 @@ WIDE_W, WIDE_H = 1672, 680            # the wide map's drawing grid
 TALL_W = 100                          # the phone map's width; its height depends on how many stops there are
 
 
+SETTING_HIDDEN, SETTING_ORDER = "world2d_hidden", "world2d_order"
+ART_KINDS = ("stop2d", "room2d")            # WorldAsset.kind values for the 2D artwork the admin uploads (stored in the database + asset folder)
+
+
+def admin_hidden():
+    """Stops the admin switched off for everybody (the journey sign can never be switched off)."""
+    raw = settings_service.get(SETTING_HIDDEN) or ""
+    return {k for k in raw.split(",") if k in STOPS and k != "journey"}
+
+
+def ordered_keys():
+    """Stop keys in the admin's phone-map order. Anything not listed keeps its built-in place after the listed ones."""
+    raw = [k for k in (settings_service.get(SETTING_ORDER) or "").split(",") if k in STOPS and k != "journey"]
+    seen = []
+    for k in raw + [k for k in ORDER if k != "journey"]:
+        if k not in seen:
+            seen.append(k)
+    return tuple(seen) + ("journey",)
+
+
+def admin_art(kind, key):
+    """URL of the newest active artwork the admin uploaded for this stop/room, or None."""
+    from database.models import WorldAsset
+    row = (Session.query(WorldAsset).filter_by(kind=kind, stop=key, active=True).order_by(WorldAsset.id.desc()).first())
+    return f"/world-assets/{row.filename}" if row else None
+
+
 def _shots_ok(user):
     return settings_service.get("shots_enabled") == "1" and settings_service.caregiver_settings(user.id)["shots_enabled"]
 
@@ -55,13 +82,18 @@ def _shots_ok(user):
 def _shown(key, w, shots_ok):
     """On the map unless the caregiver hid it (Sports hides both ball stops) or switched Shorts off. Never waits for 'evidence'."""
     d = STOPS[key]
+    if key in admin_hidden():
+        return False
     if d["hide"] and d["hide"] in w["hidden_stops"]:
         return False
     return not (key == "shots" and not shots_ok)
 
 
 def sprite(key):
-    """URL of the artwork you dropped into static/images/world/, or None to use the built-in drawing."""
+    """Artwork for a stop: what the admin uploaded, else a file in static/images/world/, else None (the built-in drawing)."""
+    art = admin_art("stop2d", key)
+    if art:
+        return art
     folder = os.path.join(current_app.static_folder, "images", "world")
     for ext in ("png", "webp"):
         if os.path.isfile(os.path.join(folder, f"{key}.{ext}")):
@@ -137,8 +169,19 @@ def scene(user, child):
     w = ws.get_settings(user.id)
     interests, found = ws.activity_interests(child.id)
     theme_key, _, _ = ws.resolve_theme(interests, w)
+    keys = [k for k in ordered_keys() if _shown(k, w, _shots_ok(user))]
+    return _scene(keys, theme_key, found, child.display_name, child.avatar, bool(w["animation"]) and not w["reduced_motion"],
+                  lambda k: url_for("my_world.room", key=k))
+
+
+def preview_scene(admin_url):
+    """The map as a caregiver-free sample (no child, no caregiver settings): every stop the admin has not switched off. admin_url(key) -> link."""
+    keys = [k for k in ordered_keys() if k not in admin_hidden()]
+    return _scene(keys, "mixed", [], "Sample", None, True, admin_url)
+
+
+def _scene(keys, theme_key, found, name, avatar, motion, link):
     theme = ws.THEMES[theme_key]
-    keys = [k for k in ORDER if _shown(k, w, _shots_ok(user))]
     height, tall = tall_layout(keys)
     tall_pos = {k: (x, y) for k, x, y in tall}
     stops = []
@@ -146,16 +189,90 @@ def scene(user, child):
         d = STOPS[key]
         inter = ws.stop_interest(d["scope"], found) if d["scope"] in ws.STOP_DEFS and key not in ("journey", "home") else None
         x, y = tall_pos[key]
-        stops.append({"key": key, "label": d["label"], "icon": d["icon"], "color": d["color"], "blurb": d["blurb"], "sprite": sprite(key),
+        stops.append({"key": key, "label": d["label"], "icon": d["icon"], "color": d["color"], "blurb": d["blurb"], "sprite": sprite(key), "url": link(key),
                       "x": x, "y": round(y / height * 100, 2), "lx": d["land"][0], "ly": d["land"][1], "star": bool(inter and inter["level"] > 0),
                       "sign": key == "journey"})
     decor_icon = theme["icon"] if theme_key != "mixed" else "flower-2"
     trees = [(4 if i % 2 == 0 else 96, 40 + i * 46) for i in range((height - 60) // 46)]
-    return {"child": {"name": child.display_name, "avatar": child.avatar}, "stops": stops, "w": TALL_W, "h": height,
+    return {"child": {"name": name, "avatar": avatar}, "stops": stops, "w": TALL_W, "h": height,
             "path": _tall_path([(50, 6)] + [(s["x"], s["y"] * height / 100) for s in stops if not s["sign"]]),
             "trees": trees, "wide": wide_scene(keys), "ww": WIDE_W, "wh": WIDE_H, "decor_icon": decor_icon,
             "palette": {k: theme[k] for k in ("sky", "water", "grass", "sand", "accent")}, "theme_label": theme["label"] if theme_key != "mixed" else "",
-            "motion": bool(w["animation"]) and not w["reduced_motion"]}
+            "motion": motion}
+
+
+def preview_room(key):
+    """A room with no child behind it (for the admin to see the artwork). The lists stay empty."""
+    d = STOPS.get(key)
+    if d is None:
+        return None
+    theme = ws.THEMES["mixed"]
+    return {"key": key, "label": d["label"], "icon": d["icon"], "color": d["color"], "blurb": d["blurb"], "hello": d["hello"], "cat": d["cat"], "q": d["q"],
+            "kinds": [{"key": k, "label": KIND_LABELS[k][0], "icon": KIND_LABELS[k][1]} for k in d["kinds"]],
+            "palette": {k: theme[k] for k in ("sky", "grass", "accent")}, "characters": [], "interior": None, "zones": [], "flavors": [], "sprite": sprite(key),
+            "room_art": _room_art(key), "watched": {"items": [], "total": 0}, "favorites": [],
+            "milestones": [{"icon": "play", "label": "Things I watched", "value": 0}, {"icon": "heart", "label": "My favourites", "value": 0}, {"icon": "sparkles", "label": "Topics I tried", "value": 0}] if key == "journey" else None,
+            "motion": True, "watched_title": {"music": "Your Watched Songs", "journey": "Things I did"}.get(key, "You watched")}
+
+
+def set_layout(admin, hidden, order):
+    """Save which stops are off and the phone-map order. Unknown keys are ignored; the journey sign stays."""
+    hidden = [k for k in dict.fromkeys(hidden) if k in STOPS and k != "journey"]
+    if len(hidden) >= len(MAIN_STOPS):
+        raise ValueError("Keep at least one stop switched on.")
+    order = [k for k in dict.fromkeys(order) if k in STOPS and k != "journey"]
+    settings_service.set_value(SETTING_HIDDEN, ",".join(hidden))
+    settings_service.set_value(SETTING_ORDER, ",".join(order))
+    from services import auth_service
+    auth_service.audit(admin.id, "world2d_layout", "setting", None, f"{len(hidden)} off")
+    Session.commit()
+
+
+def set_art(admin, kind, key, raw):
+    """Upload artwork for a stop (kind 'stop2d') or a room scene ('room2d'). It replaces the previous upload; the built-in drawing returns on reset."""
+    import os as _os, secrets
+    from database.models import WorldAsset
+    from services import auth_service, world_library_service as wl
+    if kind not in ART_KINDS or key not in STOPS:
+        raise wl.WorldError("Please choose a stop.")
+    if not raw:
+        raise wl.WorldError("Please choose an image file.")
+    data, w, h = wl.reencode(raw)
+    filename = secrets.token_hex(16) + ".webp"
+    with open(_os.path.join(wl.asset_dir(), filename), "wb") as fh:
+        fh.write(data)
+    old = Session.query(WorldAsset).filter_by(kind=kind, stop=key).all()
+    row = WorldAsset(kind=kind, stop=key, name=f"{STOPS[key]['label']} {'building' if kind == 'stop2d' else 'room'}", filename=filename, width=w, height=h,
+                     rights_confirmed=True, uploaded_by=admin.id)
+    Session.add(row)
+    Session.flush()
+    for o in old:                                   # one artwork per stop/room: delete the previous files
+        try:
+            _os.remove(_os.path.join(wl.asset_dir(), o.filename))
+        except OSError:
+            pass
+        Session.delete(o)
+    auth_service.audit(admin.id, "world2d_art_set", "world_asset", row.id, f"{kind}/{key}")
+    Session.commit()
+    return row
+
+
+def reset_art(admin, kind, key):
+    """Remove the uploaded artwork so the built-in drawing is used again."""
+    import os as _os
+    from database.models import WorldAsset
+    from services import auth_service, world_library_service as wl
+    rows = Session.query(WorldAsset).filter_by(kind=kind, stop=key).all() if kind in ART_KINDS and key in STOPS else []
+    for o in rows:
+        try:
+            _os.remove(_os.path.join(wl.asset_dir(), o.filename))
+        except OSError:
+            pass
+        Session.delete(o)
+    if rows:
+        auth_service.audit(admin.id, "world2d_art_reset", "world_asset", None, f"{kind}/{key}")
+    Session.commit()
+    return len(rows)
 
 
 def room(user, child, key):
@@ -192,7 +309,10 @@ def room(user, child, key):
 
 
 def _room_art(key):
-    """Optional artwork for the room's picture (static/images/world/room-<key>.png), else None for the built-in drawing."""
+    """Room picture: what the admin uploaded, else static/images/world/room-<key>.png, else None for the built-in drawing."""
+    art = admin_art("room2d", key)
+    if art:
+        return art
     folder = os.path.join(current_app.static_folder, "images", "world")
     for ext in ("png", "webp"):
         if os.path.isfile(os.path.join(folder, f"room-{key}.{ext}")):

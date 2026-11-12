@@ -5,7 +5,7 @@
 {% block ct_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/caretaker.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">{% block adm_head %}{% endblock %}{% endblock %}
 {% block ct_rail %}
 <nav class="ctx-rail" aria-label="Administrator">
-  {% for key, ep, ic, label in [('dashboard','admin.dashboard','layout-dashboard','Dashboard'),('payments','admin.payments','credit-card','Payments'),('users','admin.users','users','Users'),('world','admin_world.library','image','World Library'),('ai3d','admin_ai3d.jobs','box','AI 3D items'),('islands','admin_ai3d.island_manager','globe','3D World & Islands'),('audit','admin.audit_log','receipt-text','Audit log')] %}
+  {% for key, ep, ic, label in [('dashboard','admin.dashboard','layout-dashboard','Dashboard'),('payments','admin.payments','credit-card','Payments'),('users','admin.users','users','Users'),('world','admin_world.library','image','World Library'),('world2d','admin_world2d.manage','shapes','2D World'),('ai3d','admin_ai3d.jobs','box','AI 3D items'),('islands','admin_ai3d.island_manager','globe','3D World & Islands'),('audit','admin.audit_log','receipt-text','Audit log')] %}
   <a href="{{ url_for(ep) }}" aria-label="{{ label }}" title="{{ label }}" {% if ct_active == key %}aria-current="page"{% endif %}>{{ icon(ic) }}</a>
   {% endfor %}
   <span class="ctx-sep" aria-hidden="true"></span>
