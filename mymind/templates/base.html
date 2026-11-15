@@ -150,6 +150,7 @@
     </div>
   </dialog>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/topic-scroll.js') }}"></script>
   {% if auth_role == 'child' %}<script src="{{ url_for('static', filename='js/child.js') }}"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>

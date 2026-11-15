@@ -149,3 +149,17 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.55rem .
 .sec-title{flex-wrap:wrap}.sec-title .why{margin-top:-.2rem}
 
 .public .content{padding-top:1.4rem}
+
+/* topic bars with left / right scroll arrows (see static/js/topic-scroll.js) */
+.ts-wrap{position:relative;min-width:0}
+.ts-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:38px;height:38px;padding:0;border-radius:50%;border:1.5px solid var(--line);background:#fff;color:var(--navy);display:none;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(20,48,92,.18);transition:opacity .15s,transform .1s,box-shadow .15s}
+.ts-btn:hover:not(:disabled){box-shadow:0 4px 12px rgba(20,48,92,.26)}
+.ts-btn:active:not(:disabled){transform:translateY(-50%) scale(.94)}
+.ts-btn:focus-visible{outline:none;box-shadow:var(--ring)}
+.ts-btn:disabled{opacity:.35;cursor:default;box-shadow:none}
+.ts-prev{left:0}
+.ts-next{right:0}
+.ts-wrap.ts-overflow>.ts-btn{display:grid}
+/* leave room for the arrows so they never cover a topic */
+.ts-wrap.ts-overflow>[data-scroll-arrows]{padding-inline:46px;scroll-padding-inline:46px}
+@media (prefers-reduced-motion:reduce){.ts-btn{transition:none}}

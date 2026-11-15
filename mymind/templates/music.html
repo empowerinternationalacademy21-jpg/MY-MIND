@@ -11,7 +11,7 @@
 
     <form id="search" class="searchbar" role="search"><label class="sr-only" for="q">Search for songs</label>{{
         icon('search') }}<input id="q" type="text" maxlength="60" placeholder="Search for songs…"></form>
-    <div class="chips" role="group" aria-label="Topic filter"><button class="chip" data-cat="" aria-pressed="true">For
+    <div class="chips" role="group" aria-label="Topic filter" data-scroll-arrows><button class="chip" data-cat="" aria-pressed="true">For
             me</button>
         {% for k, c in categories.items() %}<button class="chip" data-cat="{{ k }}" aria-pressed="false">{{
             icon(c.icon,'sm') }} {{ c.label }}</button>{% endfor %}</div>

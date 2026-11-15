@@ -18,7 +18,7 @@
         <button class="sh-go" type="submit">Search</button>
     </form>
 
-    <div class="sh-chips" role="group" aria-label="Topic filter">
+    <div class="sh-chips" role="group" aria-label="Topic filter" data-scroll-arrows>
         <button class="sh-chip" data-cat="" aria-pressed="true">For me</button>
         {% for k, c in categories.items() %}
         <button class="sh-chip" data-cat="{{ k }}" aria-pressed="false">{{ icon(c.icon,'sm') }} {{ c.label }}</button>
