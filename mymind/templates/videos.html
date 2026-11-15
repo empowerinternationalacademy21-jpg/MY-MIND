@@ -6,7 +6,7 @@
 
     <!-- top bar: topic tabs + search -->
     <header class="vp-top">
-        <div class="vp-tabs" role="group" aria-label="Topic filter">
+        <div class="vp-tabs" role="group" aria-label="Topic filter" data-scroll-arrows>
             <button class="vp-tab" data-cat="" aria-pressed="true">For me</button>
             {% for k, c in categories.items() %}
             <button class="vp-tab" data-cat="{{ k }}" aria-pressed="false">{{ icon(c.icon,'sm') }} {{ c.label
